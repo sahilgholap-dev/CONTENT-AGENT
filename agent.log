@@ -1,0 +1,127 @@
++-------------------------[CrewAIEventsBus] Sync handler error in on_crew_started: 'charmap' codec can't 
+encode character '\U0001f680' in position 1: character maps to <undefined>
++------------------------------[CrewAIEventsBus] Sync handler error in on_task_started: 'charmap' codec can't 
+encode character '\U0001f4cb' in position 1: character maps to <undefined>
++------------------------------[CrewAIEventsBus] Sync handler error in on_agent_logs_started: 'charmap' codec 
+can't encode character '\U0001f4cb' in position 1: character maps to 
+<undefined>
++-------------------------[CrewAIEventsBus]+- Sync handler error in on_tool_usage_started: 'charmap' codec ---------------------
+can't encode character '\U0001f680' in position +-1-----------------------------: character maps to 
+<undefined>
+[CrewAIEventsBus] Sync handler error in on_tool_usage_started: 'charmap' codec 
+can't encode character '\U0001f527' in position 1: character maps to 
+<undefined>
+[CrewAIEventsBus] Sync handler error in on_tool_usage_started: 'charmap' codec 
+can't encode character '\U0001f4cb' in position 1: character maps to 
+<undefined>
++-------------------------[CrewAIEventsBus] Sync handler error in on_tool_usage_finished: 'charmap' codec
+can't encode character '\U0001f680' in position 1: character maps to 
++-<undefined>
+---------------------[CrewAIEventsBus] Sync handler error in on_tool_usage_finished: 'charmap' codec
+can't encode character '\U0001f527' in position 1: character maps to 
+<undefined>
++------------------------------[CrewAIEventsBus] Sync handler error in on_tool_usage_finished: 'charmap' codec
+can't encode character '\U0001f4cb' in position 1: character maps to 
+<undefined>
++----------------------[CrewAIEventsBus+-]----------------------------- Sync handler error in on_tool_usage_started: 'charmap' codec 
+can't encode character '\U0001f527' in position +-1------------------------: character maps to 
+<undefined>
+[CrewAIEventsBus] Sync handler error in on_tool_usage_started: 'charmap' codec 
+can't encode character '\U0001f4cb' in position 1: character maps to 
+<undefined>
+[CrewAIEventsBus] Sync handler error in on_tool_usage_started: 'charmap' codec 
+can't encode character '\U0001f680' in position 1: character maps to 
+<undefined>
++----------------------[CrewAIEventsBus] Sync handler error in on_tool_usage_finished: 'charmap' codec
+can't encode character '\U0001f527' in position 1: character maps to 
+<undefined>
++------------------------------[CrewAIEventsBus] Sync handler error in on_tool_usage_finished: 'charmap' codec
+can't encode character '\U0001f4cb' in position 1: character maps to 
+<undefined>
++-------------------------[CrewAIEventsBus] Sync handler error in on_tool_usage_finished: 'charmap' codec
+can't encode character '\U0001f680' in position 1: character maps to 
+<undefined>
++-------------------------[CrewAIEventsBus] Sync handler error in on_agent_logs_execution: 'charmap' 
+codec can't encode character '\U0001f680' in position 1: character maps to 
+<undefined>
++------------------------------[CrewAIEventsBus] Sync handler error in on_task_completed: 'charmap' codec 
+can't encode character '\U0001f4cb' in position 1: character maps to 
+<undefined>
++-------------------------[CrewAIEventsBus] Sync handler error in on_task_started: 'charmap' codec can't 
+encode character '\U0001f680' in position 1: character maps to <undefined>
++------------------------------[CrewAIEventsBus] Sync handler error in on_agent_logs_started: 'charmap' codec 
+can't encode character '\U0001f4cb' in position 1: character maps to 
+<undefined>
+Traceback (most recent call last):
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\flow\runtime\__init__.py", line 1952, in kickoff
+    asyncio.get_running_loop()
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^
+RuntimeError: no running event loop
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\src\casinogurus_ai_content_engine___daily_5_topic_batch\main.py", line 137, in <module>
+    run()
+    ~~~^^
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\src\casinogurus_ai_content_engine___daily_5_topic_batch\main.py", line 73, in run
+    result = CasinogurusAiContentEngineDaily5TopicBatchCrew().crew().kickoff(inputs=inputs)
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\crew.py", line 1024, in kickoff
+    result = self._run_sequential_process()
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\crew.py", line 1473, in _run_sequential_process
+    return self._execute_tasks(self.tasks)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\crew.py", line 1572, in _execute_tasks
+    task_output = task.execute_sync(
+        agent=exec_data.agent,
+        context=context,
+        tools=exec_data.tools,
+    )
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\task.py", line 580, in execute_sync
+    return self._execute_core(agent, context, tools)
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\task.py", line 790, in _execute_core
+    result = agent.execute_task(
+        task=self,
+        context=context,
+        tools=tools,
+    )
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\agent\core.py", line 794, in execute_task
+    result = self._execute_without_timeout(task_prompt, task)
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\agent\core.py", line 859, in _execute_without_timeout
+    invoke_result = self.agent_executor.invoke(
+        {
+    ...<4 lines>...
+        }
+    )
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\experimental\agent_executor.py", line 2803, in invoke
+    self.kickoff()
+    ~~~~~~~~~~~~^^
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\flow\runtime\__init__.py", line 1957, in kickoff
+    return asyncio.run(_run_flow())
+           ~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\User\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\asyncio\runners.py", line 196, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\User\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\asyncio\runners.py", line 119, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\User\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\asyncio\base_events.py", line 712, in run_until_complete
+    self.run_forever()
+    ~~~~~~~~~~~~~~~~^^
+  File "C:\Users\User\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\asyncio\base_events.py", line 683, in run_forever
+    self._run_once()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\User\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\asyncio\base_events.py", line 2022, in _run_once
+    event_list = self._selector.select(timeout)
+  File "C:\Users\User\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\asyncio\windows_events.py", line 446, in select
+    self._poll(timeout)
+    ~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\User\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\asyncio\windows_events.py", line 778, in _poll
+    status = _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
+  File "D:\SAHIL GHOLAP\NEXUS\Content Agent V2\casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project\.venv\Lib\site-packages\crewai\telemetry\telemetry.py", line 222, in handler
+    original_handler(signum, frame)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyboardInterrupt

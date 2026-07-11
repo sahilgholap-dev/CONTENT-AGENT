@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Package Viewer</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #1a1d27; --panel2: #232733; --border: #2e3341;
+    --text: #e4e7ec; --muted: #9aa2b1; --accent: #6ea8fe;
+    --pass: #3fb950; --fail: #f85149; --warn: #d29922; --inferred: #d29922;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  header.top { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 12px;
+    font-weight: 600; letter-spacing: .3px; }
+  .pill.PASS,.pill.verified,.pill.ok { background: rgba(63,185,80,.15); color: var(--pass); }
+  .pill.FAIL,.pill.review,.pill.required { background: rgba(248,81,73,.15); color: var(--fail); }
+  .pill.inferred { background: rgba(210,153,34,.18); color: var(--inferred); }
+  .pill.High { background: rgba(248,81,73,.12); color: var(--fail); }
+  .pill.Medium { background: rgba(210,153,34,.15); color: var(--warn); }
+  .pill.Low { background: rgba(110,168,254,.15); color: var(--accent); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 18px; }
+  .tab { background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; }
+  .tab.active { background: var(--accent); color: #0f1117; border-color: var(--accent); }
+  .view { display: none; }
+  .view.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 12px; }
+  .card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); margin: 18px 0 8px; }
+  .kv { display: grid; grid-template-columns: 190px 1fr; gap: 6px 14px; font-size: 14px; }
+  .kv .k { color: var(--muted); }
+  .article { background: #fff; color: #1a1a1a; border-radius: 12px; padding: 28px 34px;
+    line-height: 1.65; }
+  .article h2 { color: #111; border-bottom: 2px solid #eee; padding-bottom: 6px; }
+  .article h3 { color: #333; }
+  .article a { color: #1a5fb4; }
+  .article #faq { background: #f6f8fa; border-radius: 8px; padding: 4px 20px; margin-top: 24px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+  .offend { color: var(--fail); font-size: 13px; font-style: italic; }
+  .rem { color: var(--muted); font-size: 13px; }
+  .tag { display: inline-block; background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 3px 9px; margin: 3px 4px 3px 0; font-size: 13px; }
+  a.src { color: var(--accent); word-break: break-all; font-size: 13px; }
+  .flagbox { background: rgba(210,153,34,.08); border: 1px solid rgba(210,153,34,.3);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; font-size: 14px; }
+  .score-big { font-size: 34px; font-weight: 700; }
+  .barwrap { background: var(--panel2); border-radius: 6px; height: 8px; overflow: hidden; margin-top: 4px; }
+  .bar { height: 100%; background: var(--accent); }
+  .note { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .banner { border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; font-weight: 600; }
+  .banner.FAIL { background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.35); color: var(--fail); }
+  .banner.PASS { background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.35); color: var(--pass); }
+  details { margin-bottom: 8px; }
+  summary { cursor: pointer; font-weight: 600; }
+  pre { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; overflow: auto; font-size: 12px; color: var(--muted); }
+  /* input zone */
+  .drop { border: 2px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center;
+    color: var(--muted); transition: .15s; cursor: pointer; margin-bottom: 14px; }
+  .drop.over { border-color: var(--accent); background: rgba(110,168,254,.06); color: var(--text); }
+  textarea { width: 100%; min-height: 240px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px; font: 13px/1.5 ui-monospace,Menlo,monospace; resize: vertical; }
+  .btnrow { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+  button { background: var(--accent); color: #0f1117; border: none; border-radius: 8px;
+    padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  .err { color: var(--fail); font-size: 13px; }
+  .feat-img { max-width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; }
+  .feat-img-meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  button:disabled { opacity: .55; cursor: default; }
+  #viewer { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Content Package Viewer</h1>
+    <div class="sub">Load a stored batch from the database, or paste JSON / drop a <code>.json</code> file to render the review preview.</div>
+  </header>
+
+  <div id="inputZone">
+    <div class="card" id="dbZone" style="margin-bottom:16px">
+      <h2 style="margin-top:0">Load from database</h2>
+      <div class="btnrow" style="margin-top:0">
+        <button id="dbRefresh">Load batches from DB</button>
+        <select id="dbSelect" style="display:none; padding:8px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:8px; flex:1; min-width:260px;"></select>
+        <button id="dbOpen" class="ghost" style="display:none">Open batch</button>
+      </div>
+      <div class="note" id="dbNote" style="margin-top:8px">
+        Reads from <code>content_engine.db</code> via the local server. Start it with
+        <code>python -m casinogurus_ai_content_engine___daily_5_topic_batch.server</code> and open
+        <code>http://localhost:8000/</code>.
+      </div>
+      <span class="err" id="dbErr"></span>
+    </div>
+
+    <div class="drop" id="drop">
+      <div style="font-size:15px;margin-bottom:4px">Drop a .json file here</div>
+      <div style="font-size:13px">or click to browse &middot; or paste into the box below</div>
+      <input type="file" id="file" accept=".json,application/json" style="display:none">
+    </div>
+    <textarea id="ta" placeholder='Paste package JSON here...'></textarea>
+    <div class="btnrow">
+      <button id="render">Render preview</button>
+      <button class="ghost" id="sample">Load sample</button>
+      <span class="err" id="err"></span>
+    </div>
+  </div>
+
+  <div id="viewer">
+    <button class="ghost" id="back" style="margin-bottom:16px">&larr; Load another</button>
+    
+    <div id="batchHeader" style="display:none; margin-bottom: 16px; padding: 12px; background: var(--panel2); border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div><strong>Batch Info:</strong> <span id="batchInfo"></span></div>
+        <button id="downloadZipBtn" style="padding: 6px 12px; font-size: 13px;">Download Batch as ZIP</button>
+      </div>
+      <label for="packageSelect" style="display:inline-block; margin-top:8px;">Select Package:</label>
+      <select id="packageSelect" style="margin-left: 8px; padding: 4px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; width: calc(100% - 130px); max-width: 600px;"></select>
+    </div>
+
+    <div class="banner" id="banner"></div>
+    <div class="tabs" id="tabs"></div>
+    <div id="views"></div>
+  </div>
+</div>
+
+<script>
+const esc = s => (s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const pill = (v,cls) => `<span class="pill ${cls||v}">${esc(v)}</span>`;
+const has = (o,k) => o && Object.prototype.hasOwnProperty.call(o,k);
+
+let currentBatch = null;
+
+function render(D){
+  document.getElementById('inputZone').style.display='none';
+  document.getElementById('viewer').style.display='block';
+
+  const comp = D.compliance_scorecard || {};
+  const seo  = D.seo_quality_scorecard || {};
+  const blockers = (comp.blocking_failures||[]);
+  const seoFail = seo.overall_verdict==='FAIL';
+  // A compliance verdict can read FAIL while nothing actually blocks (only Low-severity items).
+  // Treat the package as truly blocked only if there are real blocking_failures or SEO failed.
+  const trulyBlocked = blockers.length>0 || seoFail;
+  const bannerVerdict = trulyBlocked ? 'FAIL' : 'PASS';
+  const banner = document.getElementById('banner');
+  banner.className = 'banner '+bannerVerdict;
+  const rs = D.review_status ? ` &nbsp;|&nbsp; status: ${esc(D.review_status)}` : '';
+  const note = (comp.overall_verdict==='FAIL' && blockers.length===0)
+    ? ' <span style="font-weight:400;opacity:.8">(compliance verdict FAIL but no blocking failures — likely only Low-severity items)</span>' : '';
+  banner.innerHTML = `Compliance: ${esc(comp.overall_verdict||'n/a')} &nbsp;|&nbsp; SEO: ${esc(seo.overall_verdict||'n/a')}${seo.overall_score!=null?` (${seo.overall_score}/10)`:''} &nbsp;|&nbsp; ${blockers.length} blocking failure(s)${rs}${note}`;
+
+  // build tabs dynamically based on presence
+  const specs = [
+    ['draft','Draft', has(D,'draft'), viewDraft],
+    ['compliance','Compliance', has(D,'compliance_scorecard'), viewCompliance],
+    ['seo','SEO Quality', has(D,'seo_quality_scorecard'), viewSeo],
+    ['brief','SEO Brief', has(D,'seo_brief'), viewBrief],
+    ['facts','Fact Store', has(D,'fact_store'), viewFacts],
+    ['meta','Metadata', true, viewMeta],
+    ['raw','Raw JSON', true, viewRaw],
+  ].filter(s=>s[2]);
+
+  const tabs = document.getElementById('tabs');
+  const views = document.getElementById('views');
+  tabs.innerHTML=''; views.innerHTML='';
+  specs.forEach((s,i)=>{
+    const t=document.createElement('div');
+    t.className='tab'+(i===0?' active':''); t.textContent=s[1]; t.dataset.id=s[0];
+    tabs.appendChild(t);
+    const v=document.createElement('div');
+    v.className='view'+(i===0?' active':''); v.id='v-'+s[0];
+    v.innerHTML=s[3](D);
+    views.appendChild(v);
+    t.onclick=()=>{
+      tabs.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      views.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active'); v.classList.add('active');
+    };
+  });
+  window.scrollTo(0,0);
+
+  // Lazy-load the featured image for this package (if the draft view was built).
+  const fic = document.getElementById('featImgCard');
+  if (fic && fic.dataset.pid) loadFeaturedImage(fic.dataset.pid);
+}
+
+// ---- featured image loading / generation (via the local server) ----
+function imgTag(p){
+  const alt = (p.alt_text||'').replace(/"/g,'&quot;');
+  const meta = `${esc(p.model||'')}${p.size?' · '+esc(p.size):''}${p.created_at?' · '+esc(p.created_at.replace('T',' ').slice(0,19)):''}`;
+  return `<img class="feat-img" alt="${alt}" src="data:${esc(p.mime_type||'image/png')};base64,${p.image_b64}">`
+    + (alt?`<div class="feat-img-meta">alt: ${esc(p.alt_text)}</div>`:'')
+    + (meta.trim()?`<div class="feat-img-meta">${meta}</div>`:'');
+}
+function genButton(pid,label){
+  return `<button id="genImgBtn" data-pid="${esc(pid)}">${label}</button>`;
+}
+function wireGenButton(){
+  const b=document.getElementById('genImgBtn');
+  if(b) b.onclick=()=>generateFeaturedImage(b.dataset.pid);
+}
+async function loadFeaturedImage(pid){
+  const slot=document.getElementById('featImgSlot');
+  if(!slot) return;
+  try {
+    const res=await fetch('./api/packages/'+encodeURIComponent(pid)+'/image',{cache:'no-store'});
+    if(res.ok){
+      const p=await res.json();
+      slot.innerHTML=imgTag(p);
+      return;
+    }
+    // 404: no image yet (or a stored error). Offer generation.
+    let detail=''; try{ const e=await res.json(); if(e && e.error) detail=' Last error: '+esc(e.error); }catch(_){}
+    slot.innerHTML=`<div style="margin-bottom:8px">No image generated yet.${detail}</div>`+genButton(pid,'Generate featured image');
+    wireGenButton();
+  } catch(e){
+    // Server not reachable (e.g. opened as a file). Just note it.
+    slot.innerHTML=`<div class="note">Image unavailable — start the DB server to generate/view images: `
+      +`<code>python -m casinogurus_ai_content_engine___daily_5_topic_batch.server</code></div>`;
+  }
+}
+async function generateFeaturedImage(pid){
+  const slot=document.getElementById('featImgSlot');
+  if(!slot) return;
+  slot.innerHTML=`<div class="note">Generating image… this can take ~15–30s.</div>`+genButton(pid,'Generating…');
+  const b=document.getElementById('genImgBtn'); if(b) b.disabled=true;
+  try {
+    const res=await fetch('./api/packages/'+encodeURIComponent(pid)+'/image',{method:'POST'});
+    const p=await res.json();
+    if(res.ok && p.image_b64){ slot.innerHTML=imgTag(p); return; }
+    slot.innerHTML=`<div class="err">Generation failed: ${esc(p.error||('HTTP '+res.status))}</div>`+genButton(pid,'Try again');
+    wireGenButton();
+  } catch(e){
+    slot.innerHTML=`<div class="err">Generation request failed: ${esc(e.message)}</div>`+genButton(pid,'Try again');
+    wireGenButton();
+  }
+}
+
+function viewDraft(D){
+  const dr=D.draft||{};
+  const links=(dr.internal_links||[]).map(l=>`<a class="src" href="${esc(l.target_url)}" target="_blank">${esc(l.anchor)}</a>`).join('<br>')||'&mdash;';
+  const vf=(dr.verification_flags||[]);
+  const sn=(dr.source_notes||[]);
+  const pid = D.package_id ? esc(D.package_id) : '';
+  return `
+  ${dr.featured_image_prompt?`<div class="card" id="featImgCard" data-pid="${pid}">
+    <h3>Featured image</h3>
+    <div id="featImgSlot" class="note">Loading image…</div>
+    <div class="note" style="margin-top:8px"><strong>Prompt:</strong> ${esc(dr.featured_image_prompt)}</div>
+  </div>`:''}
+  <div class="card">
+    <h2>${esc(dr.seo_title||D.topic||'Draft')}</h2>
+    <div class="kv">
+      <div class="k">Slug</div><div>${esc(dr.slug)||'&mdash;'}</div>
+      <div class="k">Category</div><div>${esc(dr.category)||'&mdash;'}</div>
+      <div class="k">Meta description</div><div>${esc(dr.meta_description)||'&mdash;'}</div>
+      <div class="k">Excerpt</div><div>${esc(dr.excerpt)||'&mdash;'}</div>
+      <div class="k">Tags</div><div>${(dr.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')||'&mdash;'}</div>
+      <div class="k">Featured image</div><div>${esc(dr.featured_image_prompt)||'&mdash;'}</div>
+      <div class="k">Responsible gambling</div><div>${esc(dr.responsible_gambling_note)||'&mdash;'}</div>
+      <div class="k">Internal links</div><div>${links}</div>
+    </div>
+  </div>
+  ${vf.length?`<div class="card"><h3>Verification flags in draft</h3>${vf.map(f=>`<div class="flagbox"><strong>${esc(f.location_in_draft||'')}</strong><br>${esc(f.flag||f)}</div>`).join('')}</div>`:''}
+  ${dr.body_html?`<div class="card"><h3>Rendered body</h3><div class="article">${dr.body_html}</div></div>`:''}
+  ${sn.length?`<div class="card"><h3>Source notes</h3><table>
+    <tr><th>Claim</th><th>Confidence</th><th>Source</th></tr>
+    ${sn.map(s=>`<tr><td>${esc(s.claim)}</td><td>${pill(s.confidence)}</td><td><a class="src" href="${esc(s.source_url)}" target="_blank">${esc(s.source_url)}</a></td></tr>`).join('')}
+  </table></div>`:''}`;
+}
+
+// tolerant field accessors — check objects have varied across runs:
+// {item,verdict,offending_text,remediation}, {check,result,note}, {check_item,verdict,remediation}, etc.
+const cName = c => c.item ?? c.check ?? c.check_item ?? c.name ?? c.dimension ?? '';
+const cVerdict = c => c.verdict ?? c.result ?? '';
+const cOffend = c => c.offending_text ?? c.offendingText ?? '';
+const cRem = c => c.remediation ?? c.note ?? c.fix ?? '';
+// blocking_failures may be strings OR objects like {item, severity}
+const bfLabel = b => {
+  if (b==null) return '';
+  if (typeof b === 'string') return b;
+  const name = b.item ?? b.check ?? b.name ?? '';
+  const sev = b.severity ? ` (${b.severity})` : '';
+  return name ? name+sev : JSON.stringify(b);
+};
+
+function viewCompliance(D){
+  const cs=D.compliance_scorecard||{};
+  const checks = cs.checks||[];
+  const failCount = checks.filter(c=>String(cVerdict(c)).toUpperCase()==='FAIL').length;
+  return `
+  <div class="card"><h2>Overall verdict ${pill(cs.overall_verdict)}</h2>
+    <div class="note">Blocking failures: ${(cs.blocking_failures||[]).map(b=>`<span class="tag">${esc(bfLabel(b))}</span>`).join('')||'none'}</div>
+    <div class="note">${checks.length} checks &middot; ${failCount} failing</div>
+  </div>
+  <div class="card"><table>
+    <tr><th>Check</th><th>Verdict</th><th>Severity</th><th>Offending text / remediation</th></tr>
+    ${checks.map(c=>{
+      const off=cOffend(c), rem=cRem(c);
+      return `<tr><td>${esc(cName(c))}</td><td>${pill(cVerdict(c))}</td><td>${c.severity?pill(c.severity):'&mdash;'}</td>
+      <td>${off?`<div class="offend">&ldquo;${esc(off)}&rdquo;</div>`:''}${rem?`<div class="rem">&rarr; ${esc(rem)}</div>`:''}${!off&&!rem?'<span class="note">&mdash;</span>':''}</td></tr>`;
+    }).join('')}
+  </table></div>
+  ${cs.revision_instructions?`<div class="card"><h3>Revision instructions</h3>${renderInstr(cs.revision_instructions)}</div>`:''}`;
+}
+
+// revision_instructions has appeared as string, array of strings, and object — render all
+function renderInstr(ri){
+  if (ri==null) return '';
+  if (typeof ri === 'string') return `<p>${esc(ri)}</p>`;
+  if (Array.isArray(ri)) return `<ul>${ri.map(x=>`<li>${esc(typeof x==='string'?x:JSON.stringify(x))}</li>`).join('')}</ul>`;
+  // object: {general, specific:[...]} or {DIMENSION: text}
+  return Object.entries(ri).map(([k,v])=>{
+    if (Array.isArray(v)) return `<p><strong>${esc(k)}</strong></p><ul>${v.map(x=>`<li>${esc(typeof x==='string'?x:(x.improvement??x.dimension??JSON.stringify(x)))}</li>`).join('')}</ul>`;
+    return `<p><strong>${esc(k)}:</strong> ${esc(v)}</p>`;
+  }).join('');
+}
+
+function viewSeo(D){
+  const sq=D.seo_quality_scorecard||{};
+  return `
+  <div class="card"><h2>SEO Quality ${pill(sq.overall_verdict)}</h2>
+    ${sq.overall_score!=null?`<div class="score-big">${sq.overall_score}<span style="font-size:16px;color:var(--muted)">/10</span></div>`:''}
+  </div>
+  <div class="card">${(sq.dimensions||[]).map(d=>{
+    const dn = d.dimension ?? d.name ?? '';
+    return `
+    <div style="margin-bottom:16px">
+      <strong>${esc(dn)}</strong> ${pill(d.verdict)} <span style="color:var(--muted)">${d.score}/10</span>
+      <div class="barwrap"><div class="bar" style="width:${(d.score||0)*10}%"></div></div>
+      <div class="note">${esc(d.notes)}</div>
+    </div>`;}).join('')}
+  </div>
+  ${sq.revision_instructions&&(typeof sq.revision_instructions!=='object'||Object.keys(sq.revision_instructions).length)?`<div class="card"><h3>Revision instructions</h3>${renderInstr(sq.revision_instructions)}</div>`:''}`;
+}
+
+function viewBrief(D){
+  const b=D.seo_brief||{};
+  const ks=b.keyword_scores?Object.entries(b.keyword_scores).map(([k,v])=>`<div class="k">${esc(k)}</div><div>${esc(v)}</div>`).join(''):'';
+  return `
+  <div class="card"><h2>SEO Brief</h2>
+    <div class="kv">
+      <div class="k">Primary keyword</div><div>${esc(b.primary_keyword)}</div>
+      <div class="k">Search intent</div><div>${esc(b.search_intent)}</div>
+      <div class="k">Reader persona</div><div>${esc(b.reader_persona)}</div>
+      <div class="k">Word count target</div><div>${esc(b.word_count_target)}</div>
+      <div class="k">Secondary keywords</div><div>${(b.secondary_keywords||[]).map(k=>`<span class="tag">${esc(k)}</span>`).join('')}</div>
+      <div class="k">Schema</div><div>${esc(b.schema_recommendation)}</div>
+      <div class="k">Selection rationale</div><div>${esc(b.selection_rationale)}</div>
+    </div>
+  </div>
+  ${ks?`<div class="card"><h3>Keyword scores</h3><div class="kv">${ks}</div></div>`:''}
+  ${(b.outline||[]).length?`<div class="card"><h3>Outline</h3>${b.outline.map(o=>`<details><summary>${esc(o.h2)}</summary>${(o.h3s||[]).length?'<ul>'+o.h3s.map(h=>`<li>${esc(h)}</li>`).join('')+'</ul>':'<div class="note">no subheadings</div>'}</details>`).join('')}</div>`:''}
+  ${(b.faq_set||[]).length?`<div class="card"><h3>FAQ set</h3>${b.faq_set.map(f=>`<div class="flagbox"><strong>${esc(f.question)}</strong><br>${esc(f.answer_angle)}</div>`).join('')}</div>`:''}
+  ${(b.title_options||b.meta_description_options)?`<div class="card">${(b.title_options||[]).length?`<h3>Title options</h3><ul>${b.title_options.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}${(b.meta_description_options||[]).length?`<h3>Meta description options</h3><ul>${b.meta_description_options.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}</div>`:''}
+  ${(b.compliance_checklist||b.competitor_gaps)?`<div class="card">${(b.compliance_checklist||[]).length?`<h3>Compliance checklist</h3><ul>${b.compliance_checklist.map(c=>`<li>${esc(c.item)} ${c.required?pill('required','required'):''}</li>`).join('')}</ul>`:''}${(b.competitor_gaps||[]).length?`<h3>Competitor gaps</h3><ul>${b.competitor_gaps.map(g=>`<li>${esc(g)}</li>`).join('')}</ul>`:''}</div>`:''}`;
+}
+
+function viewFacts(D){
+  const fs=D.fact_store||{};
+  return `<div class="card"><h2>Fact Store${fs.topic?` &mdash; ${esc(fs.topic)}`:''}</h2><table>
+    <tr><th>Fact</th><th>Confidence</th><th>Flag</th><th>Source</th></tr>
+    ${(fs.facts||[]).map(f=>`<tr><td>${esc(f.fact)}</td><td>${pill(f.confidence)}</td><td>${f.flag_for_human?pill('review','review'):pill('ok','ok')}</td><td><a class="src" href="${esc(f.source_url)}" target="_blank">${esc(f.source_url)}</a></td></tr>`).join('')}
+  </table></div>`;
+}
+
+function viewMeta(D){
+  const vf=(D.verification_flags||[]);
+  return `<div class="card"><h2>Package metadata</h2><div class="kv">
+    <div class="k">Package ID</div><div>${esc(D.package_id)||'&mdash;'}</div>
+    <div class="k">Topic</div><div>${esc(D.topic)||'&mdash;'}</div>
+    <div class="k">Primary keyword</div><div>${esc(D.primary_keyword)||'&mdash;'}</div>
+    <div class="k">Pillar</div><div>${esc(D.pillar)||'&mdash;'}</div>
+    <div class="k">Created at</div><div>${esc(D.created_at)||'&mdash;'}</div>
+    <div class="k">Revision count</div><div>${esc(D.revision_count)}</div>
+    <div class="k">Review status</div><div>${D.review_status?pill(D.review_status,'inferred'):'&mdash;'}</div>
+    <div class="k">Escalation reason</div><div>${esc(D.escalation_reason)||'&mdash;'}</div>
+    <div class="k">Verification flags</div><div>${vf.length?vf.map(f=>`<div class="flagbox">${esc(f.flag||f)}</div>`).join(''):'&mdash;'}</div>
+    <div class="k">Reviewer notes</div><div>${esc(D.reviewer_notes)||'&mdash;'}</div>
+  </div></div>`;
+}
+
+function viewRaw(D){ return `<div class="card"><pre>${esc(JSON.stringify(D,null,2))}</pre></div>`; }
+
+function renderBatch() {
+  const bh = document.getElementById('batchHeader');
+  bh.style.display = 'block';
+  document.getElementById('batchInfo').textContent = `${currentBatch.batch_date} | ${currentBatch.total_packages} packages (${currentBatch.ready_for_review_count} ready, ${currentBatch.needs_review_count} needs review)`;
+  
+  const dlBtn = document.getElementById('downloadZipBtn');
+  if (currentBatch.id) {
+    dlBtn.style.display = 'inline-block';
+    dlBtn.onclick = () => {
+      window.location.href = `./api/batches/${currentBatch.id}/download`;
+    };
+  } else {
+    dlBtn.style.display = 'none';
+  }
+
+  const sel = document.getElementById('packageSelect');
+  sel.innerHTML = '';
+  currentBatch.packages.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `[${p.review_status || 'unknown'}] ${p.topic || 'Untitled'}`;
+    sel.appendChild(opt);
+  });
+  
+  sel.onchange = () => {
+    render(currentBatch.packages[sel.value]);
+  };
+  
+  if(currentBatch.packages.length > 0) {
+    sel.value = 0;
+    render(currentBatch.packages[0]);
+  }
+}
+
+// ---- input handling ----
+const ta=document.getElementById('ta'), err=document.getElementById('err');
+function renderObject(D){
+  if(D && D.packages && Array.isArray(D.packages)) {
+    currentBatch = D;
+    renderBatch();
+  } else {
+    currentBatch = null;
+    document.getElementById('batchHeader').style.display = 'none';
+    render(D);
+  }
+}
+function tryRender(text){
+  err.textContent='';
+  let D;
+  try {
+    let t=text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    D=JSON.parse(t);
+  } catch(e){ err.textContent='Invalid JSON: '+e.message; return; }
+  renderObject(D);
+}
+
+// ---- database loading (via the local server's JSON API) ----
+const dbSelect=document.getElementById('dbSelect'), dbOpen=document.getElementById('dbOpen'), dbErr=document.getElementById('dbErr');
+async function loadDbBatches(){
+  dbErr.textContent='';
+  try {
+    const res = await fetch('./api/batches', {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const batches = await res.json();
+    if(!Array.isArray(batches) || batches.length===0){
+      dbErr.textContent='No batches stored yet. Ingest one with: python -m ...storage ingest <file.json>';
+      dbSelect.style.display='none'; dbOpen.style.display='none';
+      return;
+    }
+    dbSelect.innerHTML='';
+    batches.forEach(b=>{
+      const opt=document.createElement('option');
+      opt.value=b.id;
+      const when=(b.ingested_at||'').replace('T',' ').slice(0,19);
+      opt.textContent=`#${b.id} · ${b.batch_date||'?'} · ${b.package_count} pkgs · ${when}`;
+      dbSelect.appendChild(opt);
+    });
+    dbSelect.style.display=''; dbOpen.style.display='';
+  } catch(e){
+    dbErr.textContent='Could not reach the database server ('+e.message+'). Start it with: '
+      + 'python -m casinogurus_ai_content_engine___daily_5_topic_batch.server — then open http://localhost:8000/';
+    dbSelect.style.display='none'; dbOpen.style.display='none';
+  }
+}
+async function openDbBatch(id){
+  dbErr.textContent='';
+  try {
+    const res = await fetch('./api/batches/'+id, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const batch = await res.json();
+    renderObject(batch);
+  } catch(e){ dbErr.textContent='Failed to load batch: '+e.message; }
+}
+document.getElementById('dbRefresh').onclick=loadDbBatches;
+dbOpen.onclick=()=>{ if(dbSelect.value) openDbBatch(dbSelect.value); };
+// Auto-load the batch list if the page is being served over http(s) (i.e. by our server).
+if(location.protocol==='http:'||location.protocol==='https:'){ loadDbBatches(); }
+document.getElementById('render').onclick=()=>{ if(!ta.value.trim()){err.textContent='Paste some JSON first.';return;} tryRender(ta.value); };
+document.getElementById('back').onclick=()=>{ document.getElementById('viewer').style.display='none'; document.getElementById('inputZone').style.display='block'; };
+
+const drop=document.getElementById('drop'), file=document.getElementById('file');
+drop.onclick=()=>file.click();
+file.onchange=e=>{ const f=e.target.files[0]; if(f) readFile(f); };
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) readFile(f); });
+function readFile(f){ const r=new FileReader(); r.onload=()=>{ ta.value=r.result; tryRender(r.result); }; r.readAsText(f); }
+
+document.getElementById('sample').onclick=()=>{ ta.value=JSON.stringify(SAMPLE,null,2); tryRender(ta.value); };
+const SAMPLE={"package_id": "a3c22f20-0ebc-451c-bb74-77c14bf86a74", "topic": "best no deposit casino bonuses", "primary_keyword": "best no deposit casino bonuses", "pillar": "bonuses", "created_at": "2026-07-09T00:00:00Z", "revision_count": 0, "review_status": "needs_heavier_review", "escalation_reason": null, "draft": {"body_html": "<h2>Overview of No Deposit Bonuses</h2>\n<p>No deposit bonuses are promotions offered by online casinos that allow new players to engage with the casino without the need for an initial deposit. These bonuses provide an opportunity to explore a variety of games risk-free, enabling potential new players to gauge the offerings of the casino before committing any personal funds.</p>\n\n<h2>Types of No Deposit Bonuses</h2>\n<h3>Free Spins</h3>\n<p>Free spins are one of the most common forms of no deposit bonuses. Players receive a number of spins to use on selected slot games, allowing them to try their luck without risking their own cash. This is especially appealing as it can lead to real cash wins, depending on the outcome of the spins.</p>\n\n<h3>Free Cash</h3>\n<p>Some casinos offer free cash as part of their no deposit bonuses. This amount differs between casinos but can sometimes be as much as $100. Players can use this cash on various games, which typically also includes a wagering requirement before cashing out any winnings.</p>\n\n<h3>No Wagering Bonuses</h3>\n<p>No wagering bonuses are particularly attractive for players, as they allow for winnings to be withdrawn immediately without meeting any betting requirements. These are less common but can be found at select online casinos.</p>\n\n<h2>Top No Deposit Casino Bonuses for 2026</h2>\n<h3>Best Bonuses by Type</h3>\n<p>As of 2026, some online casinos offer competitive no deposit bonuses. For instance, Crypto Palace Casino currently provides a $55 no deposit bonus with a 45x wagering requirement. Moreover, many casinos allow players to receive free spins on select slot titles, enhancing the opportunity to win without a financial commitment.</p>\n\n<h3>Comparative Analysis of Current Offers</h3>\n<p>When comparing current no deposit bonuses, it is essential to look at the amount offered, wagering requirements, and any restrictions that may apply. Common wagering requirements for no deposit bonuses range from 30x to 65x the bonus amount, which is crucial for players to consider when evaluating the true value of a bonus.</p>\n\n<h2>How to Claim No Deposit Bonuses</h2>\n<h3>Step-by-Step Guide</h3>\n<ol>\n  <li>Choose a reputable online casino that offers no deposit bonuses.</li>\n  <li>Register for an account, ensuring to provide accurate information.</li>\n  <li>Look for the no deposit bonus code as you sign up or in your account area.</li>\n  <li>Claim the bonus, which usually gets credited to your account automatically.</li>\n  <li>Start playing eligible games with your bonus funds or free spins!</li>\n</ol>\n\n<h3>Terms and Conditions to Watch</h3>\n<p>Before claiming any no deposit bonus, it\u2019s crucial to read the terms and conditions attached. These may include:</p>\n<ul>\n  <li>Wagering requirements that dictate how many times you need to bet the bonus before you can withdraw winnings.</li>\n  <li>Maximum cashout limits, often around $100, that restrict how much you can withdraw from your bonus winnings.</li>\n  <li>Eligibility criteria, as many casinos limit no deposit bonuses to new players only.</li>\n</ul>\n\n<h2>Pros and Cons of No Deposit Bonuses</h2>\n<p>No deposit bonuses can be quite beneficial, allowing players to try new casinos and games without risking real money. However, they may come with significant wagering requirements and cashout limitations, which players should be aware of before deciding to use such bonuses.</p>\n\n<h2>Conclusion</h2>\n<p>No deposit casino bonuses can be a great way for players to explore new online casinos. By understanding the types of bonuses available and the requirements associated with them, players can make informed choices about where to play and how to maximize their chances of winning.</p>\n\n<div id=\"faq\">\n<h3>FAQs</h3>\n<ul>\n  <li><strong>What is a no deposit bonus?</strong>\n    <p>A no deposit bonus is a promotion offered by online casinos that does not require new players to deposit any funds to start playing. Players can receive free cash or free spins to explore games without financial risk.</p>\n  </li>\n  <li><strong>How can I find the best no deposit bonuses?</strong>\n    <p>Look for reputable casino review sites that compare bonuses, check current promotions on casino sites, and ensure to read the terms associated with the bonuses.</p>\n  </li>\n  <li><strong>Are no deposit bonuses worth it?</strong>\n    <p>Yes, no deposit bonuses provide a risk-free opportunity to try out casinos and potentially win real money.</p>\n  </li>\n</ul>\n</div>", "seo_title": "The Best No Deposit Casino Bonuses for 2026", "meta_description": "Discover the top no deposit casino bonuses of 2026! Claim your free spins and cash bonuses now.", "slug": "best-no-deposit-casino-bonuses", "category": "Bonuses", "tags": ["no deposit bonus codes", "no deposit bonuses USA", "free spins no deposit", "top no deposit casinos", "online casinos with no deposit bonuses"], "excerpt": "Explore the best no deposit casino bonuses available in 2026, including free spins and cash offers.", "featured_image_prompt": "A visual representation of online casino promotions, showcasing no deposit bonuses and free spins with vibrant colors.", "responsible_gambling_note": "Remember to gamble responsibly. Set limits on your play and seek help if you feel that gambling is becoming a problem.", "internal_links": [{"anchor": "CasinoGurus Bonus Comparison", "target_url": "https://www.casinogurus.com/bonuses/"}, {"anchor": "Latest Casino Reviews", "target_url": "https://www.casinogurus.com/reviews/"}], "source_notes": [{"claim": "Common wagering requirements for no deposit bonuses range from 30x to 65x the bonus amount.", "fact_store_entry": "Common wagering requirements for no deposit bonuses range from 30x to 65x the bonus amount.", "source_url": "https://www.vegasslotsonline.com/no-deposit-bonuses/", "confidence": "verified"}, {"claim": "$55 no deposit bonuses are currently offered by Crypto Palace Casino with a 45x wagering requirement.", "fact_store_entry": "$55 no deposit bonuses are currently offered by Crypto Palace Casino with a 45x wagering requirement.", "source_url": "https://www.vegasslotsonline.com/no-deposit-bonuses/", "confidence": "verified"}, {"claim": "Many casinos restrict no deposit bonuses to new players only.", "fact_store_entry": "Many casinos restrict no deposit bonuses to new players only.", "source_url": "https://www.nodeposithero.com/free-spins/", "confidence": "verified"}, {"claim": "Popular no deposit bonuses include free spins on featured slots.", "fact_store_entry": "Popular no deposit bonuses include free spins on featured slots, allowing players to try games without their own funds.", "source_url": "https://www.freep.com/story/sports/no-deposit-bonus-codes-verified/87201074007/", "confidence": "verified"}, {"claim": "Max cashout limits for no deposit bonuses vary significantly across casinos, typically around $100.", "fact_store_entry": "Max cashout limits for no deposit bonuses vary significantly across casinos, typically around $100.", "source_url": "https://www.nodeposithero.com/free-spins/", "confidence": "inferred"}], "verification_flags": [{"flag": "Top bonuses include up to $100 no deposit bonuses and multiple free spins options available.", "location_in_draft": "Top No Deposit Casino Bonuses for 2026 -> Best Bonuses by Type"}]}, "seo_brief": {"primary_keyword": "best no deposit casino bonuses", "secondary_keywords": ["no deposit bonus codes", "no deposit bonuses USA", "free spins no deposit", "top no deposit casinos", "online casinos with no deposit bonuses"], "search_intent": "commercial", "reader_persona": "players looking for risk-free ways to try new online casinos and maximize their winnings", "outline": [{"h2": "Overview of No Deposit Bonuses", "h3s": []}, {"h2": "Types of No Deposit Bonuses", "h3s": ["Free Spins", "Free Cash", "No Wagering Bonuses"]}, {"h2": "Top No Deposit Casino Bonuses for 2026", "h3s": ["Best Bonuses by Type", "Comparative Analysis of Current Offers"]}, {"h2": "How to Claim No Deposit Bonuses", "h3s": ["Step-by-Step Guide", "Terms and Conditions to Watch"]}, {"h2": "Pros and Cons of No Deposit Bonuses", "h3s": []}, {"h2": "Conclusion", "h3s": []}], "word_count_target": 1500, "title_options": ["The Best No Deposit Casino Bonuses for 2026", "Unlock Big Wins with No Deposit Bonuses: A Complete Guide", "Your Guide to the Best No Deposit Casino Bonuses Available"], "meta_description_options": ["Discover the top no deposit casino bonuses of 2026! Claim your free spins and cash bonuses now.", "Find the best no deposit bonuses available today. No risk, just rewards!", "Explore the most generous no deposit bonuses and free spins at online casinos for 2026."], "faq_set": [{"question": "What is a no deposit bonus?", "answer_angle": "A no deposit bonus is a promotion offered by online casinos that does not require new players to deposit any funds to start playing. Players can receive free cash or free spins to explore games without financial risk."}, {"question": "How can I find the best no deposit bonuses?", "answer_angle": "Look for reputable casino review sites that compare bonuses, check current promotions on casino sites, and ensure to read the terms associated with the bonuses."}, {"question": "Are no deposit bonuses worth it?", "answer_angle": "Yes, no deposit bonuses provide a risk-free opportunity to try out casinos and potentially win real money."}], "internal_link_candidates": [{"anchor": "CasinoGurus Bonus Comparison", "target_url": "https://www.casinogurus.com/bonuses/"}, {"anchor": "Latest Casino Reviews", "target_url": "https://www.casinogurus.com/reviews/"}], "schema_recommendation": "FAQPage schema to enhance visibility in search results.", "compliance_checklist": [{"item": "Ensure all promotional claims are compliant with local gambling regulations", "required": true}, {"item": "Include responsible gambling statements", "required": true}, {"item": "List terms and conditions clearly for bonuses", "required": true}], "competitor_gaps": ["Lack of structured guides on claiming no deposit bonuses", "Inconsistent comparison of bonus terms from different casinos", "Limited focus on regional no deposit bonus offers"], "keyword_scores": {"relevance": "High", "volume_signal": "High", "difficulty_signal": "Medium-High", "search_intent": "Commercial", "business_value": "High", "seasonality": "Stable", "compliance_risk": "Moderate"}, "selection_rationale": "The search term is relevant for players seeking risk-free play; it demonstrates high search volume and ample opportunities for affiliate conversions."}, "fact_store": {"topic": "best no deposit casino bonuses", "facts": [{"fact": "Top bonuses include up to $100 no deposit bonuses and multiple free spins options available.", "source_url": "https://zamsino.casino/100-free-no-deposit/", "confidence": "inferred", "flag_for_human": true}, {"fact": "Common wagering requirements for no deposit bonuses range from 30x to 65x the bonus amount.", "source_url": "https://www.vegasslotsonline.com/no-deposit-bonuses/", "confidence": "verified", "flag_for_human": false}, {"fact": "$55 no deposit bonuses are currently offered by Crypto Palace Casino with a 45x wagering requirement.", "source_url": "https://www.vegasslotsonline.com/no-deposit-bonuses/", "confidence": "verified", "flag_for_human": false}, {"fact": "Many casinos restrict no deposit bonuses to new players only.", "source_url": "https://www.nodeposithero.com/free-spins/", "confidence": "verified", "flag_for_human": false}, {"fact": "Max cashout limits for no deposit bonuses vary significantly across casinos, typically around $100.", "source_url": "https://www.nodeposithero.com/free-spins/", "confidence": "inferred", "flag_for_human": true}, {"fact": "Popular no deposit bonuses include free spins on featured slots, allowing players to try games without their own funds.", "source_url": "https://www.freep.com/story/sports/no-deposit-bonus-codes-verified/87201074007/", "confidence": "verified", "flag_for_human": false}]}, "compliance_scorecard": {"overall_verdict": "FAIL", "checks": [{"item": "Responsible gambling", "verdict": "PASS", "severity": "High", "offending_text": null}, {"item": "Legal availability", "verdict": "FAIL", "severity": "High", "offending_text": "by providing various no deposit bonuses, it creates the impression that these offers are universally available.", "remediation": "Remove any blanket claims regarding the availability of bonuses across jurisdictions."}, {"item": "Age / minors", "verdict": "FAIL", "severity": "High", "offending_text": "All references assume players are adults without explicitly stating the legal age for gambling.", "remediation": "Include a clear statement regarding the legal age for gambling to ensure minors are not targeted."}, {"item": "No guaranteed wins", "verdict": "FAIL", "severity": "High", "offending_text": "allowing them to try their luck without risking their own cash. This is especially appealing as it can lead to real cash wins", "remediation": "Revise the language to remove implications of guaranteed or likely wins."}, {"item": "Bonus accuracy", "verdict": "FAIL", "severity": "High", "offending_text": "the offer of $55 no deposit bonus with a 45x wagering requirement.", "remediation": "Ensure all bonus terms are accompanied by a verification flag before stating them."}, {"item": "Casino facts", "verdict": "FAIL", "severity": "High", "offending_text": "assertions about no deposit bonus amounts and wagering requirements.", "remediation": "Back all claims with verifiable sources that support the specifics mentioned."}, {"item": "Affiliate disclosure", "verdict": "FAIL", "severity": "Medium", "offending_text": "none of the statements indicate if any affiliate links are included.", "remediation": "Include affiliate disclosure language where necessary to comply with transparency requirements."}, {"item": "YMYL wording", "verdict": "FAIL", "severity": "High", "offending_text": "potentially win real money.", "remediation": "Remove or revise language that implies financial gain or risk-free play that could mislead readers."}, {"item": "Duplicate / cannibalization", "verdict": "PASS", "severity": "Medium"}, {"item": "Year freshness", "verdict": "FAIL", "severity": "Low", "offending_text": "This drafting is based on 2026.", "remediation": "Ensure the year-specific references are updated accordingly if the current year is mentioned."}], "blocking_failures": ["Legal availability", "Age / minors", "No guaranteed wins", "Bonus accuracy", "Casino facts", "YMYL wording"], "revision_instructions": "Revise the draft to address all high-severity failures by removing blanket legality claims, clearly stating the legal age for gambling, avoiding implications of guaranteed wins and financial gains, verifying all bonus terms with appropriate flags, and ensuring claims are backed by credible sources."}, "seo_quality_scorecard": {"overall_verdict": "FAIL", "overall_score": 6.5, "dimensions": [{"dimension": "Search-intent match", "score": 8, "verdict": "PASS", "notes": "The draft effectively outlines the types of no deposit bonuses and provides relevant examples, catering to the reader\u2019s intent."}, {"dimension": "On-page SEO", "score": 6, "verdict": "FAIL", "notes": "The primary keyword 'no deposit casino bonuses' is not used in the H1 or meta description; consider rephrasing to enhance focus. The FAQs should be marked up correctly using schema markup for better visibility in search results. Alt-text prompts are absent."}, {"dimension": "E-E-A-T signals", "score": 7, "verdict": "PASS", "notes": "The article includes sourced claims and a responsible gambling note. However, the update signal could be enhanced by explicitly stating when the information was last updated or reviewed."}, {"dimension": "Readability", "score": 6, "verdict": "FAIL", "notes": "While the language is mostly plain, some paragraphs could be simplified. Additionally, iGaming terms such as 'RTP,' 'wagering,' and 'payout' are not explained on their first use, potentially confusing readers unfamiliar with gambling jargon."}, {"dimension": "Internal linking", "score": 7, "verdict": "PASS", "notes": "Relevant links are present with natural anchor text, contributing to user navigation and SEO."}, {"dimension": "Structure completeness", "score": 7, "verdict": "PASS", "notes": "The draft covers all outlined sections, and the FAQ block is complete. No orphaned headings were found."}], "revision_instructions": "To improve the article, update the H1 and meta description to include the primary keyword naturally. Implement FAQ schema markup and add alt-text prompts for images. Simplify language in a few areas and ensure the first mention of iGaming terms includes explanations to enhance understanding for non-expert readers."}, "verification_flags": ["Top bonuses include up to $100 no deposit bonuses and multiple free spins options available."], "reviewer_notes": "The draft requires significant revisions to address compliance and quality issues. Focus on ensuring verifiable claims, updating legal references, and improving SEO elements."};
+</script>
+</body>
+</html>

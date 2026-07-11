@@ -1,0 +1,454 @@
+---
+discover_daily_casino_topics:
+  description: |-
+    Discover exactly 3 unique casino content topics for today's content production batch. Determine today's date, month, and year automatically; do not rely on any input variable for this.
+
+    VOICE & BRAND CONTEXT:
+    {voice_store}
+
+    THE SINGLE TOPIC TEST (acceptance gate; apply to every candidate topic):
+    "Would a US player who is deciding where to gamble with crypto actually type this into Google?"
+    - If yes, it is a candidate topic.
+    - If it is something an operator, regulator, investor, or industry analyst would read, REJECT it.
+
+    SINGLE-LANE RULE: all 3 topics must sit under crypto/Bitcoin casinos for US players. The batch is NOT required to span multiple pillars; it IS required to stay in this one lane.
+
+    STEP 1: CHECK EXISTING CASINOGURUS CONTENT (casinogurus.org):
+    Search and scrape casinogurus.org (the client's real site; note the .org) to identify recently published articles and topics already covered. Use queries like:
+    - site:casinogurus.org bitcoin casino
+    - site:casinogurus.org crypto casino review
+    - site:casinogurus.org casino withdrawal
+    - site:casinogurus.org casino bonus
+    Record all recently found topics/titles to avoid duplication.
+    NAMESAKE WARNING: casinoguru.com / casinogurus.com is a different, much larger company. NEVER treat their pages as ours; the duplicate check must read casinogurus.org only.
+
+    STEP 2: MINE US PLAYER SEARCH INTENT:
+    Search the web the way a US crypto-casino player would. Seed queries:
+    - "best bitcoin casino usa"
+    - "fastest payout crypto casino"
+    - "no kyc crypto casino"
+    - "is [casino] legit"
+    - "crypto casino withdrawal time"
+    - "is crypto gambling legal in [US state]"
+    Also mine Google "People Also Ask" boxes and Reddit crypto-gambling threads for the questions real players are asking right now. Use player forums as research input only, never as sources to cite.
+
+    STEP 3: FIND THE HOT US CRYPTO CASINOS (do these three sub-steps in order):
+    3a. Pull the current top-ranking crypto-casino pages and extract which casino names recur across them. Reference pages to mine (live, each run):
+        tokenist.com/crypto-casinos | cardplayer.com/online-casinos/best-bitcoin-casinos | esportsinsider.com/crypto/bitcoin-casinos | cryptomaniaks.com/gambling/crypto-casinos/best-casinos | gamingamerica.com/online-casinos/crypto | webopedia.com/crypto-gambling/casinos | coinspeaker.com/bitcoin-casinos
+        The recurring names are what US players are currently searching and reading about. Regenerate this list from the live pages every run; NEVER rely on a remembered or hard-coded list of "hot" casinos.
+    3b. Cross-reference the recurring names against the casinos CasinoGurus can monetise. The affiliate partners (the only fixed list) are: PlayAmo, FortuneJack, El Royale, Slots Empire, BitStarz, Red Dog Casino. A casino that is both widely discussed and a partner is a high-value topic.
+    3c. Propose review and comparison topics from that overlap FIRST, then fill the remaining slots with how-to, safety, and US-state-legality topics.
+    CAUTION: those reference lists are themselves affiliate-ranked, so they are not neutral. Use them to spot which casinos are talked about, never as proof a casino is good. Any quality claim still needs a fact-store entry downstream.
+
+    STEP 4: SELECT 3 TOPICS (all in the one lane):
+    Choose exactly 3 topics that:
+    ✅ Pass the single topic test above
+    ✅ Sit under crypto/Bitcoin casinos for US players
+    ✅ Are NOT already covered on casinogurus.org (based on Step 1)
+    ✅ Have commercial/affiliate value or evergreen US player search demand
+    ✅ Match one of these allowed topic shapes:
+       A. Comparison/ranking: best Bitcoin casinos for US players, fastest-payout crypto casinos, best no-KYC crypto casinos, coin-specific picks (USDT/Ethereum/Litecoin), best crypto welcome bonuses and how the terms really work
+       B. Individual casino review: "[Casino] review, hands-on tested", "Is [casino] legit and safe?", "[Casino] withdrawal time, what we actually experienced"
+       C. How-to guide: deposit/withdraw Bitcoin at a casino, buy crypto to gamble with, how provably-fair games work, how to read wagering requirements
+       D. Safety & trust: how to spot a rigged or unsafe crypto casino, crypto casino KYC explained
+       E. US legality by state: "Is crypto gambling legal in [specific US state]?"
+
+    HARD REJECT FILTERS (apply to every candidate; rejecting is mandatory, not advisory):
+    ❌ US-ONLY GEO FILTER: reject any topic whose focus is a non-US country. The "regional" pillar means US states ONLY.
+    ❌ PLAYER-FACING AUDIENCE FILTER: reject operator/regulator/investor/B2B topics. Reject on sight any topic featuring: "operators", "market entry", "licensing regime", "regulatory regime", "compliance framework", "prediction markets", "B2B", or any non-US country name as the focus.
+    ❌ Generic evergreen topics with no player-intent angle
+    ❌ Topics already clearly covered on casinogurus.org
+    ❌ Anything outside the crypto/Bitcoin-casinos-for-US-players lane
+
+    SCORING EMPHASIS: score candidates primarily on commercial/affiliate intent and evergreen US player search demand. Freshness/trending is a minor tie-breaker only; the site needs durable ranking content, not news that decays in a week.
+
+    STEP 5: VALIDATE UNIQUENESS:
+    For each proposed topic, confirm via web search that casinogurus.org has not recently published an article with that exact or near-identical focus. If unsure, choose a different topic.
+  expected_output: |-
+    A JSON object with exactly 3 topic entries:
+    {
+      "batch_date": "YYYY-MM-DD",
+      "topics": [
+        {
+          "topic": str,
+          "primary_keyword": str,
+          "pillar": "reviews"|"bonuses"|"crypto"|"guides"|"regional",
+          "search_intent": "informational"|"commercial"|"transactional",
+          "freshness_rationale": str,
+          "uniqueness_confirmed": bool,
+          "estimated_commercial_value": "high"|"medium"|"low"
+        }
+        // ... 2 more entries
+      ],
+      "pillars_covered": [str],
+      "discovery_notes": str
+    }
+  agent: casino_content_topic_discovery_specialist
+keyword_research_and_competitor_analysis:
+  description: |-
+    Perform Layer A research and grounding for ALL 3 topics discovered in the Discover Daily Casino Topics task.
+
+    Read the topic discovery output and extract all 3 topics. Then for EACH topic, complete all 4 steps below sequentially. Label each output block clearly with the topic name.
+
+    REPEAT THE FOLLOWING FOR EACH OF THE 3 TOPICS:
+
+    STEP 1 — KEYWORD RESEARCH
+    Search the web for casino/gambling keyword opportunities related to this topic. Score each candidate keyword on all seven dimensions:
+    - Relevance (fit to CasinoGurus pillars: reviews/bonuses/crypto/guides/regional)
+    - Volume signal (apparent search demand)
+    - Difficulty signal (authority of pages currently ranking)
+    - Search intent (informational / commercial / transactional / regional)
+    - Business value (affiliate / comparison / signup potential)
+    - Seasonality (time sensitivity, year-based, event-based)
+    - Compliance risk (how much RG/legal/bonus caution is needed)
+    Weight the scoring toward business value (commercial/affiliate intent) and durable, evergreen US player search demand; treat seasonality/freshness as a minor tie-breaker only.
+
+    STEP 2 — COMPETITOR ANALYSIS
+    Browse the live SERP for the selected primary keyword. Use these reference tiers:
+    - Tier 1 (trust & structure models; study their author pages, methodology/"how we rate" pages, and site structure, not their news sections): AskGamblers, Casino.org, CasinoGuru.com.
+      NAMESAKE CAUTION: CasinoGuru.com / casinogurus.com is a different, much larger company than our casinogurus.org. Study it as a competitor only; NEVER treat its pages or content as CasinoGurus.org's own.
+    - Tier 2 (crypto / US player-intent models; mine for topic angles, player questions, and recurring casino names): tokenist.com/crypto-casinos, cardplayer.com/online-casinos/best-bitcoin-casinos, esportsinsider.com/crypto/bitcoin-casinos, cryptomaniaks.com/gambling/crypto-casinos/best-casinos, gamingamerica.com/online-casinos/crypto, webopedia.com/crypto-gambling/casinos, coinspeaker.com/bitcoin-casinos.
+    Capture: title, H2 structure, approximate word count, FAQs present, internal-link pattern, bonus details, entities covered.
+    Summarise structure and gaps — NEVER copy prose. Every competitor claim is to verify, not fact.
+
+    STEP 3 — SEO BRIEF
+    Produce the full SEO Brief containing:
+    - Primary keyword + secondary/semantic keywords
+    - Confirmed search intent and reader persona
+    - Full outline (H2/H3) engineered to beat competitor gaps
+    - Target word count and title options + meta description options
+    - FAQ set (question + intended answer angle) — exactly 6 FAQ questions
+    - Internal-link candidates from CasinoGurus
+    - External source notes and schema recommendation
+    - Per-article compliance checklist
+
+    STEP 4 — FACT STORE
+    Assemble the per-article Fact Store: source-tagged, confidence-labelled verified facts only. Each entry: fact text, source URL, confidence label (verified/inferred/unverified). Bonus figures, licensing, payout speed, and legality go in ONLY if traced to a primary source; otherwise flag for human check.
+  expected_output: |-
+    A JSON array containing exactly 3 research objects — one per topic:
+    [
+      {
+        "topic": str,
+        "pillar": str,
+        "SEO_BRIEF": {
+          "primary_keyword": str,
+          "secondary_keywords": [str],
+          "search_intent": str,
+          "reader_persona": str,
+          "outline": [{"h2": str, "h3s": [str]}],
+          "word_count_target": int,
+          "title_options": [str],
+          "meta_description_options": [str],
+          "faq_set": [{"question": str, "answer_angle": str}],
+          "internal_link_candidates": [{"anchor": str, "target_url": str}],
+          "schema_recommendation": str,
+          "compliance_checklist": [{"item": str, "required": bool}],
+          "competitor_gaps": [str],
+          "keyword_scores": {"relevance": str, "volume_signal": str, "difficulty_signal": str, "search_intent": str, "business_value": str, "seasonality": str, "compliance_risk": str},
+          "selection_rationale": str
+        },
+        "FACT_STORE": {
+          "topic": str,
+          "facts": [{"fact": str, "source_url": str, "confidence": "verified"|"inferred"|"unverified", "flag_for_human": bool}]
+        }
+      },
+      // ... 2 more topic objects
+    ]
+  agent: casino_seo_research_grounding_specialist
+  context:
+  - discover_daily_casino_topics
+draft_casino_article:
+  description: |-
+    Write full casino article drafts for ALL 3 topics from the research task.
+
+    Read the research output (array of 3 topic objects). For EACH topic, produce a complete draft using its SEO_BRIEF and FACT_STORE.
+
+    VOICE STORE (tone/style only — no facts):
+    {voice_store}
+
+    PROCESS EACH TOPIC SEQUENTIALLY. Label each draft output with its topic.
+
+    FOR EACH OF THE 3 TOPICS, apply ALL rules below:
+
+    **OUTPUT LENGTH — HARD FLOOR AND TARGET PER ARTICLE (editable values):**
+    - HARD FLOOR: 1,200 words of body copy. A draft below this will be REJECTED by the quality gate and sent back for expansion. Count before finalising.
+    - TARGET RANGE: 1,200 to 1,800 words for review and comparison pages. How-to guides and single-state legality pages may sit at the lower end of the range (but never below the 1,200 floor).
+    - Expansion must add genuine value: more first-hand detail, a real comparison, a fuller FAQ. NEVER pad with filler or repetition.
+    - If near the 1,800 upper end, trim body paragraphs; never cut FAQ or Conclusion.
+
+    **CONTENT TYPE — classify FIRST, then pick the matching skeleton:**
+    Before writing, classify the topic into ONE content type using its pillar, search intent, and topic shape from the research output:
+    - REVIEW (individual casino review)
+    - COMPARISON (comparison/ranking page)
+    - HOW-TO (step-by-step guide)
+    - LEGALITY (US-state legality guide)
+
+    **WRITE ORDER — every article starts and ends the same; only the middle changes by content type:**
+    ALWAYS FIRST: Affiliate disclosure + age disclaimer, then an Introduction H2.
+    ALWAYS LAST: FAQ H2 (write all 6 H3 questions before any optional sections), then Conclusion H2 including the responsible gambling note. Conclusion is the FINAL section.
+    At least one H2 in every article must contain the topic's primary keyword.
+
+    MIDDLE SECTIONS by content type:
+    - REVIEW: verdict up top; how we tested; deposit experience; withdrawal experience (with real observed times from the FACT_STORE); games/software; bonuses and wagering; pros and cons; who it suits.
+    - COMPARISON: how we ranked; the shortlist with a one-line why for each; deeper look at the top picks; comparison table (FACT_STORE data only); how to choose.
+    - HOW-TO: what you need first; numbered step-by-step; common mistakes and how to avoid them.
+    - LEGALITY (US state): short direct answer first; current state status; what it means for players; how to stay safe.
+
+    **STRUCTURAL REQUIREMENTS:**
+    - Follow the SEO Brief outline EXACTLY for each topic (adapted to the content-type skeleton above)
+    - Each article must have exactly 6 FAQs in <h3> tags under <h2>Frequently Asked Questions</h2>
+    - Conclusion MUST be the LAST section
+    - Every featured_image_prompt MUST include alt='[description]'
+    - Minimum 3 internal links per article as <a href="URL">anchor text</a>
+    - Define "wagering requirement (the number of times you must bet the bonus amount before withdrawing)" verbatim on FIRST USE ONLY per article
+    - Vary paragraph and sentence length. Mostly short and scannable, but mix in a longer explanatory sentence so the rhythm sounds human. Never make every paragraph the same length.
+
+    **WRITE LIKE A REAL US CRYPTO-GAMBLING EXPERT (E-E-A-T):**
+    - Wherever a FACT_STORE entry supports it, include concrete first-hand testing detail: the actual coin and amount deposited, the observed withdrawal time in minutes, what the cashier flow felt like, a specific game played, what was good and what was annoying. Generic sentences that anyone could write (e.g. "KYC and AML rules apply to all licensed casinos") signal no expertise; replace them with specifics whenever the facts allow.
+    - NEVER leave working placeholders in reader-facing text: no literal "[source]", no citation markers, no internal notes inside body_html. Source attribution lives ONLY in source_notes; flags live ONLY as [VERIFICATION_FLAG: ...] per the flag rule; everything else internal stays out of the body.
+
+    **MANDATORY SELF-SCANS per article — before finalising (both scans, not optional):**
+    1. BANNED-PHRASE SCAN: scan ALL text fields and heading tags for: "risk-free", "risk free", "riskfree", "without risking", "risking your money". Replace every instance with "without using your own funds".
+    2. DASH SCAN (HARD RULE): the em-dash character (—) and the en-dash character (–) must NOT appear in ANY output field: not in body_html, not in seo_title, meta_description, excerpt, tags, featured_image_prompt, responsible_gambling_note, or anywhere else. Rewrite any sentence that would use one, using a period, comma, colon, or parentheses instead. The quality gate treats any em-dash or en-dash as an automatic FAIL.
+
+    **NO FABRICATED DATA — ABSOLUTE RULE:**
+    NEVER invent fake casino names (Casino A, Casino B, etc.) or per-operator figures not in the FACT_STORE.
+    If no real sourced operator offers exist in FACT_STORE, use ONE of:
+    - OPTION A: Omit table, add note directing to casino reviews
+    - OPTION B: Table by offer TYPE and GENERAL RANGES only (no operator names), with VERIFICATION_FLAGs on all figures
+    - OPTION C: Single editor placeholder row with no figures
+
+    **VERIFICATION FLAG RULE:**
+    Flags apply ONLY to REAL FACT_STORE facts that are time-sensitive. NEVER attach flags to invented data.
+    Every specific figure ($ amounts, x-wagering, spin counts) from the FACT_STORE MUST be followed immediately by [VERIFICATION_FLAG: confirm current value and T&Cs before publish].
+
+    **MANDATORY LANGUAGE per article:**
+    A) Affiliate disclosure at very top: "Affiliate disclosure: CasinoGurus may earn a commission from casinos featured on this page. This does not affect our editorial independence or the objectivity of our reviews."
+    B) Age & jurisdiction disclaimer (verbatim; deliberately contains no dashes): "Online gambling is only available to players of legal gambling age. The legal age varies by jurisdiction, so check the laws in your region before playing. This content is intended for adults 18+ (or 21+ where required by local law)."
+    C) Responsible gambling note in both responsible_gambling_note field AND Conclusion: "Gambling should be entertaining, not a financial strategy. Set a budget before you play and stick to it. If gambling stops being fun, visit BeGambleAware.org or call the National Gambling Helpline: 0808 8020 133."
+
+    **BANNED PHRASES — never use in ANY article:**
+    - "risk-free" / "risk free" / "riskfree" / "without risking" / "risking your money"
+    - "guaranteed win" / "guaranteed profit" / "beat the casino"
+    - "potentially win real money" / "opportunity to win real money"
+
+    If {revision_feedback} is provided, address ONLY the specific failures listed for the relevant article.
+  expected_output: |-
+    A JSON array containing exactly 3 complete draft objects — one per topic:
+    [
+      {
+        "topic": str,
+        "draft": {
+          "body_html": str,
+          "seo_title": str,
+          "meta_description": str,
+          "slug": str,
+          "category": str,
+          "tags": [str],
+          "excerpt": str,
+          "featured_image_prompt": str,  // Must include alt='description'
+          "responsible_gambling_note": str,
+          "internal_links": [{"anchor": str, "target_url": str}],
+          "source_notes": [{"claim": str, "fact_store_entry": str, "source_url": str, "confidence": str}],
+          "verification_flags": [{"flag": str, "location_in_draft": str}]
+        }
+      },
+      // ... 2 more topic draft objects
+    ]
+  agent: casinogurus_grounded_article_drafter
+  context:
+  - keyword_research_and_competitor_analysis
+compliance_gate_check:
+  description: |-
+    Run the compliance mandate gate on ALL 3 draft articles from the Draft Casino Article task.
+
+    Read the draft array (3 topic objects). For EACH draft, run the full compliance check independently. Label each scorecard with its topic.
+
+    FOR EACH OF THE 3 DRAFTS, apply these checks:
+
+    **BONUS ACCURACY — MANDATORY PRE-CHECK BEFORE ANY FAIL:**
+    Before writing FAIL for any sentence, copy the COMPLETE sentence verbatim. Check: does it contain "[VERIFICATION_FLAG"?
+    - YES → MUST write PASS. Not allowed to write FAIL.
+    - NO → may write FAIL.
+    FAIL ONLY IF: sentence contains $X, Nx, or X% AND does NOT contain "[VERIFICATION_FLAG" anywhere.
+
+    **RESPONSIBLE GAMBLING — PASS if** BeGambleAware.org or "National Gambling Helpline" appears anywhere in body_html OR responsible_gambling_note.
+
+    **LEGAL AVAILABILITY — PASS if** draft says availability "varies by region/jurisdiction" or directs readers to check local laws. The mandatory boilerplate ALWAYS PASSES.
+
+    **NO GUARANTEED WINS — FAIL triggers (exact phrases only):**
+    - "risk-free" / "risk free" anywhere
+    - "guaranteed win" / "guaranteed profit"
+    - "beat the casino"
+
+    **AGE / MINORS — PASS if** "18+" or "21+" or "legal gambling age" appears anywhere in body_html.
+
+    **CASINO FACTS — PASS if** licensing/payout claims have a source_note OR [VERIFICATION_FLAG].
+
+    **AFFILIATE DISCLOSURE — PASS if** "CasinoGurus may earn a commission" appears in body_html.
+
+    **YMYL — FAIL only if** specific financial advice is presented as guaranteed fact.
+
+    **DUPLICATE/CANNIBALIZATION — PASS** if no evidence of exact-intent overlap.
+
+    **YEAR FRESHNESS — Informational note ONLY. NEVER affects overall_verdict. NEVER appears in blocking_failures.**
+
+    **OVERALL VERDICT RULE per article:**
+    overall_verdict = "PASS" if blocking_failures[] is empty.
+    overall_verdict = "FAIL" only if blocking_failures[] contains at least one High-severity item.
+  expected_output: |-
+    A JSON array containing exactly 3 compliance scorecards — one per topic:
+    [
+      {
+        "topic": str,
+        "compliance_scorecard": {
+          "overall_verdict": "PASS"|"FAIL",
+          "checks": [...],
+          "blocking_failures": [],
+          "revision_instructions": []
+        }
+      },
+      // ... 2 more
+    ]
+  agent: casino_content_compliance_mandate_checker
+  async_execution: true
+  context:
+  - draft_casino_article
+seo_and_quality_gate_check:
+  description: |-
+    Run the SEO and quality gate on ALL 3 draft articles from the Draft Casino Article task.
+
+    Read the draft array (3 topic objects). For EACH draft, run the full SEO quality check independently. Label each scorecard with its topic.
+
+    **AUTOMATIC-FAIL PRE-CHECKS — run BEFORE scoring the six dimensions. If either fails, overall_verdict = "FAIL" for that draft regardless of dimension scores (record the reason in revision_instructions). These do not alter the compliance gate; they apply to this SEO/quality gate only.**
+    1. DASH CHECK: search every output field (body_html, seo_title, meta_description, excerpt, tags, featured_image_prompt, responsible_gambling_note, etc.) for the em-dash character (—) or the en-dash character (–). ANY occurrence = automatic FAIL. revision_instructions must list each offending sentence and instruct a rewrite using a period, comma, colon, or parentheses.
+    2. WORD-COUNT FLOOR (editable value: 1200): count the words of body copy in body_html (exclude HTML tags). Below 1,200 words = automatic FAIL: reject and send back for expansion, do NOT pass. revision_instructions must say the draft is under the 1,200-word floor and require expansion that adds genuine value (more first-hand detail, real comparison, fuller FAQ), never filler or repetition. Target range (editable): 1,200 to 1,800 words for review/comparison pages; how-to and single-state legality pages may sit at the lower end but never below the floor.
+
+    FOR EACH OF THE 3 DRAFTS (that pass the pre-checks), score each dimension 1–10. PASS = score ≥ 7. FAIL = score < 7.
+
+    **1. SEARCH-INTENT MATCH**
+    PASS if the draft answers the reader's stated query and covers types, claiming process, and key terms.
+
+    **2. ON-PAGE SEO**
+    Check ALL of the following:
+    - Primary keyword appears in seo_title → required
+    - Primary keyword appears in meta_description → required
+    - Primary keyword appears as a SUBSTRING (case-insensitive) in at least one <h2> tag → required
+    - Structured H2/H3 hierarchy present → required
+    - alt= attribute present in featured_image_prompt → required
+    Score 8+ if all present. Score 6 only if keyword is genuinely absent from ALL H2 tags.
+
+    **3. E-E-A-T SIGNALS**
+    PASS if: source_notes with URLs present, responsible_gambling_note present, [VERIFICATION_FLAG] markers present (positive signals). FAIL only if source_notes are completely absent.
+
+    **4. READABILITY**
+    PASS if the writing is mostly short and scannable with varied paragraph and sentence length. A mix of short paragraphs and occasional longer explanatory ones is desirable, not a fault. FAIL only if the text is a wall of long dense paragraphs throughout, or if every paragraph is identical machine-choppy length.
+
+    **5. INTERNAL LINKING**
+    PASS if ≥2 internal links with natural anchors are present. HARD RULE: If ≥2 links present, score MUST be 7 or higher.
+
+    **6. STRUCTURE COMPLETENESS**
+    COUNT the number of <h3> tags inside the FAQ block:
+    - Exactly 6 <h3> FAQ questions → score 9, verdict PASS
+    - Fewer than 6 → score 5, verdict FAIL
+    Also check: all outline sections present, no orphaned headings, Conclusion is the last section after FAQs.
+  expected_output: |-
+    A JSON array containing exactly 3 SEO scorecards — one per topic:
+    [
+      {
+        "topic": str,
+        "seo_quality_scorecard": {
+          "overall_verdict": "PASS"|"FAIL",
+          "overall_score": float,
+          "dimensions": [
+            {"dimension": str, "score": int, "verdict": "PASS"|"FAIL", "notes": str}
+          ],
+          "revision_instructions": str
+        }
+      },
+      // ... 2 more
+    ]
+  agent: casino_content_seo_quality_checker
+  async_execution: true
+  context:
+  - draft_casino_article
+assemble_draft_package_for_review_queue:
+  description: |-
+    Assemble 3 complete Draft Packages for today's batch and prepare them for the review queue.
+
+    Read the outputs from:
+    - Draft Casino Article task (3 drafts)
+    - Compliance Gate Check task (3 compliance scorecards)
+    - SEO and Quality Gate Check task (3 SEO scorecards)
+
+    Match each draft with its corresponding compliance and SEO scorecards by topic name. Then for EACH of the 3 topics, run the following checks and produce a complete Draft Package JSON.
+
+    **FOR EACH OF THE 3 TOPICS:**
+
+    **COMPLETENESS PRE-CHECK — run before setting review_status:**
+    Verify the draft contains ALL required fields with non-empty, non-placeholder values:
+    - body_html (must not be truncated — must end with complete Conclusion containing BeGambleAware.org)
+    - seo_title (present and non-empty)
+    - meta_description (present and non-empty)
+    - slug (present and non-empty)
+    - featured_image_prompt (present and includes alt= attribute)
+
+    If ANY field fails: review_status = "needs_heavier_review", escalation_reason = "Draft failed completeness pre-check: [list fields]". Stop here for this article.
+
+    **FABRICATION CHECK — run after completeness pre-check:**
+    Scan body_html for fake operator names: "Casino A", "Casino B", "Sweepstakes Casino X", "Top Brand", "Example Casino", or similar patterns with invented per-operator figures.
+
+    If fabricated data found: review_status = "needs_heavier_review", escalation_reason = "Draft contains fabricated placeholder casino names or invented per-operator data." Stop here for this article.
+
+    **SET review_status — applies ONLY if both pre-checks pass:**
+    review_status = "ready_for_review" if ALL true:
+      1. compliance_scorecard.blocking_failures[] is empty
+      2. seo_quality_scorecard.overall_verdict = "PASS"
+      3. ALL individual SEO dimensions have verdict = "PASS"
+      4. Completeness pre-check passed
+      5. Fabrication check passed
+
+    review_status = "needs_heavier_review" if ANY:
+      - compliance_scorecard.blocking_failures[] is non-empty
+      - seo_quality_scorecard.overall_verdict = "FAIL"
+      - ANY individual SEO dimension verdict = "FAIL"
+      - Either pre-check failed
+
+    revision_count: {revision_count}
+    escalation_reason: {escalation_reason}
+
+    Generate a unique UUID for each package_id. Set created_at to current UTC ISO timestamp.
+    Detect pillar from each topic: reviews | bonuses | crypto | guides | regional.
+
+    HARD STOP: This task NEVER publishes. NEVER writes to WordPress. Output is Draft Package JSON only.
+  expected_output: |-
+    A JSON object containing a batch of 3 Draft Packages:
+    {
+      "batch_date": "YYYY-MM-DD",
+      "total_packages": 3,
+      "ready_for_review_count": int,
+      "needs_review_count": int,
+      "packages": [
+        {
+          "package_id": str,
+          "topic": str,
+          "primary_keyword": str,
+          "pillar": "reviews"|"bonuses"|"crypto"|"guides"|"regional",
+          "created_at": str,
+          "revision_count": int,
+          "review_status": "ready_for_review"|"needs_heavier_review",
+          "escalation_reason": str|null,
+          "draft": { /* full draft fields */ },
+          "compliance_scorecard": { /* from Compliance Gate Check */ },
+          "seo_quality_scorecard": { /* from SEO and Quality Gate Check */ },
+          "verification_flags": [str],
+          "reviewer_notes": str
+        },
+        // ... 2 more packages
+      ]
+    }
+  agent: casino_seo_research_grounding_specialist
+  context:
+  - draft_casino_article
+  - compliance_gate_check
+  - seo_and_quality_gate_check

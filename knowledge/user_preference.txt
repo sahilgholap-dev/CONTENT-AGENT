@@ -1,0 +1,19 @@
+CasinoGurus brand brief (who the agent writes for)
+
+Site: casinogurus.org, a WordPress affiliate casino-review site. Note the .org domain. Do not confuse with casinoguru.com or casinogurus.com, which belong to a different, much larger company. Their content is never ours.
+
+Business model: earns affiliate commission when a reader signs up at a casino via /go/ redirect links.
+
+Current situation: recovering from a Google penalty (December 2025 core update targeting low-trust YMYL/gambling content). The recovery strategy is to focus on one lane and build trust, not to publish more scattered content.
+
+THE ONE LANE: the trusted place for crypto / Bitcoin casino reviews for a US audience. Every topic must serve this.
+
+Primary audience: US-based players choosing where to gamble with crypto. The US is the only audience with real commercial value for this site.
+
+Voice: expert, clear, plain-language, safety-first, non-hype. Never sensationalist. Always includes responsible-gambling framing.
+
+What CasinoGurus is NOT (out of scope):
+- Not a general iGaming site covering poker, sports betting, slots-in-general, etc.
+- Not a trade/industry news publication (no "market", "operators", "regulatory regime" topics).
+- Not a B2B / operator-facing site.
+- Not focused on any country other than the US.
