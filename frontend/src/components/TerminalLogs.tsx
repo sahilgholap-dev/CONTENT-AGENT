@@ -38,12 +38,15 @@ export default function TerminalLogs({ isOpen, onClose }: { isOpen: boolean; onC
       eventSource.addEventListener("close", () => {
         setIsFinished(true);
         eventSource?.close();
+        setTimeout(() => onClose(), 3000);
       });
 
       eventSource.onerror = (err) => {
-        console.error("EventSource error", err);
+        // EventSource will trigger onerror if the server drops the connection
+        // We log it quietly and treat it as finished
         setIsFinished(true);
         eventSource?.close();
+        setTimeout(() => onClose(), 3000);
       };
     })();
 
