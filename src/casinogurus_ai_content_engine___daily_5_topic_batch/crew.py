@@ -140,8 +140,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             config=self.agents_config["casino_content_topic_discovery_specialist"],
             
             
-            tools=[				ExaSearchTool(),
-				ScrapeWebsiteTool()],
+            tools=[ExaSearchTool()],
             
             reasoning=False,
             max_reasoning_attempts=None,
@@ -153,7 +152,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-haiku-4-5",
+                model="anthropic/claude-sonnet-5",
                 is_litellm=True,
 
             ),
