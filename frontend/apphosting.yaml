@@ -14,7 +14,7 @@ runConfig:
 
 env:
   - variable: NEXT_PUBLIC_API_URL
-    value: https://casinogurus-content-api.onrender.com
+    value: https://casinogurus-content-api.up.railway.app
     availability:
       - BUILD
       - RUNTIME

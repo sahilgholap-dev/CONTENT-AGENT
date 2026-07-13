@@ -5,7 +5,7 @@ Production stack:
 | Layer | Tech | Host |
 |-------|------|------|
 | Frontend | Next.js 16 dashboard | **Firebase App Hosting** |
-| Backend API | FastAPI (`app.py`) + CrewAI | **Render** (Docker, always-on) |
+| Backend API | FastAPI (`app.py`) + CrewAI | **Railway** (Docker, always-on) |
 | Database | PostgreSQL (JSONB) | **Supabase** |
 | Auth | Supabase Auth (email/password) | Supabase |
 
@@ -15,8 +15,8 @@ is already in the repo. Do them in order.
 ---
 
 ## 0. Prerequisites
-- Accounts: [Supabase](https://supabase.com), [Render](https://render.com), [Firebase](https://console.firebase.google.com).
-- The repo pushed to GitHub (Render + Firebase deploy from it).
+- Accounts: [Supabase](https://supabase.com), [Railway](https://railway.app), [Firebase](https://console.firebase.google.com).
+- The repo pushed to GitHub (Railway + Firebase deploy from it).
 - Local tools for the one-time data migration: `uv` and Python 3.10–3.13.
 
 ---
@@ -64,13 +64,18 @@ To start fresh instead, just skip this step — the app creates empty tables on 
 
 ---
 
-## 3. Backend — Render
+## 3. Backend — Railway
+
+Railway builds the same `Dockerfile` (config in `railway.json`) and, unlike
+Render's free tier, does not cold-sleep the service — good for multi-minute crew
+runs. You can start on the trial without a card.
 
 1. Push the repo to GitHub.
-2. Render → **New +** → **Blueprint** → pick the repo. It reads `render.yaml`
-   and creates the `casinogurus-content-api` web service (Docker).
-   - Or **New +** → **Web Service** → *Docker* if you prefer manual setup.
-3. Set environment variables (Render dashboard → the service → **Environment**):
+2. Railway → **New Project** → **Deploy from GitHub repo** → pick the repo.
+   Railway detects the `Dockerfile` and `railway.json` automatically.
+   - The container listens on Railway's injected `$PORT` (the Dockerfile handles
+     this), and `/healthz` is used as the health check.
+3. Set variables (Railway → the service → **Variables**):
 
    | Key | Value |
    |-----|-------|
@@ -82,17 +87,23 @@ To start fresh instead, just skip this step — the app creates empty tables on 
    | `OPENAI_API_KEY` | your key |
    | `EXA_API_KEY` | your key |
 
-4. **Plan:** keep at least the **Starter** (always-on) instance. The free tier
-   sleeps on idle and caps runtime, which will kill a multi-minute crew run.
-5. Deploy. When live, confirm: `https://<service>.onrender.com/healthz` → `{"status":"ok"}`.
-   Note the service URL — the frontend needs it next.
+   Do **not** set `AUTH_DISABLED` in production.
+4. **Expose it:** service → **Settings** → **Networking** → **Generate Domain**.
+   This gives you `https://<service>.up.railway.app`.
+5. Confirm `https://<service>.up.railway.app/healthz` → `{"status":"ok"}`.
+   Note this URL — the frontend needs it next.
+
+> **Alternative — Render:** the repo also ships `render.yaml`. On Render, use
+> **New + → Blueprint**, set the same variables, and pick at least the always-on
+> **Starter** plan (the free tier sleeps and will kill long crew runs). The URL
+> is then `https://<service>.onrender.com`.
 
 ---
 
 ## 4. Frontend — Firebase App Hosting
 
 1. Edit **`frontend/apphosting.yaml`** and set the three values:
-   - `NEXT_PUBLIC_API_URL` → the Render URL from step 3.5
+   - `NEXT_PUBLIC_API_URL` → the Railway URL from step 3.5
    - `NEXT_PUBLIC_SUPABASE_URL` → from step 1.4
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → from step 1.4
 
@@ -103,7 +114,7 @@ To start fresh instead, just skip this step — the app creates empty tables on 
 3. Deploy. Firebase builds with `apphosting.yaml` and gives you a URL
    (`https://<app>.web.app`).
 4. **Back-fill CORS:** make sure that URL is in the backend's `FRONTEND_ORIGIN`
-   on Render (step 3.3). Redeploy the backend if you changed it.
+   on Railway (step 3.3). Redeploy the backend if you changed it.
 
 ---
 
@@ -116,7 +127,7 @@ Open the Firebase URL and verify:
 3. **Download ZIP** produces a `.docx`-per-article zip.
 4. **▶ Run Agent** starts a batch and the terminal streams live logs over SSE;
    a new batch appears when it finishes.
-5. In a private window (logged out), hitting `https://<render>/api/batches`
+5. In a private window (logged out), hitting `https://<backend-url>/api/batches`
    directly returns **401**.
 
 ---
@@ -149,5 +160,5 @@ npm run dev                        # http://localhost:3000
 - **Images** are stored in Postgres (`images` table). If the dashboard later
   renders featured images and the table grows large, move the bytes to Supabase
   Storage and keep only URLs in the DB.
-- **Secrets** live only in Render / Firebase / Supabase dashboards. `.env` is
+- **Secrets** live only in Railway / Firebase / Supabase dashboards. `.env` is
   gitignored and excluded from the Docker image (`.dockerignore`).
