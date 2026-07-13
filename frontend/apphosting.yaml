@@ -14,17 +14,17 @@ runConfig:
 
 env:
   - variable: NEXT_PUBLIC_API_URL
-    value: https://casinogurus-content-api.up.railway.app
+    value: https://content-agent-production-9c77.up.railway.app
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_SUPABASE_URL
-    value: https://<project-ref>.supabase.co
+    value: https://wpmtmynztzlrogamziix.supabase.co
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_SUPABASE_ANON_KEY
-    value: <your-supabase-anon-key>
+    value: sb_publishable_LQvkjgkZPWzApwV4jGxy4Q_7rpqWKNn
     availability:
       - BUILD
       - RUNTIME

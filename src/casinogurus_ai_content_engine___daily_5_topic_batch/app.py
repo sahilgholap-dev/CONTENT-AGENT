@@ -272,9 +272,12 @@ def run_agent():
 
     log_file = open(LOG_PATH, "w", encoding="utf-8")
     cmd = [sys.executable, "-u", "-m", f"{PACKAGE}.main", "run"]
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUNBUFFERED"] = "1"
     try:
         process = subprocess.Popen(
-            cmd, cwd=_PROJECT_ROOT, stdout=log_file, stderr=subprocess.STDOUT
+            cmd, cwd=_PROJECT_ROOT, stdout=log_file, stderr=subprocess.STDOUT, env=env
         )
     except Exception as e:
         log_file.close()
@@ -296,9 +299,16 @@ async def agent_logs():
                 else:
                     proc = _run_state["process"]
                     if proc is None or proc.poll() is not None:
+                        # read any remaining lines before closing
+                        line = f.readline()
+                        if line:
+                            yield f"data: {json.dumps({'text': line})}\n\n"
+                            continue
                         yield "event: close\ndata: {}\n\n"
                         break
                     await asyncio.sleep(0.5)
+                    # Clear internal EOF buffer state
+                    f.seek(f.tell())
 
     return StreamingResponse(
         event_stream(),

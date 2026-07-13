@@ -28,7 +28,8 @@
       "Skill(claude-api)",
       "Bash(GENERATE_IMAGES=0 uv run run_crew)",
       "Bash(PYTHONUTF8=1 PYTHONIOENCODING=utf-8 GENERATE_IMAGES=0 uv run run_crew)",
-      "Bash(PYTHONUTF8=1 uv run python -)"
+      "Bash(PYTHONUTF8=1 uv run python -)",
+      "Bash(timeout 60 .venv/Scripts/python.exe -c ' *)"
     ]
   }
 }

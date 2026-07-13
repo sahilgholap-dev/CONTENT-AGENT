@@ -24,8 +24,11 @@ is already in the repo. Do them in order.
 ## 1. Supabase — database + auth
 
 1. **Create a project.** Note the project ref (the `xxxx` in `xxxx.supabase.co`) and the database password you set.
-2. **Get the connection string.** Project Settings → **Database** → *Connection string* → **URI**. Use the direct `:5432` URI for the migration; either that or the `:6543` transaction-pooler URI works for the running app.
-   - This is your `DATABASE_URL`.
+2. **Get the connection string.** Project Settings → **Database** → **Connection Pooling** → *Transaction* mode → **URI** (host `aws-0-<region>.pooler.supabase.com`, port `6543`, user `postgres.<project-ref>`).
+   - This is your `DATABASE_URL`. **Use the pooler URI, not the direct one.** The
+     direct host (`db.<ref>.supabase.co:5432`) is IPv6-only and unreachable from
+     Railway, which crashes the app on startup with failing health checks.
+   - Percent-encode special characters in the password (`@` → `%40`, etc.).
 3. **Project URL (for JWT verification).** Project Settings → **API** → **Project URL**.
    - This is your `SUPABASE_URL` (backend). The backend verifies access tokens
      against this project's JWKS endpoint, which works with the **new asymmetric
@@ -49,8 +52,8 @@ Run this **once** from the repo root, on the machine that has the current
 `content_engine.db`:
 
 ```bash
-# point at the target Supabase DB (direct :5432 URI recommended for the migration)
-export DATABASE_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
+# point at the target Supabase DB (use the pooler URI from step 1.2)
+export DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres"
 
 uv sync                                   # installs backend deps (first run only)
 uv run python scripts/migrate_sqlite_to_pg.py

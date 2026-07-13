@@ -35,6 +35,7 @@ discover_daily_casino_topics:
     STEP 3: FIND THE HOT US CRYPTO CASINOS (do these three sub-steps in order):
     3a. Pull the current top-ranking crypto-casino pages and extract which casino names recur across them. Reference pages to mine (live, each run):
         tokenist.com/crypto-casinos | cardplayer.com/online-casinos/best-bitcoin-casinos | esportsinsider.com/crypto/bitcoin-casinos | cryptomaniaks.com/gambling/crypto-casinos/best-casinos | gamingamerica.com/online-casinos/crypto | webopedia.com/crypto-gambling/casinos | coinspeaker.com/bitcoin-casinos
+        (CRITICAL: Do NOT use ScrapeWebsiteTool to scrape all these URLs at once, or you will exceed your 200,000 token limit and crash. Instead, use ExaSearchTool to search for these domains and read their snippets, or scrape ONLY 1 or 2 of them max.)
         The recurring names are what US players are currently searching and reading about. Regenerate this list from the live pages every run; NEVER rely on a remembered or hard-coded list of "hot" casinos.
     3b. Cross-reference the recurring names against the casinos CasinoGurus can monetise. The affiliate partners (the only fixed list) are: PlayAmo, FortuneJack, El Royale, Slots Empire, BitStarz, Red Dog Casino. A casino that is both widely discussed and a partner is a high-value topic.
     3c. Propose review and comparison topics from that overlap FIRST, then fill the remaining slots with how-to, safety, and US-state-legality topics.
