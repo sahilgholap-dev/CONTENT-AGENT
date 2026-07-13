@@ -2,10 +2,7 @@
 
 Each draft carries a `featured_image_prompt` (with an embedded `alt='...'`). This
 module turns that prompt into an actual image via OpenAI's image API, stores the
-base64 in SQLite (see `storage.images`), and the viewer/server display it.
-
-Generation is always explicit — nothing here runs during a crew kickoff. Trigger it
-from the CLI or from the viewer's "Generate featured image" button.
+base64 in Postgres (see `storage.save_image`), and the API serves it.
 
 CLI
 ---
@@ -32,43 +29,13 @@ import os
 import re
 import sys
 
-from casinogurus_ai_content_engine___daily_5_topic_batch.storage import (
-    DEFAULT_DB_PATH,
-    _PROJECT_ROOT,
-    connect,
-    get_image,
-    save_image,
-)
+from casinogurus_ai_content_engine___daily_5_topic_batch.db import connection, load_dotenv
+from casinogurus_ai_content_engine___daily_5_topic_batch.storage import get_image, save_image
 
 DEFAULT_MODEL = os.environ.get("IMAGE_MODEL", "gpt-image-1")
 DEFAULT_SIZE = os.environ.get("IMAGE_SIZE", "1024x1024")
 
 _ALT_RE = re.compile(r"""\s*alt\s*=\s*(['"])(.*?)\1""", re.IGNORECASE | re.DOTALL)
-
-
-def _load_dotenv() -> None:
-    """Load KEY=VALUE pairs from the project .env into os.environ.
-
-    The .env file is treated as the source of truth for local runs, so a value
-    edited in .env takes effect on the next call without needing a restart
-    (a plain setdefault would cache a stale/placeholder value for the process
-    lifetime). Only non-empty values overwrite; blank .env entries are ignored
-    so a real shell-exported key is never clobbered by an empty line.
-    """
-    path = os.path.join(_PROJECT_ROOT, ".env")
-    if not os.path.isfile(path):
-        return
-    with open(path, "r", encoding="utf-8-sig") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, val = line.partition("=")
-            key, val = key.strip(), val.strip().strip("'\"")
-            if val:
-                os.environ[key] = val
-            else:
-                os.environ.setdefault(key, val)
 
 
 def parse_prompt(featured_image_prompt: str) -> tuple[str, str | None]:
@@ -93,13 +60,11 @@ def generate_image_b64(
 
     Raises RuntimeError with an actionable message if the SDK/key is missing.
     """
-    _load_dotenv()
-    # Use the exact same credentials/endpoint the crew's OpenAI LLMs use.
+    load_dotenv()
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "OPENAI_API_KEY is not set. Add it to the project .env or the environment "
-            "(this is the same key the crew's openai/gpt-4.1 agents use)."
+            "OPENAI_API_KEY is not set. Add it to the project .env or the environment."
         )
     # crewai/litellm read a custom endpoint from OPENAI_API_BASE; the OpenAI SDK
     # reads OPENAI_BASE_URL. Honour either so image gen follows the crew's config.
@@ -109,8 +74,7 @@ def generate_image_b64(
         from openai import OpenAI
     except ModuleNotFoundError as e:
         raise RuntimeError(
-            "The 'openai' package is not installed. Run `crewai install` / "
-            "`uv sync` (it ships with crewai), or `uv add openai`."
+            "The 'openai' package is not installed. Run `uv sync` or `uv add openai`."
         ) from e
 
     client_kwargs = {"api_key": api_key}
@@ -137,25 +101,21 @@ def generate_for_package(
     force: bool = False,
     model: str = DEFAULT_MODEL,
     size: str = DEFAULT_SIZE,
-    db_path: str = DEFAULT_DB_PATH,
 ) -> dict:
     """Generate + store the image for one package. Returns the stored image row.
 
     Skips (returns the existing row) if an image already exists and force is False.
     On generation failure, stores a status='error' row and returns it (does not raise).
     """
-    existing = get_image(package_id, db_path=db_path)
+    existing = get_image(package_id)
     if existing and existing.get("status") == "ok" and existing.get("image_b64") and not force:
         return existing
 
-    conn = connect(db_path)
-    try:
+    with connection() as conn:
         row = conn.execute(
-            "SELECT featured_image_prompt, topic FROM packages WHERE package_id = ?",
+            "SELECT featured_image_prompt, topic FROM packages WHERE package_id = %s",
             (package_id,),
         ).fetchone()
-    finally:
-        conn.close()
     if row is None:
         raise ValueError(f"No package with id {package_id!r}")
 
@@ -164,36 +124,33 @@ def generate_for_package(
     if not prompt:
         save_image(
             package_id, None, prompt=raw_prompt, alt_text=alt, model=model, size=size,
-            status="error", error="Package has no featured_image_prompt.", db_path=db_path,
+            status="error", error="Package has no featured_image_prompt.",
         )
-        return get_image(package_id, db_path=db_path)
+        return get_image(package_id)
 
     try:
         b64, mime = generate_image_b64(prompt, model=model, size=size)
         save_image(
             package_id, b64, prompt=prompt, alt_text=alt, mime_type=mime,
-            model=model, size=size, status="ok", db_path=db_path,
+            model=model, size=size, status="ok",
         )
     except Exception as e:  # store the failure so the UI can show it
         save_image(
             package_id, None, prompt=prompt, alt_text=alt, model=model, size=size,
-            status="error", error=str(e), db_path=db_path,
+            status="error", error=str(e),
         )
-    return get_image(package_id, db_path=db_path)
+    return get_image(package_id)
 
 
-def _package_ids(db_path: str, batch_id: int | None) -> list[str]:
-    conn = connect(db_path)
-    try:
+def _package_ids(batch_id: int | None) -> list[str]:
+    with connection() as conn:
         if batch_id is None:
             rows = conn.execute("SELECT package_id FROM packages").fetchall()
         else:
             rows = conn.execute(
-                "SELECT package_id FROM packages WHERE batch_id = ?", (batch_id,)
+                "SELECT package_id FROM packages WHERE batch_id = %s", (batch_id,)
             ).fetchall()
         return [r["package_id"] for r in rows]
-    finally:
-        conn.close()
 
 
 def generate_for_batch(
@@ -202,15 +159,12 @@ def generate_for_batch(
     force: bool = False,
     model: str = DEFAULT_MODEL,
     size: str = DEFAULT_SIZE,
-    db_path: str = DEFAULT_DB_PATH,
 ) -> list[dict]:
     """Generate images for all packages (optionally in one batch). Returns rows."""
-    ids = _package_ids(db_path, batch_id)
+    ids = _package_ids(batch_id)
     out = []
     for pid in ids:
-        res = generate_for_package(
-            pid, force=force, model=model, size=size, db_path=db_path
-        )
+        res = generate_for_package(pid, force=force, model=model, size=size)
         state = res.get("status") if res else "unknown"
         print(f"  {pid}: {state}" + (f" — {res.get('error')}" if res and res.get("error") else ""))
         out.append(res)
@@ -227,14 +181,12 @@ def _main(argv: list[str]) -> int:
     g.add_argument("--force", action="store_true", help="Regenerate even if present.")
     g.add_argument("--model", default=DEFAULT_MODEL)
     g.add_argument("--size", default=DEFAULT_SIZE)
-    g.add_argument("--db", default=DEFAULT_DB_PATH)
     args = ap.parse_args(argv)
 
     if args.cmd == "generate":
         if args.package:
             res = generate_for_package(
-                args.package, force=args.force, model=args.model,
-                size=args.size, db_path=args.db,
+                args.package, force=args.force, model=args.model, size=args.size,
             )
             print(res.get("status") if res else "unknown", "-", args.package)
             return 0
@@ -242,10 +194,7 @@ def _main(argv: list[str]) -> int:
             print("Specify --all, --batch <id>, or --package <id>.", file=sys.stderr)
             return 2
         print(f"Generating images (model={args.model}, size={args.size})...")
-        generate_for_batch(
-            batch_id=args.batch, force=args.force, model=args.model,
-            size=args.size, db_path=args.db,
-        )
+        generate_for_batch(batch_id=args.batch, force=args.force, model=args.model, size=args.size)
         return 0
     return 2
 

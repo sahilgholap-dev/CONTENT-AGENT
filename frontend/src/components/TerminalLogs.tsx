@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { apiUrlWithToken } from "@/lib/api";
 
 export default function TerminalLogs({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [logs, setLogs] = useState<string[]>([]);
@@ -12,32 +13,43 @@ export default function TerminalLogs({ isOpen, onClose }: { isOpen: boolean; onC
       return;
     }
 
-    const eventSource = new EventSource("/api/agent-logs");
+    let eventSource: EventSource | null = null;
+    let cancelled = false;
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.text) {
-          setLogs((prev) => [...prev, data.text]);
+    // EventSource can't set an Authorization header, so the token is passed in
+    // the query string (the backend accepts ?access_token=). Building the URL
+    // is async, so guard against unmount/close while it resolves.
+    (async () => {
+      const url = await apiUrlWithToken("/api/agent-logs");
+      if (cancelled) return;
+      eventSource = new EventSource(url);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.text) {
+            setLogs((prev) => [...prev, data.text]);
+          }
+        } catch (err) {
+          console.error("Failed to parse log line", err);
         }
-      } catch (err) {
-        console.error("Failed to parse log line", err);
-      }
-    };
+      };
 
-    eventSource.addEventListener("close", () => {
-      setIsFinished(true);
-      eventSource.close();
-    });
+      eventSource.addEventListener("close", () => {
+        setIsFinished(true);
+        eventSource?.close();
+      });
 
-    eventSource.onerror = (err) => {
-      console.error("EventSource error", err);
-      setIsFinished(true);
-      eventSource.close();
-    };
+      eventSource.onerror = (err) => {
+        console.error("EventSource error", err);
+        setIsFinished(true);
+        eventSource?.close();
+      };
+    })();
 
     return () => {
-      eventSource.close();
+      cancelled = true;
+      eventSource?.close();
     };
   }, [isOpen]);
 

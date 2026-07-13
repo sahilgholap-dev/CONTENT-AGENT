@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import TerminalLogs from "./TerminalLogs";
+import { apiFetch } from "@/lib/api";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Sidebar({
   batches,
@@ -13,6 +16,14 @@ export default function Sidebar({
   loading: boolean;
 }) {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <>
@@ -29,12 +40,13 @@ export default function Sidebar({
             onClick={async () => {
               if (confirm("Are you sure you want to run the Content Engine? This will generate a new batch of content and may take a few minutes.")) {
                 try {
-                  const res = await fetch("/api/run-agent", { method: "POST" });
-                  const data = await res.json();
-                  if (res.ok || (res.status === 400 && data.error === "Agent is already running")) {
+                  const res = await apiFetch("/api/run-agent", { method: "POST" });
+                  const data = await res.json().catch(() => ({}));
+                  // 409 => already running: still open the terminal to watch it.
+                  if (res.ok || res.status === 409) {
                     setIsTerminalOpen(true);
                   } else {
-                    alert("Error starting agent: " + (data.error || "Unknown error"));
+                    alert("Error starting agent: " + (data.detail || data.error || "Unknown error"));
                   }
                 } catch (e: any) {
                   alert("Failed to reach server: " + e.message);
@@ -46,6 +58,12 @@ export default function Sidebar({
             ▶ Run Agent
           </button>
         </div>
+        <button
+          onClick={handleSignOut}
+          className="mt-3 text-[10px] uppercase font-bold tracking-wider text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          Sign out
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">

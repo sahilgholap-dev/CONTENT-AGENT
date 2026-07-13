@@ -7,8 +7,10 @@ An AI-powered content generation engine built with [CrewAI](https://crewai.com) 
 The CasinoGurus AI Content Engine employs a multi-agent system to streamline the content creation pipeline. It is specifically tuned to adhere to CasinoGurus' brand guidelines, compliance standards, and SEO best practices. 
 
 The project consists of two main components:
-1. **Python Backend (CrewAI)**: Orchestrates the AI agents, executes the content generation tasks, and stores the results in a local SQLite database. It also provides a lightweight HTTP API.
+1. **Python Backend (FastAPI + CrewAI)**: A FastAPI service (`app.py`) that orchestrates the AI agents, persists results to PostgreSQL, and exposes a JSON API protected by Supabase Auth.
 2. **Next.js Frontend**: A React-based web dashboard to view generated content batches, inspect SEO briefs, check compliance scorecards, and trigger new agent runs with real-time terminal log streaming.
+
+> **Deploying to production?** See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for the full runbook (Supabase + Render + Firebase App Hosting). The steps below are for local development.
 
 ## Features
 
@@ -27,40 +29,34 @@ The project consists of two main components:
 
 ### 1. Environment Configuration
 
-Create a `.env` file in the root directory and add your required API keys. Note that the project utilizes Anthropic's Claude models for drafting and validation.
+Copy `.env.example` to `.env` in the project root and fill in the values. You need a PostgreSQL database (a free [Supabase](https://supabase.com) project works well) and the Supabase JWT secret, plus the LLM/tool keys:
 
 ```bash
-OPENAI_API_KEY=your_openai_api_key
-ANTHROPIC_API_KEY=your_anthropic_api_key
+cp .env.example .env
+# DATABASE_URL, SUPABASE_JWT_SECRET, ANTHROPIC_API_KEY, OPENAI_API_KEY, EXA_API_KEY
 ```
 
-### 2. Backend Setup (Python)
+For local development you can set `AUTH_DISABLED=1` in `.env` to bypass token checks (never do this in production).
 
-Navigate to the project root and sync dependencies using `uv`:
+### 2. Backend Setup (FastAPI)
+
+From the project root, sync dependencies and start the API:
 
 ```bash
 uv sync
+uv run uvicorn casinogurus_ai_content_engine___daily_5_topic_batch.app:app --reload --port 8000
 ```
-
-Start the backend API and SQLite storage server:
-
-```bash
-uv run python -m casinogurus_ai_content_engine___daily_5_topic_batch.server
-```
-*The backend server will run on `http://127.0.0.1:8000`.*
+*The backend runs on `http://127.0.0.1:8000`. It creates the database schema automatically on startup. Health check: `GET /healthz`.*
 
 ### 3. Frontend Setup (Next.js)
 
-Open a new terminal, navigate to the `frontend` directory, and install the Node modules:
+Open a new terminal, go to `frontend`, configure env, and start the dev server:
 
 ```bash
 cd frontend
+cp .env.local.example .env.local
+# set NEXT_PUBLIC_API_URL=http://localhost:8000 and the Supabase vars
 npm install
-```
-
-Start the development server:
-
-```bash
 npm run dev
 ```
 *The frontend dashboard will be available at `http://localhost:3000`.*
@@ -75,7 +71,10 @@ npm run dev
 
 - `src/.../config/`: Contains `agents.yaml` and `tasks.yaml` defining the CrewAI pipeline.
 - `src/.../main.py`: Entry point for the CrewAI execution.
-- `src/.../server.py`: The lightweight Python HTTP server exposing the SQLite DB and agent logs.
-- `frontend/`: The Next.js dashboard application.
+- `src/.../app.py`: The FastAPI service exposing the JSON API, agent-run trigger, and SSE log stream (Supabase-Auth protected).
+- `src/.../db.py` / `storage.py` / `schema.sql`: PostgreSQL connection pool, persistence layer, and schema.
+- `src/.../auth.py`: Supabase JWT verification.
+- `scripts/migrate_sqlite_to_pg.py`: One-time migration of an old `content_engine.db` into Postgres.
+- `frontend/`: The Next.js dashboard application (Supabase Auth; `proxy.ts` guards routes).
 - `knowledge/`: Contains brand guidelines and user preferences injected into the agents' context.
-- `content_engine.db`: The SQLite database storing all generated batches (created automatically).
+- `Dockerfile` / `render.yaml`: Backend container + Render deployment blueprint.

@@ -1,0 +1,18 @@
+# Local-only / not needed in the backend image
+.git
+.venv
+frontend
+content_engine.db
+content_engine.db-wal
+content_engine.db-shm
+agent.log
+*.docx
+__pycache__/
+**/__pycache__/
+.claude
+.env
+.env.*
+Sample_Output.json
+package-viewer.html
+*.md
+!README.md

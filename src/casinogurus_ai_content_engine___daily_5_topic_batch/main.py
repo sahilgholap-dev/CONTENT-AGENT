@@ -4,7 +4,7 @@ import sys
 from datetime import datetime, timezone
 
 from casinogurus_ai_content_engine___daily_5_topic_batch.crew import CasinogurusAiContentEngineDaily5TopicBatchCrew
-from casinogurus_ai_content_engine___daily_5_topic_batch.storage import save_batch
+from casinogurus_ai_content_engine___daily_5_topic_batch.storage import init_schema, save_batch
 
 
 # ---------------------------------------------------------------------------
@@ -72,11 +72,12 @@ def run():
     }
     result = CasinogurusAiContentEngineDaily5TopicBatchCrew().crew().kickoff(inputs=inputs)
 
-    # Persist the final batch output to SQLite for the review queue / history.
+    # Persist the final batch output to Postgres for the review queue / history.
     try:
+        init_schema()  # no-op if the schema already exists
         source = "crew_run:" + datetime.now(timezone.utc).isoformat()
         batch_id = save_batch(result, source=source)
-        print(f"\n[storage] Saved batch to SQLite (batch id {batch_id}).")
+        print(f"\n[storage] Saved batch to Postgres (batch id {batch_id}).")
         # Automatically generate a featured image per package and map it.
         _generate_images(batch_id)
     except Exception as e:  # never let persistence failure mask the crew result

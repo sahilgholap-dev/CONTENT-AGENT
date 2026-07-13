@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import BatchViewer from "@/components/BatchViewer";
+import { apiFetch } from "@/lib/api";
 
 export default function Dashboard() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -10,7 +11,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/batches")
+    apiFetch("/api/batches")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {

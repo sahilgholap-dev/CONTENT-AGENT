@@ -1,0 +1,31 @@
+# Render blueprint for the CasinoGurus Content Engine API.
+# Deploy: push to GitHub, then in Render "New +" -> "Blueprint" and point at this repo.
+# Secrets marked sync:false must be filled in the Render dashboard after creation.
+services:
+  - type: web
+    name: casinogurus-content-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # A multi-minute crew run needs an always-on instance; the free tier sleeps.
+    plan: starter
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL          # Supabase Postgres connection string
+        sync: false
+      - key: SUPABASE_URL          # Supabase project URL (for JWKS / asymmetric JWT verify)
+        sync: false
+      - key: SUPABASE_JWT_SECRET   # optional: only for legacy HS256 tokens
+        sync: false
+      - key: FRONTEND_ORIGIN       # e.g. https://your-app.web.app  (comma-separated allowed)
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      # Optional image-generation tuning (safe defaults if omitted):
+      # - key: IMAGE_MODEL
+      # - key: IMAGE_SIZE
+      # - key: GENERATE_IMAGES

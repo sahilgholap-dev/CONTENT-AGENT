@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PackageViewer from "./PackageViewer";
+import { apiFetch, apiUrlWithToken } from "@/lib/api";
 
 export default function BatchViewer({ batchId }: { batchId: number }) {
   const [batch, setBatch] = useState<Record<string, any> | null>(null);
@@ -9,7 +10,7 @@ export default function BatchViewer({ batchId }: { batchId: number }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
-    fetch(`/api/batches/${batchId}`)
+    apiFetch(`/api/batches/${batchId}`)
       .then((res) => res.json())
       .then((data) => {
         setBatch(data);
@@ -38,8 +39,10 @@ export default function BatchViewer({ batchId }: { batchId: number }) {
     );
   }
 
-  const handleDownload = () => {
-    window.location.href = `/api/batches/${batch.id}/download`;
+  const handleDownload = async () => {
+    // Token goes in the query string: a plain navigation can't set headers.
+    const url = await apiUrlWithToken(`/api/batches/${batch.id}/download`);
+    window.location.href = url;
   };
 
   return (

@@ -1,0 +1,30 @@
+# Firebase App Hosting config for the Next.js dashboard.
+# Docs: https://firebase.google.com/docs/app-hosting/configure
+#
+# NEXT_PUBLIC_* vars are inlined into the client bundle at BUILD time, so they
+# must be available during the build. They are public by design (the Supabase
+# anon key is publishable); real access control is enforced by Supabase RLS +
+# the backend's JWT check. Replace the placeholder values below.
+
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: NEXT_PUBLIC_API_URL
+    value: https://casinogurus-content-api.onrender.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_SUPABASE_URL
+    value: https://<project-ref>.supabase.co
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    value: <your-supabase-anon-key>
+    availability:
+      - BUILD
+      - RUNTIME
