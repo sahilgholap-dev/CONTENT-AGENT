@@ -29,7 +29,10 @@
       "Bash(GENERATE_IMAGES=0 uv run run_crew)",
       "Bash(PYTHONUTF8=1 PYTHONIOENCODING=utf-8 GENERATE_IMAGES=0 uv run run_crew)",
       "Bash(PYTHONUTF8=1 uv run python -)",
-      "Bash(timeout 60 .venv/Scripts/python.exe -c ' *)"
+      "Bash(timeout 60 .venv/Scripts/python.exe -c ' *)",
+      "Bash(./.venv/Scripts/python.exe -c ' *)",
+      "Bash(git -C 'D:/SAHIL GHOLAP/NEXUS/Content Agent V2/casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project/.claude/worktrees/cosmetic-fixes-2' commit --amend -F -)",
+      "Bash(git -C 'D:/SAHIL GHOLAP/NEXUS/Content Agent V2/casinogurus_ai_content_engine___daily_5_topic_batch_v1_crewai-project/.claude/worktrees/cosmetic-fixes-2' log --oneline -1)"
     ]
   }
 }
