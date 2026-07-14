@@ -1,0 +1,23 @@
+usage_date_utc,model,workspace,api_key,usage_type,context_window,token_type,cost_usd,list_price_usd,cost_type,inference_geo,speed,api_key_id,api_key_status
+10-07-2026,Claude Opus 4.8,NEXUS Agents,Content Agent,message,≤ 200k,input_cache_read,0,0,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+10-07-2026,Claude Opus 4.8,NEXUS Agents,Content Agent,message,≤ 200k,input_cache_write_5m,0.2,0.2,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+10-07-2026,Claude Opus 4.8,NEXUS Agents,Content Agent,message,≤ 200k,input_no_cache,1.25,1.25,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+10-07-2026,Claude Opus 4.8,NEXUS Agents,Content Agent,message,≤ 200k,output,0.48,0.48,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+11-07-2026,Claude Haiku 4.5,NEXUS Agents,Content Agent,message,≤ 200k,input_no_cache,1.38,1.38,token,not_available,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+11-07-2026,Claude Haiku 4.5,NEXUS Agents,Content Agent,message,≤ 200k,output,0.22,0.22,token,not_available,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+11-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,≤ 200k,input_no_cache,0.42,0.42,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+11-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,≤ 200k,input_cache_write_5m,0.06,0.06,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+11-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,≤ 200k,output,2.46,2.46,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+11-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,200k - 1M,input_no_cache,3.85,3.85,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+11-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,200k - 1M,input_cache_read,0,0,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+11-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,200k - 1M,output,0.87,0.87,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+13-07-2026,Claude Haiku 4.5,NEXUS Agents,Content Agent,message,≤ 200k,input_no_cache,0.43,0.43,token,not_available,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+13-07-2026,Claude Haiku 4.5,NEXUS Agents,Content Agent,message,≤ 200k,output,0.05,0.05,token,not_available,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+13-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,≤ 200k,input_no_cache,0.51,0.51,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+13-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,≤ 200k,output,0.73,0.73,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+13-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,200k - 1M,input_no_cache,2.89,2.89,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+13-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,200k - 1M,output,0.33,0.33,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+14-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,≤ 200k,input_no_cache,1.23,1.23,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+14-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,≤ 200k,output,0.59,0.59,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+14-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,200k - 1M,input_no_cache,8.93,8.93,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
+14-07-2026,Claude Sonnet 5,NEXUS Agents,Content Agent,message,200k - 1M,output,0.89,0.89,token,global,,apikey_015cqpLQQLcdYVEVKGAESFhe,active
