@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import AgentProgressBar from "./AgentProgressBar";
+import TerminalLogs from "./TerminalLogs";
 import { apiFetch } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
@@ -108,7 +108,7 @@ export default function Sidebar({
         )}
       </div>
     </div>
-    <AgentProgressBar isOpen={isTerminalOpen} onClose={() => setIsTerminalOpen(false)} />
+    <TerminalLogs isOpen={isTerminalOpen} onClose={() => setIsTerminalOpen(false)} />
     </>
   );
 }
