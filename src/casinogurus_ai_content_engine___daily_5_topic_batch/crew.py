@@ -214,7 +214,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
     @crew
     def crew(self) -> Crew:
-        """Creates the CasinogurusAiContentEngineDaily5TopicBatch crew"""
+        """Creates the CasinogurusAiContentEngineDaily1TopicBatch crew"""
 
         return Crew(
             agents=self.agents,  # Automatically created by the @agent decorator
