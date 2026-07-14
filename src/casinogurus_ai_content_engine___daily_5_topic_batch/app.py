@@ -30,6 +30,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import zipfile
 from contextlib import asynccontextmanager
 
@@ -264,6 +265,20 @@ def generate_package_image(pid: str, force: bool = Query(default=False)):
     return JSONResponse(status_code=status_code, content=jsonable(payload or {"package_id": pid, "status": "error"}))
 
 
+def _tee_output(process, log_file):
+    try:
+        for line in iter(process.stdout.readline, b""):
+            sys.stdout.buffer.write(line)
+            sys.stdout.flush()
+            log_file.write(line.decode("utf-8", errors="replace"))
+            log_file.flush()
+    except Exception as e:
+        print(f"Error in tee thread: {e}")
+    finally:
+        process.stdout.close()
+        log_file.close()
+
+
 @api.post("/run-agent")
 def run_agent():
     proc = _run_state["process"]
@@ -277,8 +292,9 @@ def run_agent():
     env["PYTHONUNBUFFERED"] = "1"
     try:
         process = subprocess.Popen(
-            cmd, cwd=_PROJECT_ROOT, stdout=log_file, stderr=subprocess.STDOUT, env=env
+            cmd, cwd=_PROJECT_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
         )
+        threading.Thread(target=_tee_output, args=(process, log_file), daemon=True).start()
     except Exception as e:
         log_file.close()
         raise HTTPException(status_code=500, detail=str(e))

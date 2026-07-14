@@ -11,9 +11,6 @@ from crewai_tools import (
 
 
 
-
-
-
 @CrewBase
 class CasinogurusAiContentEngineDaily5TopicBatchCrew:
     """CasinogurusAiContentEngineDaily5TopicBatch crew"""
@@ -40,7 +37,11 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
             max_execution_time=None,
             llm=LLM(
+<<<<<<< HEAD
                 model="anthropic/claude-haiku-4-5",
+=======
+                model="anthropic/claude-haiku-4-5"
+>>>>>>> 2c9220a6062148269915e10fbe835c5e3f29fdee
             ),
             
         )
@@ -68,7 +69,11 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             llm=LLM(
                 # Only the drafter runs on Sonnet 5 (higher draft quality); every
                 # other agent + the manager stay on Haiku 4.5 for cost.
+<<<<<<< HEAD
                 model="anthropic/claude-sonnet-5",
+=======
+                model="anthropic/claude-sonnet-5"
+>>>>>>> 2c9220a6062148269915e10fbe835c5e3f29fdee
             ),
             
         )
@@ -94,7 +99,11 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
             max_execution_time=None,
             llm=LLM(
+<<<<<<< HEAD
                 model="anthropic/claude-haiku-4-5",
+=======
+                model="anthropic/claude-haiku-4-5"
+>>>>>>> 2c9220a6062148269915e10fbe835c5e3f29fdee
             ),
             
         )
@@ -120,7 +129,11 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
             max_execution_time=None,
             llm=LLM(
+<<<<<<< HEAD
                 model="anthropic/claude-haiku-4-5",
+=======
+                model="anthropic/claude-haiku-4-5"
+>>>>>>> 2c9220a6062148269915e10fbe835c5e3f29fdee
             ),
             
         )
@@ -146,7 +159,11 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             
             max_execution_time=None,
             llm=LLM(
+<<<<<<< HEAD
                 model="anthropic/claude-haiku-4-5",
+=======
+                model="anthropic/claude-haiku-4-5"
+>>>>>>> 2c9220a6062148269915e10fbe835c5e3f29fdee
             ),
             
         )
