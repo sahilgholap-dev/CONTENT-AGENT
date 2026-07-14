@@ -11,6 +11,12 @@ from crewai_tools import (
 
 
 
+import sys
+
+def on_task_complete(task_output):
+    print(f"[AGENT_PROGRESS] Task Completed")
+    sys.stdout.flush()
+
 @CrewBase
 class CasinogurusAiContentEngineDaily5TopicBatchCrew:
     """CasinogurusAiContentEngineDaily5TopicBatch crew"""
@@ -37,7 +43,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-sonnet-5"
+                model="anthropic/claude-3-5-sonnet-20241022"
             ),
             
         )
@@ -65,7 +71,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             llm=LLM(
                 # Only the drafter runs on Sonnet 5 (higher draft quality); every
                 # other agent + the manager stay on Haiku 4.5 for cost.
-                model="anthropic/claude-sonnet-5"
+                model="anthropic/claude-3-5-sonnet-20241022"
             ),
             
         )
@@ -210,11 +216,6 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
     def crew(self) -> Crew:
         """Creates the CasinogurusAiContentEngineDaily5TopicBatch crew"""
 
-        def _on_task_complete(task_output):
-            import sys
-            print(f"[AGENT_PROGRESS] Task Completed")
-            sys.stdout.flush()
-
         return Crew(
             agents=self.agents,  # Automatically created by the @agent decorator
             tasks=self.tasks,  # Automatically created by the @task decorator
@@ -223,7 +224,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             # web pages) to stdout — that floods the host's log pipeline
             # (Railway caps at 500 lines/sec) and bloats context. Keep it off.
             verbose=False,
-            task_callback=_on_task_complete,
+            task_callback=on_task_complete,
 
             chat_llm=LLM(model="anthropic/claude-haiku-4-5"),
         )
