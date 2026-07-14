@@ -81,7 +81,7 @@ def run():
         # Automatically generate a featured image per package and map it.
         _generate_images(batch_id)
     except Exception as e:  # never let persistence failure mask the crew result
-        print(f"\n[storage] WARNING: could not save batch to SQLite: {e}")
+        print(f"\n[storage] WARNING: could not save batch to Postgres: {e}")
 
     return result
 

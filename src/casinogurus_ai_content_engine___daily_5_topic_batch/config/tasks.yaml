@@ -1,7 +1,7 @@
 ---
 discover_daily_casino_topics:
   description: |-
-    Discover exactly 1 unique casino content topics for today's content production batch. Determine today's date, month, and year automatically; do not rely on any input variable for this.
+    Discover exactly 1 unique casino content topic for today's content production batch. Determine today's date, month, and year automatically; do not rely on any input variable for this.
 
     VOICE & BRAND CONTEXT:
     {voice_store}
@@ -42,7 +42,7 @@ discover_daily_casino_topics:
     CAUTION: those reference lists are themselves affiliate-ranked, so they are not neutral. Use them to spot which casinos are talked about, never as proof a casino is good. Any quality claim still needs a fact-store entry downstream.
 
     STEP 4: SELECT 1 topic (all in the one lane):
-    Choose exactly 1 topics that:
+    Choose exactly 1 topic that:
     ✅ Pass the single topic test above
     ✅ Sit under crypto/Bitcoin casinos for US players
     ✅ Are NOT already covered on casinogurus.org (based on Step 1)
@@ -66,7 +66,7 @@ discover_daily_casino_topics:
     STEP 5: VALIDATE UNIQUENESS:
     For each proposed topic, confirm via web search that casinogurus.org has not recently published an article with that exact or near-identical focus. If unsure, choose a different topic.
   expected_output: |-
-    A JSON object with exactly 1 topic entries:
+    A JSON object with exactly 1 topic entry:
     {
       "batch_date": "YYYY-MM-DD",
       "topics": [
@@ -79,7 +79,6 @@ discover_daily_casino_topics:
           "uniqueness_confirmed": bool,
           "estimated_commercial_value": "high"|"medium"|"low"
         }
-         entries
       ],
       "pillars_covered": [str],
       "discovery_notes": str
@@ -126,7 +125,7 @@ keyword_research_and_competitor_analysis:
     STEP 4 — FACT STORE
     Assemble the per-article Fact Store: source-tagged, confidence-labelled verified facts only. Each entry: fact text, source URL, confidence label (verified/inferred/unverified). Bonus figures, licensing, payout speed, and legality go in ONLY if traced to a primary source; otherwise flag for human check.
   expected_output: |-
-    A JSON array containing exactly 1 research objects — one per topic:
+    A JSON array containing exactly 1 research object:
     [
       {
         "topic": str,
@@ -152,8 +151,7 @@ keyword_research_and_competitor_analysis:
           "topic": str,
           "facts": [{"fact": str, "source_url": str, "confidence": "verified"|"inferred"|"unverified", "flag_for_human": bool}]
         }
-      },
-       topic objects
+      }
     ]
   agent: casino_seo_research_grounding_specialist
   context:
@@ -235,7 +233,7 @@ draft_casino_article:
 
     If {revision_feedback} is provided, address ONLY the specific failures listed for the relevant article.
   expected_output: |-
-    A JSON array containing exactly 1 complete draft objects — one per topic:
+    A JSON array containing exactly 1 complete draft object:
     [
       {
         "topic": str,
@@ -253,15 +251,14 @@ draft_casino_article:
           "source_notes": [{"claim": str, "fact_store_entry": str, "source_url": str, "confidence": str}],
           "verification_flags": [{"flag": str, "location_in_draft": str}]
         }
-      },
-       topic draft objects
+      }
     ]
   agent: casinogurus_grounded_article_drafter
   context:
   - keyword_research_and_competitor_analysis
 compliance_gate_check:
   description: |-
-    Run the compliance mandate gate on the 1 draft articles from the Draft Casino Article task.
+    Run the compliance mandate gate on the 1 draft article from the Draft Casino Article task.
 
     Read the draft array (1 topic object). For EACH draft, run the full compliance check independently. Label each scorecard with its topic.
 
@@ -298,7 +295,7 @@ compliance_gate_check:
     overall_verdict = "PASS" if blocking_failures[] is empty.
     overall_verdict = "FAIL" only if blocking_failures[] contains at least one High-severity item.
   expected_output: |-
-    A JSON array containing exactly 1 compliance scorecards — one per topic:
+    A JSON array containing exactly 1 compliance scorecard:
     [
       {
         "topic": str,
@@ -317,7 +314,7 @@ compliance_gate_check:
   - draft_casino_article
 seo_and_quality_gate_check:
   description: |-
-    Run the SEO and quality gate on the 1 draft articles from the Draft Casino Article task.
+    Run the SEO and quality gate on the 1 draft article from the Draft Casino Article task.
 
     Read the draft array (1 topic object). For EACH draft, run the full SEO quality check independently. Label each scorecard with its topic.
 
@@ -354,7 +351,7 @@ seo_and_quality_gate_check:
     - Fewer than 6 → score 5, verdict FAIL
     Also check: all outline sections present, no orphaned headings, Conclusion is the last section after FAQs.
   expected_output: |-
-    A JSON array containing exactly 1 SEO scorecards — one per topic:
+    A JSON array containing exactly 1 SEO scorecard:
     [
       {
         "topic": str,
@@ -375,7 +372,7 @@ seo_and_quality_gate_check:
   - draft_casino_article
 assemble_draft_package_for_review_queue:
   description: |-
-    Assemble 1 complete draft Packages for today's batch and prepare them for the review queue.
+    Assemble 1 complete draft Package for today's batch and prepare it for the review queue.
 
     Read the outputs from:
     - Draft Casino Article task (1 draft)
@@ -444,8 +441,7 @@ assemble_draft_package_for_review_queue:
           "seo_quality_scorecard": { /* from SEO and Quality Gate Check */ },
           "verification_flags": [str],
           "reviewer_notes": str
-        },
-         packages
+        }
       ]
     }
   agent: casino_seo_research_grounding_specialist
