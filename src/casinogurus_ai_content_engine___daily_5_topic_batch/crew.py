@@ -227,7 +227,10 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             agents=self.agents,  # Automatically created by the @agent decorator
             tasks=self.tasks,  # Automatically created by the @task decorator
             process=Process.sequential,
-            verbose=True,
+            # verbose prints every tool's full output (including entire scraped
+            # web pages) to stdout — that floods the host's log pipeline
+            # (Railway caps at 500 lines/sec) and bloats context. Keep it off.
+            verbose=False,
 
             chat_llm=LLM(model="anthropic/claude-haiku-4-5", is_litellm=True),
         )
