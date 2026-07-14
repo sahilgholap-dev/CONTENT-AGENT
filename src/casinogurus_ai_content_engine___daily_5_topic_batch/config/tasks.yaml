@@ -1,7 +1,7 @@
 ---
 discover_daily_casino_topics:
   description: |-
-    Discover exactly 3 unique casino content topics for today's content production batch. Determine today's date, month, and year automatically; do not rely on any input variable for this.
+    Discover exactly 1 unique casino content topics for today's content production batch. Determine today's date, month, and year automatically; do not rely on any input variable for this.
 
     VOICE & BRAND CONTEXT:
     {voice_store}
@@ -11,7 +11,7 @@ discover_daily_casino_topics:
     - If yes, it is a candidate topic.
     - If it is something an operator, regulator, investor, or industry analyst would read, REJECT it.
 
-    SINGLE-LANE RULE: all 3 topics must sit under crypto/Bitcoin casinos for US players. The batch is NOT required to span multiple pillars; it IS required to stay in this one lane.
+    SINGLE-LANE RULE: the 1 topic must sit under crypto/Bitcoin casinos for US players. The batch is NOT required to span multiple pillars; it IS required to stay in this one lane.
 
     STEP 1: CHECK EXISTING CASINOGURUS CONTENT (casinogurus.org):
     Search and scrape casinogurus.org (the client's real site; note the .org) to identify recently published articles and topics already covered. Use queries like:
@@ -41,8 +41,8 @@ discover_daily_casino_topics:
     3c. Propose review and comparison topics from that overlap FIRST, then fill the remaining slots with how-to, safety, and US-state-legality topics.
     CAUTION: those reference lists are themselves affiliate-ranked, so they are not neutral. Use them to spot which casinos are talked about, never as proof a casino is good. Any quality claim still needs a fact-store entry downstream.
 
-    STEP 4: SELECT 3 TOPICS (all in the one lane):
-    Choose exactly 3 topics that:
+    STEP 4: SELECT 1 topic (all in the one lane):
+    Choose exactly 1 topics that:
     ✅ Pass the single topic test above
     ✅ Sit under crypto/Bitcoin casinos for US players
     ✅ Are NOT already covered on casinogurus.org (based on Step 1)
@@ -66,7 +66,7 @@ discover_daily_casino_topics:
     STEP 5: VALIDATE UNIQUENESS:
     For each proposed topic, confirm via web search that casinogurus.org has not recently published an article with that exact or near-identical focus. If unsure, choose a different topic.
   expected_output: |-
-    A JSON object with exactly 3 topic entries:
+    A JSON object with exactly 1 topic entries:
     {
       "batch_date": "YYYY-MM-DD",
       "topics": [
@@ -79,7 +79,7 @@ discover_daily_casino_topics:
           "uniqueness_confirmed": bool,
           "estimated_commercial_value": "high"|"medium"|"low"
         }
-        // ... 2 more entries
+         entries
       ],
       "pillars_covered": [str],
       "discovery_notes": str
@@ -87,11 +87,11 @@ discover_daily_casino_topics:
   agent: casino_content_topic_discovery_specialist
 keyword_research_and_competitor_analysis:
   description: |-
-    Perform Layer A research and grounding for ALL 3 topics discovered in the Discover Daily Casino Topics task.
+    Perform Layer A research and grounding for the 1 topic discovered in the Discover Daily Casino Topics task.
 
-    Read the topic discovery output and extract all 3 topics. Then for EACH topic, complete all 4 steps below sequentially. Label each output block clearly with the topic name.
+    Read the topic discovery output and extract the 1 topic. Then for EACH topic, complete all 4 steps below sequentially. Label each output block clearly with the topic name.
 
-    REPEAT THE FOLLOWING FOR EACH OF THE 3 TOPICS:
+    REPEAT THE FOLLOWING FOR EACH OF THE 1 topic:
 
     STEP 1 — KEYWORD RESEARCH
     Search the web for casino/gambling keyword opportunities related to this topic. Score each candidate keyword on all seven dimensions:
@@ -126,7 +126,7 @@ keyword_research_and_competitor_analysis:
     STEP 4 — FACT STORE
     Assemble the per-article Fact Store: source-tagged, confidence-labelled verified facts only. Each entry: fact text, source URL, confidence label (verified/inferred/unverified). Bonus figures, licensing, payout speed, and legality go in ONLY if traced to a primary source; otherwise flag for human check.
   expected_output: |-
-    A JSON array containing exactly 3 research objects — one per topic:
+    A JSON array containing exactly 1 research objects — one per topic:
     [
       {
         "topic": str,
@@ -153,23 +153,23 @@ keyword_research_and_competitor_analysis:
           "facts": [{"fact": str, "source_url": str, "confidence": "verified"|"inferred"|"unverified", "flag_for_human": bool}]
         }
       },
-      // ... 2 more topic objects
+       topic objects
     ]
   agent: casino_seo_research_grounding_specialist
   context:
   - discover_daily_casino_topics
 draft_casino_article:
   description: |-
-    Write full casino article drafts for ALL 3 topics from the research task.
+    Write full casino article drafts for the 1 topic from the research task.
 
-    Read the research output (array of 3 topic objects). For EACH topic, produce a complete draft using its SEO_BRIEF and FACT_STORE.
+    Read the research output (array of 1 topic object). For EACH topic, produce a complete draft using its SEO_BRIEF and FACT_STORE.
 
     VOICE STORE (tone/style only — no facts):
     {voice_store}
 
     PROCESS EACH TOPIC SEQUENTIALLY. Label each draft output with its topic.
 
-    FOR EACH OF THE 3 TOPICS, apply ALL rules below:
+    FOR EACH OF THE 1 topic, apply ALL rules below:
 
     **OUTPUT LENGTH — HARD FLOOR AND TARGET PER ARTICLE (editable values):**
     - HARD FLOOR: 1,200 words of body copy. A draft below this will be REJECTED by the quality gate and sent back for expansion. Count before finalising.
@@ -235,7 +235,7 @@ draft_casino_article:
 
     If {revision_feedback} is provided, address ONLY the specific failures listed for the relevant article.
   expected_output: |-
-    A JSON array containing exactly 3 complete draft objects — one per topic:
+    A JSON array containing exactly 1 complete draft objects — one per topic:
     [
       {
         "topic": str,
@@ -254,18 +254,18 @@ draft_casino_article:
           "verification_flags": [{"flag": str, "location_in_draft": str}]
         }
       },
-      // ... 2 more topic draft objects
+       topic draft objects
     ]
   agent: casinogurus_grounded_article_drafter
   context:
   - keyword_research_and_competitor_analysis
 compliance_gate_check:
   description: |-
-    Run the compliance mandate gate on ALL 3 draft articles from the Draft Casino Article task.
+    Run the compliance mandate gate on the 1 draft articles from the Draft Casino Article task.
 
-    Read the draft array (3 topic objects). For EACH draft, run the full compliance check independently. Label each scorecard with its topic.
+    Read the draft array (1 topic object). For EACH draft, run the full compliance check independently. Label each scorecard with its topic.
 
-    FOR EACH OF THE 3 DRAFTS, apply these checks:
+    FOR THE 1 DRAFT, apply these checks:
 
     **BONUS ACCURACY — MANDATORY PRE-CHECK BEFORE ANY FAIL:**
     Before writing FAIL for any sentence, copy the COMPLETE sentence verbatim. Check: does it contain "[VERIFICATION_FLAG"?
@@ -298,7 +298,7 @@ compliance_gate_check:
     overall_verdict = "PASS" if blocking_failures[] is empty.
     overall_verdict = "FAIL" only if blocking_failures[] contains at least one High-severity item.
   expected_output: |-
-    A JSON array containing exactly 3 compliance scorecards — one per topic:
+    A JSON array containing exactly 1 compliance scorecards — one per topic:
     [
       {
         "topic": str,
@@ -309,7 +309,7 @@ compliance_gate_check:
           "revision_instructions": []
         }
       },
-      // ... 2 more
+      
     ]
   agent: casino_content_compliance_mandate_checker
   async_execution: true
@@ -317,15 +317,15 @@ compliance_gate_check:
   - draft_casino_article
 seo_and_quality_gate_check:
   description: |-
-    Run the SEO and quality gate on ALL 3 draft articles from the Draft Casino Article task.
+    Run the SEO and quality gate on the 1 draft articles from the Draft Casino Article task.
 
-    Read the draft array (3 topic objects). For EACH draft, run the full SEO quality check independently. Label each scorecard with its topic.
+    Read the draft array (1 topic object). For EACH draft, run the full SEO quality check independently. Label each scorecard with its topic.
 
     **AUTOMATIC-FAIL PRE-CHECKS — run BEFORE scoring the six dimensions. If either fails, overall_verdict = "FAIL" for that draft regardless of dimension scores (record the reason in revision_instructions). These do not alter the compliance gate; they apply to this SEO/quality gate only.**
     1. DASH CHECK: search every output field (body_html, seo_title, meta_description, excerpt, tags, featured_image_prompt, responsible_gambling_note, etc.) for the em-dash character (—) or the en-dash character (–). ANY occurrence = automatic FAIL. revision_instructions must list each offending sentence and instruct a rewrite using a period, comma, colon, or parentheses.
     2. WORD-COUNT FLOOR (editable value: 1200): count the words of body copy in body_html (exclude HTML tags). Below 1,200 words = automatic FAIL: reject and send back for expansion, do NOT pass. revision_instructions must say the draft is under the 1,200-word floor and require expansion that adds genuine value (more first-hand detail, real comparison, fuller FAQ), never filler or repetition. Target range (editable): 1,200 to 1,800 words for review/comparison pages; how-to and single-state legality pages may sit at the lower end but never below the floor.
 
-    FOR EACH OF THE 3 DRAFTS (that pass the pre-checks), score each dimension 1–10. PASS = score ≥ 7. FAIL = score < 7.
+    FOR THE 1 DRAFT (that pass the pre-checks), score each dimension 1–10. PASS = score ≥ 7. FAIL = score < 7.
 
     **1. SEARCH-INTENT MATCH**
     PASS if the draft answers the reader's stated query and covers types, claiming process, and key terms.
@@ -354,7 +354,7 @@ seo_and_quality_gate_check:
     - Fewer than 6 → score 5, verdict FAIL
     Also check: all outline sections present, no orphaned headings, Conclusion is the last section after FAQs.
   expected_output: |-
-    A JSON array containing exactly 3 SEO scorecards — one per topic:
+    A JSON array containing exactly 1 SEO scorecards — one per topic:
     [
       {
         "topic": str,
@@ -367,7 +367,7 @@ seo_and_quality_gate_check:
           "revision_instructions": str
         }
       },
-      // ... 2 more
+      
     ]
   agent: casino_content_seo_quality_checker
   async_execution: true
@@ -375,16 +375,16 @@ seo_and_quality_gate_check:
   - draft_casino_article
 assemble_draft_package_for_review_queue:
   description: |-
-    Assemble 3 complete Draft Packages for today's batch and prepare them for the review queue.
+    Assemble 1 complete draft Packages for today's batch and prepare them for the review queue.
 
     Read the outputs from:
-    - Draft Casino Article task (3 drafts)
-    - Compliance Gate Check task (3 compliance scorecards)
-    - SEO and Quality Gate Check task (3 SEO scorecards)
+    - Draft Casino Article task (1 draft)
+    - Compliance Gate Check task (1 compliance scorecard)
+    - SEO and Quality Gate Check task (1 SEO scorecard)
 
-    Match each draft with its corresponding compliance and SEO scorecards by topic name. Then for EACH of the 3 topics, run the following checks and produce a complete Draft Package JSON.
+    Match each draft with its corresponding compliance and SEO scorecards by topic name. Then for EACH of the 1 topic, run the following checks and produce a complete Draft Package JSON.
 
-    **FOR EACH OF THE 3 TOPICS:**
+    **FOR EACH OF THE 1 topic:**
 
     **COMPLETENESS PRE-CHECK — run before setting review_status:**
     Verify the draft contains ALL required fields with non-empty, non-placeholder values:
@@ -423,10 +423,10 @@ assemble_draft_package_for_review_queue:
 
     HARD STOP: This task NEVER publishes. NEVER writes to WordPress. Output is Draft Package JSON only.
   expected_output: |-
-    A JSON object containing a batch of 3 Draft Packages:
+    A JSON object containing a batch of 1 Draft Package:
     {
       "batch_date": "YYYY-MM-DD",
-      "total_packages": 3,
+      "total_packages": 1,
       "ready_for_review_count": int,
       "needs_review_count": int,
       "packages": [
@@ -445,7 +445,7 @@ assemble_draft_package_for_review_queue:
           "verification_flags": [str],
           "reviewer_notes": str
         },
-        // ... 2 more packages
+         packages
       ]
     }
   agent: casino_seo_research_grounding_specialist

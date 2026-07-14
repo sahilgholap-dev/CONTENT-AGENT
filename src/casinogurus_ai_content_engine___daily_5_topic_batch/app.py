@@ -30,6 +30,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import zipfile
 from contextlib import asynccontextmanager
 
@@ -274,14 +275,30 @@ def run_agent():
     cmd = [sys.executable, "-u", "-m", f"{PACKAGE}.main", "run"]
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
     try:
         process = subprocess.Popen(
-            cmd, cwd=_PROJECT_ROOT, stdout=log_file, stderr=subprocess.STDOUT, env=env
+            cmd, cwd=_PROJECT_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, text=True, encoding="utf-8", errors="replace"
         )
+        def stream_output(p, f):
+            try:
+                for line in iter(p.stdout.readline, ""):
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                    f.write(line)
+                    f.flush()
+            except Exception as e:
+                print(f"Error streaming logs: {e}")
+            finally:
+                f.close()
+                p.stdout.close()
+        
+        threading.Thread(target=stream_output, args=(process, log_file), daemon=True).start()
     except Exception as e:
         log_file.close()
         raise HTTPException(status_code=500, detail=str(e))
+    
     _run_state.update(process=process, log_file=log_file)
     return {"status": "started", "message": "Agent execution started in background."}
 

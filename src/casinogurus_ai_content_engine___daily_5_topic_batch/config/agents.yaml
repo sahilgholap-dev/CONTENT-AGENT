@@ -85,7 +85,7 @@ casino_content_seo_quality_checker:
     dimension with actionable notes for failures.'
 casino_content_topic_discovery_specialist:
   role: US Crypto-Casino Player Search Intent Specialist
-  goal: 'Discover 5 unique casino content topics every day by modeling what a US
+  goal: 'Discover exactly 1 unique casino content topic every day by modeling what a US
     crypto-casino player searches for when choosing where and how to play. Every
     topic must sit in the one CasinoGurus lane (crypto/Bitcoin casinos for US players),
     pass the single topic test ("Would a US player deciding where to gamble with

@@ -34,13 +34,13 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             max_reasoning_attempts=None,
             inject_date=True,
             allow_delegation=False,
-            max_iter=25,
+            max_iter=8,
             max_rpm=None,
 
 
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-sonnet-5",
+                model="anthropic/claude-haiku-4-5",
                 is_litellm=True,
 
             ),
@@ -62,12 +62,14 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             max_reasoning_attempts=None,
             inject_date=True,
             allow_delegation=False,
-            max_iter=25,
+            max_iter=8,
             max_rpm=None,
 
 
             max_execution_time=None,
             llm=LLM(
+                # Only the drafter runs on Sonnet 5 (higher draft quality); every
+                # other agent + the manager stay on Haiku 4.5 for cost.
                 model="anthropic/claude-sonnet-5",
                 is_litellm=True,
 
@@ -90,7 +92,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             max_reasoning_attempts=None,
             inject_date=True,
             allow_delegation=False,
-            max_iter=25,
+            max_iter=8,
             max_rpm=None,
 
 
@@ -118,7 +120,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             max_reasoning_attempts=None,
             inject_date=True,
             allow_delegation=False,
-            max_iter=25,
+            max_iter=8,
             max_rpm=None,
 
 
@@ -146,13 +148,13 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             max_reasoning_attempts=None,
             inject_date=True,
             allow_delegation=False,
-            max_iter=25,
+            max_iter=8,
             max_rpm=None,
             
             
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-sonnet-5",
+                model="anthropic/claude-haiku-4-5",
                 is_litellm=True,
 
             ),
