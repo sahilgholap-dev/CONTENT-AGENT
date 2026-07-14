@@ -43,7 +43,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-3-5-sonnet-20241022"
+                model="anthropic/claude-sonnet-5"
             ),
             
         )
@@ -71,7 +71,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             llm=LLM(
                 # Only the drafter runs on Sonnet 5 (higher draft quality); every
                 # other agent + the manager stay on Haiku 4.5 for cost.
-                model="anthropic/claude-3-5-sonnet-20241022"
+                model="anthropic/claude-sonnet-5"
             ),
             
         )
