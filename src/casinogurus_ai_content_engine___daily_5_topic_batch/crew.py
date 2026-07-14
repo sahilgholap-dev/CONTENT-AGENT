@@ -11,9 +11,6 @@ from crewai_tools import (
 
 
 
-
-
-
 @CrewBase
 class CasinogurusAiContentEngineDaily5TopicBatchCrew:
     """CasinogurusAiContentEngineDaily5TopicBatch crew"""
@@ -40,9 +37,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-haiku-4-5",
-                is_litellm=True,
-
+                model="anthropic/claude-haiku-4-5"
             ),
             
         )
@@ -70,9 +65,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             llm=LLM(
                 # Only the drafter runs on Sonnet 5 (higher draft quality); every
                 # other agent + the manager stay on Haiku 4.5 for cost.
-                model="anthropic/claude-sonnet-5",
-                is_litellm=True,
-
+                model="anthropic/claude-sonnet-5"
             ),
             
         )
@@ -98,9 +91,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-haiku-4-5",
-                is_litellm=True,
-
+                model="anthropic/claude-haiku-4-5"
             ),
             
         )
@@ -126,9 +117,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
 
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-haiku-4-5",
-                is_litellm=True,
-
+                model="anthropic/claude-haiku-4-5"
             ),
             
         )
@@ -154,9 +143,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             
             max_execution_time=None,
             llm=LLM(
-                model="anthropic/claude-haiku-4-5",
-                is_litellm=True,
-
+                model="anthropic/claude-haiku-4-5"
             ),
             
         )
@@ -232,7 +219,7 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             # (Railway caps at 500 lines/sec) and bloats context. Keep it off.
             verbose=False,
 
-            chat_llm=LLM(model="anthropic/claude-haiku-4-5", is_litellm=True),
+            chat_llm=LLM(model="anthropic/claude-haiku-4-5"),
         )
 
 
