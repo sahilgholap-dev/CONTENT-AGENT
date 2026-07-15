@@ -4,7 +4,26 @@ import sys
 from datetime import datetime, timezone
 
 from casinogurus_ai_content_engine___daily_5_topic_batch.crew import CasinogurusAiContentEngineDaily5TopicBatchCrew
-from casinogurus_ai_content_engine___daily_5_topic_batch.storage import init_schema, save_batch
+from casinogurus_ai_content_engine___daily_5_topic_batch.storage import _PROJECT_ROOT, init_schema, save_batch
+
+
+def _dump_raw_output(result) -> str | None:
+    """Write the crew's raw output to runs/ as a safety net so a save/parse
+    failure is recoverable (re-ingest with `python -m ...storage ingest <file>`)
+    without re-running the crew. Never raises."""
+    try:
+        raw = getattr(result, "raw", None) or str(result)
+        runs_dir = os.path.join(_PROJECT_ROOT, "runs")
+        os.makedirs(runs_dir, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        path = os.path.join(runs_dir, f"crew_output_{stamp}.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(raw)
+        print(f"[storage] Raw crew output saved to {path}")
+        return path
+    except Exception as e:
+        print(f"[storage] WARNING: could not write raw output dump: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +91,9 @@ def run():
     }
     result = CasinogurusAiContentEngineDaily5TopicBatchCrew().crew().kickoff(inputs=inputs)
 
+    # Always dump the raw output first, so a save failure never loses the run.
+    _dump_raw_output(result)
+
     # Persist the final batch output to Postgres for the review queue / history.
     try:
         init_schema()  # no-op if the schema already exists
@@ -82,6 +104,8 @@ def run():
         _generate_images(batch_id)
     except Exception as e:  # never let persistence failure mask the crew result
         print(f"\n[storage] WARNING: could not save batch to Postgres: {e}")
+        print("[storage] The raw output was dumped to runs/; re-ingest it with:")
+        print("[storage]   python -m casinogurus_ai_content_engine___daily_5_topic_batch.storage ingest <file>")
 
     return result
 

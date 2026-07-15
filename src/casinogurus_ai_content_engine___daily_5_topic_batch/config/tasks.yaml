@@ -171,9 +171,9 @@ draft_casino_article:
 
     **OUTPUT LENGTH — HARD FLOOR AND TARGET PER ARTICLE (editable values):**
     - HARD FLOOR: 1,200 words of body copy. A draft below this will be REJECTED by the quality gate and sent back for expansion. Count before finalising.
-    - TARGET RANGE: 1,200 to 1,800 words for review and comparison pages. How-to guides and single-state legality pages may sit at the lower end of the range (but never below the 1,200 floor).
+    - TARGET RANGE: 1,200 to 1,500 words for review and comparison pages. How-to guides and single-state legality pages may sit at the lower end of the range (but never below the 1,200 floor).
     - Expansion must add genuine value: more first-hand detail, a real comparison, a fuller FAQ. NEVER pad with filler or repetition.
-    - If near the 1,800 upper end, trim body paragraphs; never cut FAQ or Conclusion.
+    - If near the 1,500 upper end, trim body paragraphs; never cut FAQ or Conclusion.
 
     **CONTENT TYPE — classify FIRST, then pick the matching skeleton:**
     Before writing, classify the topic into ONE content type using its pillar, search intent, and topic shape from the research output:
@@ -320,7 +320,7 @@ seo_and_quality_gate_check:
 
     **AUTOMATIC-FAIL PRE-CHECKS — run BEFORE scoring the six dimensions. If either fails, overall_verdict = "FAIL" for that draft regardless of dimension scores (record the reason in revision_instructions). These do not alter the compliance gate; they apply to this SEO/quality gate only.**
     1. DASH CHECK: search every output field (body_html, seo_title, meta_description, excerpt, tags, featured_image_prompt, responsible_gambling_note, etc.) for the em-dash character (—) or the en-dash character (–). ANY occurrence = automatic FAIL. revision_instructions must list each offending sentence and instruct a rewrite using a period, comma, colon, or parentheses.
-    2. WORD-COUNT FLOOR (editable value: 1200): count the words of body copy in body_html (exclude HTML tags). Below 1,200 words = automatic FAIL: reject and send back for expansion, do NOT pass. revision_instructions must say the draft is under the 1,200-word floor and require expansion that adds genuine value (more first-hand detail, real comparison, fuller FAQ), never filler or repetition. Target range (editable): 1,200 to 1,800 words for review/comparison pages; how-to and single-state legality pages may sit at the lower end but never below the floor.
+    2. WORD-COUNT FLOOR (editable value: 1200): count the words of body copy in body_html (exclude HTML tags). Below 1,200 words = automatic FAIL: reject and send back for expansion, do NOT pass. revision_instructions must say the draft is under the 1,200-word floor and require expansion that adds genuine value (more first-hand detail, real comparison, fuller FAQ), never filler or repetition. Target range (editable): 1,200 to 1,500 words for review/comparison pages; how-to and single-state legality pages may sit at the lower end but never below the floor.
 
     FOR THE 1 DRAFT (that pass the pre-checks), score each dimension 1–10. PASS = score ≥ 7. FAIL = score < 7.
 

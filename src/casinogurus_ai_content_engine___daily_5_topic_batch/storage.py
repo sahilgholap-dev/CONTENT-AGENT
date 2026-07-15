@@ -31,6 +31,7 @@ Usage
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -86,28 +87,91 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _extract_json_span(text: str) -> str | None:
+    """Return the substring from the first opening bracket to its matching close.
+
+    Handles LLM output that wraps the JSON in prose ("Here is the batch: {...}")
+    by scanning for balanced brackets (ignoring braces inside string literals).
+    Returns None if no balanced object/array is found.
+    """
+    start = None
+    for i, ch in enumerate(text):
+        if ch in "{[":
+            start = i
+            break
+    if start is None:
+        return None
+
+    open_ch = text[start]
+    close_ch = "}" if open_ch == "{" else "]"
+    depth = 0
+    in_str = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == open_ch:
+            depth += 1
+        elif ch == close_ch:
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None  # unbalanced (e.g. truncated output)
+
+
+def _loads_lenient(text: str) -> Any:
+    """Parse JSON that may be wrapped in markdown fences or surrounding prose."""
+    text = text.strip()
+    # 1) Straight parse.
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # 2) Content inside a ```json ... ``` (or bare ``` ... ```) fence, anywhere.
+    fence = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
+    if fence:
+        inner = fence.group(1).strip()
+        try:
+            return json.loads(inner)
+        except json.JSONDecodeError:
+            text = inner  # fall through to bracket extraction on the fenced body
+    # 3) Balanced {...} / [...] span, ignoring any leading/trailing prose.
+    span = _extract_json_span(text)
+    if span is not None:
+        return json.loads(span)
+    # Let the caller see a clear error (raises JSONDecodeError).
+    return json.loads(text)
+
+
 def _coerce_batch(batch: Any) -> dict:
     """Accept a dict, a JSON string, or a CrewOutput-like object; return a dict batch."""
     if isinstance(batch, str):
-        return json.loads(batch)
+        return _loads_lenient(batch)
     if isinstance(batch, dict):
         return batch
-    # CrewOutput duck-typing
+    # CrewOutput duck-typing: prefer a structured dict when CrewAI parsed one.
+    # to_dict() can itself raise (it json.loads() the raw output internally), so
+    # guard each access and fall through to lenient raw parsing on failure.
     for attr in ("json_dict", "to_dict"):
-        val = getattr(batch, attr, None)
-        val = val() if callable(val) else val
-        if isinstance(val, dict) and val:
+        try:
+            val = getattr(batch, attr, None)
+            val = val() if callable(val) else val
+        except Exception:
+            continue
+        if isinstance(val, dict) and val and "packages" in val:
             return val
     raw = getattr(batch, "raw", None)
-    if isinstance(raw, str):
-        raw = raw.strip()
-        if raw.startswith("```json"):
-            raw = raw[7:]
-        elif raw.startswith("```"):
-            raw = raw[3:]
-        if raw.endswith("```"):
-            raw = raw[:-3]
-        return json.loads(raw.strip())
+    if isinstance(raw, str) and raw.strip():
+        return _loads_lenient(raw)
     raise TypeError(f"Cannot interpret batch of type {type(batch)!r} as a batch dict.")
 
 
