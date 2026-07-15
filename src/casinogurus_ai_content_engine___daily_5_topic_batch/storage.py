@@ -145,11 +145,13 @@ def _loads_lenient(text: str) -> Any:
         except json.JSONDecodeError:
             text = inner  # fall through to bracket extraction on the fenced body
     # 3) Balanced {...} / [...] span, ignoring any leading/trailing prose.
+    # NOTE: we deliberately do NOT "repair" malformed JSON here. The crew's final
+    # task uses output_pydantic (see crew.py / models.Batch), so CrewAI produces
+    # valid JSON via tool-calling. If parsing still fails, we raise loudly rather
+    # than silently saving corrupted content; the raw output is kept in runs/.
     span = _extract_json_span(text)
-    if span is not None:
-        return json.loads(span)
-    # Let the caller see a clear error (raises JSONDecodeError).
-    return json.loads(text)
+    target = span if span is not None else text
+    return json.loads(target)
 
 
 def _coerce_batch(batch: Any) -> dict:
@@ -158,6 +160,15 @@ def _coerce_batch(batch: Any) -> dict:
         return _loads_lenient(batch)
     if isinstance(batch, dict):
         return batch
+    # CrewOutput with output_pydantic set: use the validated model directly.
+    pyd = getattr(batch, "pydantic", None)
+    if pyd is not None and hasattr(pyd, "model_dump"):
+        try:
+            val = pyd.model_dump()
+            if isinstance(val, dict) and "packages" in val:
+                return val
+        except Exception:
+            pass
     # CrewOutput duck-typing: prefer a structured dict when CrewAI parsed one.
     # to_dict() can itself raise (it json.loads() the raw output internally), so
     # guard each access and fall through to lenient raw parsing on failure.

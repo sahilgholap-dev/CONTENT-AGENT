@@ -206,9 +206,10 @@ draft_casino_article:
     - Wherever a FACT_STORE entry supports it, include concrete first-hand testing detail: the actual coin and amount deposited, the observed withdrawal time in minutes, what the cashier flow felt like, a specific game played, what was good and what was annoying. Generic sentences that anyone could write (e.g. "KYC and AML rules apply to all licensed casinos") signal no expertise; replace them with specifics whenever the facts allow.
     - NEVER leave working placeholders in reader-facing text: no literal "[source]", no citation markers, no internal notes inside body_html. Source attribution lives ONLY in source_notes; flags live ONLY as [VERIFICATION_FLAG: ...] per the flag rule; everything else internal stays out of the body.
 
-    **MANDATORY SELF-SCANS per article — before finalising (both scans, not optional):**
+    **MANDATORY SELF-SCANS per article — before finalising (all three scans, not optional):**
     1. BANNED-PHRASE SCAN: scan ALL text fields and heading tags for: "risk-free", "risk free", "riskfree", "without risking", "risking your money". Replace every instance with "without using your own funds".
     2. DASH SCAN (HARD RULE): the em-dash character (—) and the en-dash character (–) must NOT appear in ANY output field: not in body_html, not in seo_title, meta_description, excerpt, tags, featured_image_prompt, responsible_gambling_note, or anywhere else. Rewrite any sentence that would use one, using a period, comma, colon, or parentheses instead. The quality gate treats any em-dash or en-dash as an automatic FAIL.
+    3. QUOTE-SAFETY SCAN (HARD RULE): your entire response must be one valid JSON array. Inside body_html and EVERY other string field, NEVER use a raw double-quote character ("). When visible text needs quotation marks (e.g. a button label or a quoted phrase), use single quotes (') or the HTML entity &quot; instead. A single raw double quote inside a JSON string breaks the whole JSON and the draft is rejected. Also produce no trailing commas, and make sure every string and bracket is properly closed.
 
     **NO FABRICATED DATA — ABSOLUTE RULE:**
     NEVER invent fake casino names (Casino A, Casino B, etc.) or per-operator figures not in the FACT_STORE.

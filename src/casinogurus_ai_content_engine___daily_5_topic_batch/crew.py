@@ -9,6 +9,7 @@ from casinogurus_ai_content_engine___daily_5_topic_batch.tools.custom_tool impor
     BoundedExaSearchTool,
     BoundedScrapeWebsiteTool,
 )
+from casinogurus_ai_content_engine___daily_5_topic_batch.models import Batch
 from casinogurus_ai_content_engine___daily_5_topic_batch import patches as _patches
 
 # Fixes CrewAI's max-iteration fallback so it doesn't send an assistant-terminated
@@ -197,6 +198,10 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
         return Task(
             config=self.tasks_config["assemble_draft_package_for_review_queue"],
             markdown=False,
+            # Force the saved output through a validated schema. CrewAI coerces the
+            # agent's answer into Batch via tool-calling, so the final JSON is always
+            # valid even when body_html contains unescaped-looking HTML quotes.
+            output_pydantic=Batch,
         )
 
     @crew

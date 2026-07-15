@@ -17,6 +17,7 @@ patterns like ``row["id"]`` and ``dict(row)`` keep working unchanged.
 
 from __future__ import annotations
 
+import atexit
 import os
 from contextlib import contextmanager
 from typing import Iterator
@@ -78,6 +79,10 @@ def get_pool():
             kwargs={"row_factory": dict_row, "prepare_threshold": None},
             open=True,
         )
+        # Close the pool cleanly on interpreter exit. Without this, the pool's
+        # background worker threads are force-killed on shutdown and psycopg logs
+        # "couldn't stop thread 'pool-1-worker-N' within 5.0 seconds" warnings.
+        atexit.register(close_pool)
     return _pool
 
 

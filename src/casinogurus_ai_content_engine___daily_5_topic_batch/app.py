@@ -356,7 +356,20 @@ async def lifespan(app: FastAPI):
 
 def _cors_origins() -> list[str]:
     raw = os.environ.get("FRONTEND_ORIGIN", "*")
-    return [o.strip() for o in raw.split(",") if o.strip()] or ["*"]
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    if not origins:
+        origins = ["*"]
+    
+    # Always allow these origins just in case environment variables aren't updated
+    safe_defaults = [
+        "https://content-agent-bice.vercel.app",
+        "http://localhost:3000",
+    ]
+    for d in safe_defaults:
+        if d not in origins:
+            origins.append(d)
+            
+    return origins
 
 
 app = FastAPI(title="CasinoGurus Content Engine API", lifespan=lifespan)
