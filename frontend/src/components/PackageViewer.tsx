@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import FeedbackBar from "./FeedbackBar";
 
 const TABS = [
   { id: "draft", label: "Draft" },
@@ -55,6 +56,7 @@ export default function PackageViewer({ pkg }: { pkg: Record<string, any> }) {
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
+      <FeedbackBar key={(pkg.package_id as string) || "none"} pkg={pkg} />
       <div className="flex flex-wrap gap-2 mb-6">
         {TABS.map((tab) => {
           if (

@@ -50,9 +50,21 @@ export default function BatchViewer({ batchId }: { batchId: number }) {
       <div className="shrink-0 p-6 border-b border-gray-800 bg-gray-900/40 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-white mb-1">
-              Batch #{batch.id as number}
-            </h2>
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-2xl font-bold text-white">
+                Batch #{batch.id as number}
+              </h2>
+              {batch.client_id && (
+                <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
+                  {batch.client_id as string}
+                </span>
+              )}
+              {batch.format && (
+                <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">
+                  {batch.format as string}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-400">
               {batch.batch_date as string} • {(batch.packages as any[])?.length || 0} packages ({(batch.ready_for_review_count as number) || 0} ready, {(batch.needs_review_count as number) || 0} needs review)
             </p>

@@ -1,0 +1,20 @@
+A JSON array containing exactly 1 complete draft object:
+[
+  {
+    "topic": str,
+    "draft": {
+      "body_html": str,
+      "seo_title": str,
+      "meta_description": str,
+      "slug": str,
+      "category": str,
+      "tags": [str],
+      "excerpt": str,
+      "featured_image_prompt": str,  // Must include alt='description'
+      "responsible_gambling_note": str,
+      "internal_links": [{"anchor": str, "target_url": str}],
+      "source_notes": [{"claim": str, "fact_store_entry": str, "source_url": str, "confidence": str}],
+      "verification_flags": [{"flag": str, "location_in_draft": str}]
+    }
+  }
+]

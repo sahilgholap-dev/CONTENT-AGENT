@@ -1,0 +1,28 @@
+A JSON array containing exactly 1 research object:
+[
+  {
+    "topic": str,
+    "pillar": str,
+    "SEO_BRIEF": {
+      "primary_keyword": str,
+      "secondary_keywords": [str],
+      "search_intent": str,
+      "reader_persona": str,
+      "outline": [{"h2": str, "h3s": [str]}],
+      "word_count_target": int,
+      "title_options": [str],
+      "meta_description_options": [str],
+      "faq_set": [{"question": str, "answer_angle": str}],
+      "internal_link_candidates": [{"anchor": str, "target_url": str}],
+      "schema_recommendation": str,
+      "compliance_checklist": [{"item": str, "required": bool}],
+      "competitor_gaps": [str],
+      "keyword_scores": {"relevance": str, "volume_signal": str, "difficulty_signal": str, "search_intent": str, "business_value": str, "seasonality": str, "compliance_risk": str},
+      "selection_rationale": str
+    },
+    "FACT_STORE": {
+      "topic": str,
+      "facts": [{"fact": str, "source_url": str, "confidence": "verified"|"inferred"|"unverified", "flag_for_human": bool}]
+    }
+  }
+]

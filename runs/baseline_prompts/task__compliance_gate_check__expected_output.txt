@@ -1,0 +1,13 @@
+A JSON array containing exactly 1 compliance scorecard:
+[
+  {
+    "topic": str,
+    "compliance_scorecard": {
+      "overall_verdict": "PASS"|"FAIL",
+      "checks": [...],
+      "blocking_failures": [],
+      "revision_instructions": []
+    }
+  },
+  
+]

@@ -1,0 +1,82 @@
+Discover exactly 1 unique casino content topic for today's content production batch. Determine today's date, month, and year automatically; do not rely on any input variable for this.
+
+VOICE & BRAND CONTEXT:
+WHO WE ARE:
+- Site: casinogurus.org, a WordPress affiliate casino-review site. Note the .org domain. Do NOT confuse with casinoguru.com or casinogurus.com, which belong to a different, much larger company. Their content is never ours.
+- Business model: we earn affiliate commission when a reader signs up at a casino through our /go/ redirect links.
+- Current situation: recovering from a Google penalty (December 2025 core update targeting low-trust YMYL/gambling content). The recovery strategy is to focus on one lane and build trust, not to publish more scattered content.
+
+THE ONE LANE (every topic must serve this):
+CasinoGurus is the trusted place for crypto / Bitcoin casino reviews for a US audience.
+
+PRIMARY AUDIENCE:
+US-based players choosing where to gamble with crypto. The US is the only audience with real commercial value for this site.
+
+VOICE:
+Expert, clear, plain-language, safety-first, non-hype. Never sensationalist. Always includes responsible-gambling framing. Writes like a real person who has actually tested the casinos, not like an encyclopedia or a compliance manual.
+
+WHAT CASINOGURUS IS NOT (treat these as out of scope):
+- Not a general iGaming site covering poker, sports betting, or slots-in-general.
+- Not a trade or industry news publication. No "market", "operators", or "regulatory regime" topics.
+- Not a B2B or operator-facing site.
+- Not focused on any country other than the US.
+
+THE SINGLE TOPIC TEST (acceptance gate; apply to every candidate topic):
+"Would a US player who is deciding where to gamble with crypto actually type this into Google?"
+- If yes, it is a candidate topic.
+- If it is something an operator, regulator, investor, or industry analyst would read, REJECT it.
+
+SINGLE-LANE RULE: the 1 topic must sit under crypto/Bitcoin casinos for US players. The batch is NOT required to span multiple pillars; it IS required to stay in this one lane.
+
+STEP 1: CHECK EXISTING CASINOGURUS CONTENT (casinogurus.org):
+Search and scrape casinogurus.org (the client's real site; note the .org) to identify recently published articles and topics already covered. Use queries like:
+- site:casinogurus.org bitcoin casino
+- site:casinogurus.org crypto casino review
+- site:casinogurus.org casino withdrawal
+- site:casinogurus.org casino bonus
+Record all recently found topics/titles to avoid duplication.
+NAMESAKE WARNING: casinoguru.com / casinogurus.com is a different, much larger company. NEVER treat their pages as ours; the duplicate check must read casinogurus.org only.
+
+STEP 2: MINE US PLAYER SEARCH INTENT:
+Search the web the way a US crypto-casino player would. Seed queries:
+- "best bitcoin casino usa"
+- "fastest payout crypto casino"
+- "no kyc crypto casino"
+- "is [casino] legit"
+- "crypto casino withdrawal time"
+- "is crypto gambling legal in [US state]"
+Also mine Google "People Also Ask" boxes and Reddit crypto-gambling threads for the questions real players are asking right now. Use player forums as research input only, never as sources to cite.
+
+STEP 3: FIND THE HOT US CRYPTO CASINOS (do these three sub-steps in order):
+3a. Pull the current top-ranking crypto-casino pages and extract which casino names recur across them. Reference pages to mine (live, each run):
+    tokenist.com/crypto-casinos | cardplayer.com/online-casinos/best-bitcoin-casinos | esportsinsider.com/crypto/bitcoin-casinos | cryptomaniaks.com/gambling/crypto-casinos/best-casinos | gamingamerica.com/online-casinos/crypto | webopedia.com/crypto-gambling/casinos | coinspeaker.com/bitcoin-casinos
+    (CRITICAL: Do NOT use ScrapeWebsiteTool to scrape all these URLs at once, or you will exceed your 200,000 token limit and crash. Instead, use ExaSearchTool to search for these domains and read their snippets, or scrape ONLY 1 or 2 of them max.)
+    The recurring names are what US players are currently searching and reading about. Regenerate this list from the live pages every run; NEVER rely on a remembered or hard-coded list of "hot" casinos.
+3b. Cross-reference the recurring names against the casinos CasinoGurus can monetise. The affiliate partners (the only fixed list) are: PlayAmo, FortuneJack, El Royale, Slots Empire, BitStarz, Red Dog Casino. A casino that is both widely discussed and a partner is a high-value topic.
+3c. Propose review and comparison topics from that overlap FIRST, then fill the remaining slots with how-to, safety, and US-state-legality topics.
+CAUTION: those reference lists are themselves affiliate-ranked, so they are not neutral. Use them to spot which casinos are talked about, never as proof a casino is good. Any quality claim still needs a fact-store entry downstream.
+
+STEP 4: SELECT 1 topic (all in the one lane):
+Choose exactly 1 topic that:
+✅ Pass the single topic test above
+✅ Sit under crypto/Bitcoin casinos for US players
+✅ Are NOT already covered on casinogurus.org (based on Step 1)
+✅ Have commercial/affiliate value or evergreen US player search demand
+✅ Match one of these allowed topic shapes:
+   A. Comparison/ranking: best Bitcoin casinos for US players, fastest-payout crypto casinos, best no-KYC crypto casinos, coin-specific picks (USDT/Ethereum/Litecoin), best crypto welcome bonuses and how the terms really work
+   B. Individual casino review: "[Casino] review, hands-on tested", "Is [casino] legit and safe?", "[Casino] withdrawal time, what we actually experienced"
+   C. How-to guide: deposit/withdraw Bitcoin at a casino, buy crypto to gamble with, how provably-fair games work, how to read wagering requirements
+   D. Safety & trust: how to spot a rigged or unsafe crypto casino, crypto casino KYC explained
+   E. US legality by state: "Is crypto gambling legal in [specific US state]?"
+
+HARD REJECT FILTERS (apply to every candidate; rejecting is mandatory, not advisory):
+❌ US-ONLY GEO FILTER: reject any topic whose focus is a non-US country. The "regional" pillar means US states ONLY.
+❌ PLAYER-FACING AUDIENCE FILTER: reject operator/regulator/investor/B2B topics. Reject on sight any topic featuring: "operators", "market entry", "licensing regime", "regulatory regime", "compliance framework", "prediction markets", "B2B", or any non-US country name as the focus.
+❌ Generic evergreen topics with no player-intent angle
+❌ Topics already clearly covered on casinogurus.org
+❌ Anything outside the crypto/Bitcoin-casinos-for-US-players lane
+
+SCORING EMPHASIS: score candidates primarily on commercial/affiliate intent and evergreen US player search demand. Freshness/trending is a minor tie-breaker only; the site needs durable ranking content, not news that decays in a week.
+
+STEP 5: VALIDATE UNIQUENESS:
+For each proposed topic, confirm via web search that casinogurus.org has not recently published an article with that exact or near-identical focus. If unsure, choose a different topic.

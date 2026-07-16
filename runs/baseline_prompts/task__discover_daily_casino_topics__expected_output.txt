@@ -1,0 +1,17 @@
+A JSON object with exactly 1 topic entry:
+{
+  "batch_date": "YYYY-MM-DD",
+  "topics": [
+    {
+      "topic": str,
+      "primary_keyword": str,
+      "pillar": "reviews"|"bonuses"|"crypto"|"guides"|"regional",
+      "search_intent": "informational"|"commercial"|"transactional",
+      "freshness_rationale": str,
+      "uniqueness_confirmed": bool,
+      "estimated_commercial_value": "high"|"medium"|"low"
+    }
+  ],
+  "pillars_covered": [str],
+  "discovery_notes": str
+}

@@ -1,0 +1,15 @@
+A JSON array containing exactly 1 SEO scorecard:
+[
+  {
+    "topic": str,
+    "seo_quality_scorecard": {
+      "overall_verdict": "PASS"|"FAIL",
+      "overall_score": float,
+      "dimensions": [
+        {"dimension": str, "score": int, "verdict": "PASS"|"FAIL", "notes": str}
+      ],
+      "revision_instructions": str
+    }
+  },
+  
+]

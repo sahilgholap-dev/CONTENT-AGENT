@@ -1,0 +1,36 @@
+Run the SEO and quality gate on the 1 draft article from the Draft Casino Article task.
+
+Read the draft array (1 topic object). For EACH draft, run the full SEO quality check independently. Label each scorecard with its topic.
+
+**AUTOMATIC-FAIL PRE-CHECKS — run BEFORE scoring the six dimensions. If either fails, overall_verdict = "FAIL" for that draft regardless of dimension scores (record the reason in revision_instructions). These do not alter the compliance gate; they apply to this SEO/quality gate only.**
+1. DASH CHECK: search every output field (body_html, seo_title, meta_description, excerpt, tags, featured_image_prompt, responsible_gambling_note, etc.) for the em-dash character (—) or the en-dash character (–). ANY occurrence = automatic FAIL. revision_instructions must list each offending sentence and instruct a rewrite using a period, comma, colon, or parentheses.
+2. WORD-COUNT FLOOR (editable value: 1200): count the words of body copy in body_html (exclude HTML tags). Below 1,200 words = automatic FAIL: reject and send back for expansion, do NOT pass. revision_instructions must say the draft is under the 1,200-word floor and require expansion that adds genuine value (more first-hand detail, real comparison, fuller FAQ), never filler or repetition. Target range (editable): 1,200 to 1,500 words for review/comparison pages; how-to and single-state legality pages may sit at the lower end but never below the floor.
+
+FOR THE 1 DRAFT (that pass the pre-checks), score each dimension 1–10. PASS = score ≥ 7. FAIL = score < 7.
+
+**1. SEARCH-INTENT MATCH**
+PASS if the draft answers the reader's stated query and covers types, claiming process, and key terms.
+
+**2. ON-PAGE SEO**
+Check ALL of the following:
+- Primary keyword appears in seo_title → required
+- Primary keyword appears in meta_description → required
+- Primary keyword appears as a SUBSTRING (case-insensitive) in at least one <h2> tag → required
+- Structured H2/H3 hierarchy present → required
+- alt= attribute present in featured_image_prompt → required
+Score 8+ if all present. Score 6 only if keyword is genuinely absent from ALL H2 tags.
+
+**3. E-E-A-T SIGNALS**
+PASS if: source_notes with URLs present, responsible_gambling_note present, [VERIFICATION_FLAG] markers present (positive signals). FAIL only if source_notes are completely absent.
+
+**4. READABILITY**
+PASS if the writing is mostly short and scannable with varied paragraph and sentence length. A mix of short paragraphs and occasional longer explanatory ones is desirable, not a fault. FAIL only if the text is a wall of long dense paragraphs throughout, or if every paragraph is identical machine-choppy length.
+
+**5. INTERNAL LINKING**
+PASS if ≥2 internal links with natural anchors are present. HARD RULE: If ≥2 links present, score MUST be 7 or higher.
+
+**6. STRUCTURE COMPLETENESS**
+COUNT the number of <h3> tags inside the FAQ block:
+- Exactly 6 <h3> FAQ questions → score 9, verdict PASS
+- Fewer than 6 → score 5, verdict FAIL
+Also check: all outline sections present, no orphaned headings, Conclusion is the last section after FAQs.

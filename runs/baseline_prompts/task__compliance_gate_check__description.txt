@@ -1,0 +1,36 @@
+Run the compliance mandate gate on the 1 draft article from the Draft Casino Article task.
+
+Read the draft array (1 topic object). For EACH draft, run the full compliance check independently. Label each scorecard with its topic.
+
+FOR THE 1 DRAFT, apply these checks:
+
+**BONUS ACCURACY — MANDATORY PRE-CHECK BEFORE ANY FAIL:**
+Before writing FAIL for any sentence, copy the COMPLETE sentence verbatim. Check: does it contain "[VERIFICATION_FLAG"?
+- YES → MUST write PASS. Not allowed to write FAIL.
+- NO → may write FAIL.
+FAIL ONLY IF: sentence contains $X, Nx, or X% AND does NOT contain "[VERIFICATION_FLAG" anywhere.
+
+**RESPONSIBLE GAMBLING — PASS if** BeGambleAware.org or "National Gambling Helpline" appears anywhere in body_html OR responsible_gambling_note.
+
+**LEGAL AVAILABILITY — PASS if** draft says availability "varies by region/jurisdiction" or directs readers to check local laws. The mandatory boilerplate ALWAYS PASSES.
+
+**NO GUARANTEED WINS — FAIL triggers (exact phrases only):**
+- "risk-free" / "risk free" anywhere
+- "guaranteed win" / "guaranteed profit"
+- "beat the casino"
+
+**AGE / MINORS — PASS if** "18+" or "21+" or "legal gambling age" appears anywhere in body_html.
+
+**CASINO FACTS — PASS if** licensing/payout claims have a source_note OR [VERIFICATION_FLAG].
+
+**AFFILIATE DISCLOSURE — PASS if** "CasinoGurus may earn a commission" appears in body_html.
+
+**YMYL — FAIL only if** specific financial advice is presented as guaranteed fact.
+
+**DUPLICATE/CANNIBALIZATION — PASS** if no evidence of exact-intent overlap.
+
+**YEAR FRESHNESS — Informational note ONLY. NEVER affects overall_verdict. NEVER appears in blocking_failures.**
+
+**OVERALL VERDICT RULE per article:**
+overall_verdict = "PASS" if blocking_failures[] is empty.
+overall_verdict = "FAIL" only if blocking_failures[] contains at least one High-severity item.

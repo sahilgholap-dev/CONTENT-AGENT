@@ -73,6 +73,17 @@ def _cfg(config: dict) -> dict:
     return merged
 
 
+def _log_task_progress(output) -> None:
+    """Emit the progress marker the dashboard's terminal counts. Keeping the
+    emitter in-repo (instead of relying on ambient CrewAI logging) means the
+    '[AGENT_PROGRESS] Task Completed' contract is ours to maintain."""
+    try:
+        name = getattr(output, "name", None) or ""
+        print(f"[AGENT_PROGRESS] Task Completed: {name}".rstrip(": "), flush=True)
+    except Exception:
+        print("[AGENT_PROGRESS] Task Completed", flush=True)
+
+
 @CrewBase
 class CasinogurusAiContentEngineDaily5TopicBatchCrew:
     """CasinogurusAiContentEngineDaily5TopicBatch crew"""
@@ -218,4 +229,6 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             verbose=False,
             # Manager/chat is tool-less -> cheap Haiku.
             chat_llm=_haiku_llm(),
+            # Dashboard progress marker per completed task (see TerminalLogs).
+            task_callback=_log_task_progress,
         )

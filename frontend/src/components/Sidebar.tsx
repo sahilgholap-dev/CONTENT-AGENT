@@ -1,7 +1,8 @@
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TerminalLogs from "./TerminalLogs";
-import { apiFetch } from "@/lib/api";
+import RunAgentModal from "./RunAgentModal";
 import { createClient } from "@/lib/supabase/client";
 
 export default function Sidebar({
@@ -9,13 +10,24 @@ export default function Sidebar({
   selectedBatchId,
   onSelectBatch,
   loading,
+  clients,
+  formats,
+  selectedClientId,
+  onSelectClient,
+  onRunStarted,
 }: {
   batches: any[];
   selectedBatchId: number | null;
   onSelectBatch: (id: number) => void;
   loading: boolean;
+  clients: any[];
+  formats: any[];
+  selectedClientId: string | null;
+  onSelectClient: (clientId: string | null) => void;
+  onRunStarted: () => void;
 }) {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [isRunModalOpen, setIsRunModalOpen] = useState(false);
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -32,27 +44,43 @@ export default function Sidebar({
         <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
           Content Engine
         </h1>
-        <div className="flex justify-between items-center mt-2">
+
+        <div className="mt-3 flex items-center gap-2">
+          <select
+            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 outline-none transition-colors"
+            value={selectedClientId ?? "__all__"}
+            onChange={(e) => onSelectClient(e.target.value === "__all__" ? null : e.target.value)}
+          >
+            <option value="__all__">All clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.display_name}
+                {c.status !== "active" ? ` (${c.status})` : ""}
+              </option>
+            ))}
+          </select>
+          <Link
+            href="/clients"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded hover:text-gray-200 hover:border-gray-500 transition-colors"
+            title="Manage clients"
+          >
+            Clients
+          </Link>
+          <Link
+            href="/registry"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded hover:text-gray-200 hover:border-gray-500 transition-colors"
+            title="Manage content types & formats"
+          >
+            Formats
+          </Link>
+        </div>
+
+        <div className="flex justify-between items-center mt-3">
           <p className="text-xs text-gray-400 uppercase tracking-wider">
             Batch Viewer
           </p>
           <button
-            onClick={async () => {
-              if (confirm("Are you sure you want to run the Content Engine? This will generate a new batch of content and may take a few minutes.")) {
-                try {
-                  const res = await apiFetch("/api/run-agent", { method: "POST" });
-                  const data = await res.json().catch(() => ({}));
-                  // 409 => already running: still open the terminal to watch it.
-                  if (res.ok || res.status === 409) {
-                    setIsTerminalOpen(true);
-                  } else {
-                    alert("Error starting agent: " + (data.detail || data.error || "Unknown error"));
-                  }
-                } catch (e: any) {
-                  alert("Failed to reach server: " + e.message);
-                }
-              }
-            }}
+            onClick={() => setIsRunModalOpen(true)}
             className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded hover:bg-blue-600 hover:text-white transition-colors"
           >
             ▶ Run Agent
@@ -96,6 +124,18 @@ export default function Sidebar({
                     {batch.package_count || 0} pkgs
                   </span>
                 </div>
+                <div className="flex items-center gap-2 mb-1">
+                  {batch.client_name && (
+                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
+                      {batch.client_name}
+                    </span>
+                  )}
+                  {batch.format && (
+                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">
+                      {batch.format}
+                    </span>
+                  )}
+                </div>
                 <div className="text-xs text-gray-500 truncate">{dateStr}</div>
                 {batch.source && (
                   <div className="text-[10px] text-gray-600 mt-1 truncate" title={batch.source}>
@@ -108,7 +148,23 @@ export default function Sidebar({
         )}
       </div>
     </div>
-    <TerminalLogs isOpen={isTerminalOpen} onClose={() => setIsTerminalOpen(false)} />
+    {isRunModalOpen && (
+      <RunAgentModal
+        onClose={() => setIsRunModalOpen(false)}
+        onStarted={() => setIsTerminalOpen(true)}
+        clients={clients}
+        formats={formats}
+        defaultClientId={selectedClientId}
+      />
+    )}
+    {isTerminalOpen && (
+      <TerminalLogs
+        onClose={() => {
+          setIsTerminalOpen(false);
+          onRunStarted();
+        }}
+      />
+    )}
     </>
   );
 }

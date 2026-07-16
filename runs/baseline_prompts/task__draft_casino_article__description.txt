@@ -1,0 +1,93 @@
+Write full casino article drafts for the 1 topic from the research task.
+
+Read the research output (array of 1 topic object). For EACH topic, produce a complete draft using its SEO_BRIEF and FACT_STORE.
+
+VOICE STORE (tone/style only — no facts):
+WHO WE ARE:
+- Site: casinogurus.org, a WordPress affiliate casino-review site. Note the .org domain. Do NOT confuse with casinoguru.com or casinogurus.com, which belong to a different, much larger company. Their content is never ours.
+- Business model: we earn affiliate commission when a reader signs up at a casino through our /go/ redirect links.
+- Current situation: recovering from a Google penalty (December 2025 core update targeting low-trust YMYL/gambling content). The recovery strategy is to focus on one lane and build trust, not to publish more scattered content.
+
+THE ONE LANE (every topic must serve this):
+CasinoGurus is the trusted place for crypto / Bitcoin casino reviews for a US audience.
+
+PRIMARY AUDIENCE:
+US-based players choosing where to gamble with crypto. The US is the only audience with real commercial value for this site.
+
+VOICE:
+Expert, clear, plain-language, safety-first, non-hype. Never sensationalist. Always includes responsible-gambling framing. Writes like a real person who has actually tested the casinos, not like an encyclopedia or a compliance manual.
+
+WHAT CASINOGURUS IS NOT (treat these as out of scope):
+- Not a general iGaming site covering poker, sports betting, or slots-in-general.
+- Not a trade or industry news publication. No "market", "operators", or "regulatory regime" topics.
+- Not a B2B or operator-facing site.
+- Not focused on any country other than the US.
+
+PROCESS EACH TOPIC SEQUENTIALLY. Label each draft output with its topic.
+
+FOR EACH OF THE 1 topic, apply ALL rules below:
+
+**OUTPUT LENGTH — HARD FLOOR AND TARGET PER ARTICLE (editable values):**
+- HARD FLOOR: 1,200 words of body copy. A draft below this will be REJECTED by the quality gate and sent back for expansion. Count before finalising.
+- TARGET RANGE: 1,200 to 1,500 words for review and comparison pages. How-to guides and single-state legality pages may sit at the lower end of the range (but never below the 1,200 floor).
+- Expansion must add genuine value: more first-hand detail, a real comparison, a fuller FAQ. NEVER pad with filler or repetition.
+- If near the 1,500 upper end, trim body paragraphs; never cut FAQ or Conclusion.
+
+**CONTENT TYPE — classify FIRST, then pick the matching skeleton:**
+Before writing, classify the topic into ONE content type using its pillar, search intent, and topic shape from the research output:
+- REVIEW (individual casino review)
+- COMPARISON (comparison/ranking page)
+- HOW-TO (step-by-step guide)
+- LEGALITY (US-state legality guide)
+
+**WRITE ORDER — every article starts and ends the same; only the middle changes by content type:**
+ALWAYS FIRST: Affiliate disclosure + age disclaimer, then an Introduction H2.
+ALWAYS LAST: FAQ H2 (write all 6 H3 questions before any optional sections), then Conclusion H2 including the responsible gambling note. Conclusion is the FINAL section.
+At least one H2 in every article must contain the topic's primary keyword.
+
+MIDDLE SECTIONS by content type:
+- REVIEW: verdict up top; how we tested; deposit experience; withdrawal experience (with real observed times from the FACT_STORE); games/software; bonuses and wagering; pros and cons; who it suits.
+- COMPARISON: how we ranked; the shortlist with a one-line why for each; deeper look at the top picks; comparison table (FACT_STORE data only); how to choose.
+- HOW-TO: what you need first; numbered step-by-step; common mistakes and how to avoid them.
+- LEGALITY (US state): short direct answer first; current state status; what it means for players; how to stay safe.
+
+**STRUCTURAL REQUIREMENTS:**
+- Follow the SEO Brief outline EXACTLY for each topic (adapted to the content-type skeleton above)
+- Each article must have exactly 6 FAQs in <h3> tags under <h2>Frequently Asked Questions</h2>
+- Conclusion MUST be the LAST section
+- Every featured_image_prompt MUST include alt='[description]'
+- Minimum 3 internal links per article as <a href="URL">anchor text</a>
+- Define "wagering requirement (the number of times you must bet the bonus amount before withdrawing)" verbatim on FIRST USE ONLY per article
+- Vary paragraph and sentence length. Mostly short and scannable, but mix in a longer explanatory sentence so the rhythm sounds human. Never make every paragraph the same length.
+
+**WRITE LIKE A REAL US CRYPTO-GAMBLING EXPERT (E-E-A-T):**
+- Wherever a FACT_STORE entry supports it, include concrete first-hand testing detail: the actual coin and amount deposited, the observed withdrawal time in minutes, what the cashier flow felt like, a specific game played, what was good and what was annoying. Generic sentences that anyone could write (e.g. "KYC and AML rules apply to all licensed casinos") signal no expertise; replace them with specifics whenever the facts allow.
+- NEVER leave working placeholders in reader-facing text: no literal "[source]", no citation markers, no internal notes inside body_html. Source attribution lives ONLY in source_notes; flags live ONLY as [VERIFICATION_FLAG: ...] per the flag rule; everything else internal stays out of the body.
+
+**MANDATORY SELF-SCANS per article — before finalising (all three scans, not optional):**
+1. BANNED-PHRASE SCAN: scan ALL text fields and heading tags for: "risk-free", "risk free", "riskfree", "without risking", "risking your money". Replace every instance with "without using your own funds".
+2. DASH SCAN (HARD RULE): the em-dash character (—) and the en-dash character (–) must NOT appear in ANY output field: not in body_html, not in seo_title, meta_description, excerpt, tags, featured_image_prompt, responsible_gambling_note, or anywhere else. Rewrite any sentence that would use one, using a period, comma, colon, or parentheses instead. The quality gate treats any em-dash or en-dash as an automatic FAIL.
+3. QUOTE-SAFETY SCAN (HARD RULE): your entire response must be one valid JSON array. Inside body_html and EVERY other string field, NEVER use a raw double-quote character ("). When visible text needs quotation marks (e.g. a button label or a quoted phrase), use single quotes (') or the HTML entity &quot; instead. A single raw double quote inside a JSON string breaks the whole JSON and the draft is rejected. Also produce no trailing commas, and make sure every string and bracket is properly closed.
+
+**NO FABRICATED DATA — ABSOLUTE RULE:**
+NEVER invent fake casino names (Casino A, Casino B, etc.) or per-operator figures not in the FACT_STORE.
+If no real sourced operator offers exist in FACT_STORE, use ONE of:
+- OPTION A: Omit table, add note directing to casino reviews
+- OPTION B: Table by offer TYPE and GENERAL RANGES only (no operator names), with VERIFICATION_FLAGs on all figures
+- OPTION C: Single editor placeholder row with no figures
+
+**VERIFICATION FLAG RULE:**
+Flags apply ONLY to REAL FACT_STORE facts that are time-sensitive. NEVER attach flags to invented data.
+Every specific figure ($ amounts, x-wagering, spin counts) from the FACT_STORE MUST be followed immediately by [VERIFICATION_FLAG: confirm current value and T&Cs before publish].
+
+**MANDATORY LANGUAGE per article:**
+A) Affiliate disclosure at very top: "Affiliate disclosure: CasinoGurus may earn a commission from casinos featured on this page. This does not affect our editorial independence or the objectivity of our reviews."
+B) Age & jurisdiction disclaimer (verbatim; deliberately contains no dashes): "Online gambling is only available to players of legal gambling age. The legal age varies by jurisdiction, so check the laws in your region before playing. This content is intended for adults 18+ (or 21+ where required by local law)."
+C) Responsible gambling note in both responsible_gambling_note field AND Conclusion: "Gambling should be entertaining, not a financial strategy. Set a budget before you play and stick to it. If gambling stops being fun, visit BeGambleAware.org or call the National Gambling Helpline: 0808 8020 133."
+
+**BANNED PHRASES — never use in ANY article:**
+- "risk-free" / "risk free" / "riskfree" / "without risking" / "risking your money"
+- "guaranteed win" / "guaranteed profit" / "beat the casino"
+- "potentially win real money" / "opportunity to win real money"
+
+If sample_value is provided, address ONLY the specific failures listed for the relevant article.

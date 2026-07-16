@@ -52,6 +52,26 @@ __all__ = [
     "save_image",
     "get_image",
     "summary",
+    "list_clients",
+    "get_client",
+    "upsert_client",
+    "insert_profile_version",
+    "create_run",
+    "get_run",
+    "update_run",
+    "list_runs",
+    "add_package_review",
+    "latest_reviews_for_packages",
+    "seed_registry_defaults",
+    "list_content_types",
+    "upsert_content_type",
+    "delete_content_type",
+    "list_formats",
+    "get_format_row",
+    "resolve_format_spec",
+    "upsert_format",
+    "delete_format",
+    "serialisable_registry",
 ]
 
 # Columns of the packages table, in insert order. Used to build the upsert.
@@ -62,6 +82,7 @@ _PKG_COLS = (
     "featured_image_prompt", "responsible_gambling_note", "body_html",
     "compliance_verdict", "seo_verdict", "seo_overall_score",
     "draft_json", "compliance_json", "seo_json",
+    "client_id",
 )
 
 # Columns of the images table, in order, used for upsert and preserve/restore.
@@ -186,15 +207,39 @@ def _coerce_batch(batch: Any) -> dict:
     raise TypeError(f"Cannot interpret batch of type {type(batch)!r} as a batch dict.")
 
 
-def save_batch(batch: Any, source: str = "unknown") -> int:
+def save_batch(
+    batch: Any,
+    source: str = "unknown",
+    *,
+    client_id: str | None = None,
+    content_type: str | None = None,
+    format: str | None = None,
+    run_id: str | None = None,
+    profile_version: int | None = None,
+) -> int:
     """Persist one batch (and all its packages) into the database.
 
     Idempotent per source: re-ingesting the same `source` replaces the prior
     batch row and its packages (via ON DELETE CASCADE). Returns the batch row id.
     The whole operation runs in one transaction (one pooled connection).
+
+    Client/run metadata is stamped in Python (never echoed by the LLM): it goes
+    into the new batches columns AND as additive top-level keys of raw_json, so
+    the Sample_Output.json contract is only ever extended, never changed.
     """
     data = _coerce_batch(batch)
     packages = data.get("packages", []) or []
+
+    run_meta = {
+        "client_id": client_id,
+        "content_type": content_type,
+        "format": format,
+        "run_id": run_id,
+        "profile_version": profile_version,
+    }
+    for key, value in run_meta.items():
+        if value is not None:
+            data[key] = value
 
     with connection() as conn:
         # Snapshot any already-generated images for this source so re-ingesting
@@ -213,8 +258,9 @@ def save_batch(batch: Any, source: str = "unknown") -> int:
         batch_id = conn.execute(
             """INSERT INTO batches
                (batch_date, total_packages, ready_for_review_count,
-                needs_review_count, source, ingested_at, raw_json)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)
+                needs_review_count, source, ingested_at, raw_json,
+                client_id, content_type, format, run_id, profile_version)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING id""",
             (
                 data.get("batch_date"),
@@ -224,11 +270,16 @@ def save_batch(batch: Any, source: str = "unknown") -> int:
                 source,
                 _utcnow(),
                 Jsonb(data),
+                client_id,
+                content_type,
+                format,
+                run_id,
+                profile_version,
             ),
         ).fetchone()["id"]
 
         for pkg in packages:
-            _insert_package(conn, batch_id, pkg)
+            _insert_package(conn, batch_id, pkg, client_id=client_id)
 
         # Restore preserved images for any package_id that still exists.
         existing = {
@@ -243,7 +294,7 @@ def save_batch(batch: Any, source: str = "unknown") -> int:
     return batch_id
 
 
-def _insert_package(conn, batch_id: int, pkg: dict) -> None:
+def _insert_package(conn, batch_id: int, pkg: dict, client_id: str | None = None) -> None:
     draft = pkg.get("draft", {}) or {}
     compliance = pkg.get("compliance_scorecard", {}) or {}
     seo = pkg.get("seo_quality_scorecard", {}) or {}
@@ -276,6 +327,7 @@ def _insert_package(conn, batch_id: int, pkg: dict) -> None:
             Jsonb(draft),
             Jsonb(compliance),
             Jsonb(seo),
+            client_id,
         ),
     )
 
@@ -310,6 +362,351 @@ def _insert_package(conn, batch_id: int, pkg: dict) -> None:
                 "INSERT INTO verification_flags (package_id, flag, location_in_draft) VALUES (%s, %s, %s)",
                 (package_id, str(flag), None),
             )
+
+
+# ---------------------------------------------------------------------------
+# Clients / profiles (append-only versions; active profile = MAX(version))
+# ---------------------------------------------------------------------------
+
+def list_clients(include_inactive: bool = True) -> list[dict]:
+    """Client rows (no profile text — keep the list light) + latest version."""
+    where = "" if include_inactive else "WHERE c.status = 'active'"
+    with connection() as conn:
+        rows = conn.execute(
+            f"""SELECT c.id, c.display_name, c.site_domain, c.status, c.created_at,
+                       COALESCE(MAX(p.version), 0) AS profile_version
+                FROM clients c
+                LEFT JOIN client_profiles p ON p.client_id = c.id
+                {where}
+                GROUP BY c.id, c.display_name, c.site_domain, c.status, c.created_at
+                ORDER BY c.created_at"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_client(client_id: str) -> dict | None:
+    """Client row + its active (latest-version) profile document, or None."""
+    with connection() as conn:
+        row = conn.execute("SELECT * FROM clients WHERE id = %s", (client_id,)).fetchone()
+        if not row:
+            return None
+        client = dict(row)
+        prof = conn.execute(
+            """SELECT version, profile, created_by, created_at
+               FROM client_profiles WHERE client_id = %s
+               ORDER BY version DESC LIMIT 1""",
+            (client_id,),
+        ).fetchone()
+        client["profile"] = prof["profile"] if prof else None
+        client["profile_version"] = prof["version"] if prof else 0
+        return client
+
+
+def get_client_profile_version(client_id: str, version: int) -> dict | None:
+    """A specific pinned profile version (used by runs)."""
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT version, profile FROM client_profiles WHERE client_id = %s AND version = %s",
+            (client_id, version),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def upsert_client(client_id: str, display_name: str, site_domain: str, status: str = "active") -> dict:
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO clients (id, display_name, site_domain, status)
+               VALUES (%s, %s, %s, %s)
+               ON CONFLICT (id) DO UPDATE
+               SET display_name = EXCLUDED.display_name,
+                   site_domain = EXCLUDED.site_domain,
+                   status = EXCLUDED.status""",
+            (client_id, display_name, site_domain, status),
+        )
+    return get_client(client_id)
+
+
+def insert_profile_version(client_id: str, profile: dict, created_by: str | None = None) -> int:
+    """Append a new immutable profile version; returns the new version number."""
+    with connection() as conn:
+        version = conn.execute(
+            """INSERT INTO client_profiles (client_id, version, profile, created_by)
+               VALUES (%s,
+                       (SELECT COALESCE(MAX(version), 0) + 1 FROM client_profiles WHERE client_id = %s),
+                       %s, %s)
+               RETURNING version""",
+            (client_id, client_id, Jsonb(profile), created_by),
+        ).fetchone()["version"]
+    return version
+
+
+# ---------------------------------------------------------------------------
+# Runs (the job record handed to the crew subprocess via --run-id)
+# ---------------------------------------------------------------------------
+
+def create_run(client_id: str, content_type: str, format: str) -> dict:
+    """Insert a queued run pinned to the client's current profile version."""
+    import uuid
+
+    with connection() as conn:
+        prof = conn.execute(
+            "SELECT COALESCE(MAX(version), 0) AS v FROM client_profiles WHERE client_id = %s",
+            (client_id,),
+        ).fetchone()
+        version = prof["v"]
+        if not version:
+            raise ValueError(f"client '{client_id}' has no profile version to run against")
+        run_id = str(uuid.uuid4())
+        row = conn.execute(
+            """INSERT INTO runs (id, client_id, profile_version, content_type, format)
+               VALUES (%s, %s, %s, %s, %s)
+               RETURNING *""",
+            (run_id, client_id, version, content_type, format),
+        ).fetchone()
+        return dict(row)
+
+
+def get_run(run_id: str) -> dict | None:
+    with connection() as conn:
+        row = conn.execute("SELECT * FROM runs WHERE id = %s", (run_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def update_run(run_id: str, **fields) -> None:
+    """Update whitelisted runs columns (status, error, batch_id, timestamps)."""
+    allowed = {"status", "error", "batch_id", "started_at", "finished_at"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return
+    sets = ", ".join(f"{k} = %s" for k in updates)
+    with connection() as conn:
+        conn.execute(f"UPDATE runs SET {sets} WHERE id = %s", (*updates.values(), run_id))
+
+
+def list_runs(client_id: str | None = None, limit: int = 50) -> list[dict]:
+    with connection() as conn:
+        if client_id:
+            rows = conn.execute(
+                "SELECT * FROM runs WHERE client_id = %s ORDER BY created_at DESC LIMIT %s",
+                (client_id, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM runs ORDER BY created_at DESC LIMIT %s", (limit,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Reviewer feedback (append-only event log; learning-loop input)
+# ---------------------------------------------------------------------------
+
+def add_package_review(package_id: str, action: str, feedback: str | None, reviewer: str | None) -> dict:
+    with connection() as conn:
+        pkg = conn.execute(
+            "SELECT client_id FROM packages WHERE package_id = %s", (package_id,)
+        ).fetchone()
+        if not pkg:
+            raise KeyError(package_id)
+        row = conn.execute(
+            """INSERT INTO package_reviews (package_id, client_id, action, feedback, reviewer)
+               VALUES (%s, %s, %s, %s, %s)
+               RETURNING *""",
+            (package_id, pkg["client_id"] or "casinogurus", action, feedback, reviewer),
+        ).fetchone()
+        # Same shape as latest_reviews_for_packages / pkg["feedback"] merges.
+        return {
+            "package_id": row["package_id"],
+            "status": row["action"],
+            "notes": row["feedback"],
+            "reviewer": row["reviewer"],
+            "created_at": row["created_at"],
+        }
+
+
+def latest_reviews_for_packages(package_ids: list[str]) -> dict[str, dict]:
+    """Latest feedback event per package_id (for merging into batch detail)."""
+    if not package_ids:
+        return {}
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT DISTINCT ON (package_id)
+                      package_id, action AS status, feedback AS notes, reviewer, created_at
+               FROM package_reviews
+               WHERE package_id = ANY(%s)
+               ORDER BY package_id, created_at DESC""",
+            (package_ids,),
+        ).fetchall()
+        return {r["package_id"]: dict(r) for r in rows}
+
+
+# ---------------------------------------------------------------------------
+# Content-type / format catalog ("master"). DB-backed, seeded from registry.py.
+# ---------------------------------------------------------------------------
+
+def seed_registry_defaults() -> None:
+    """Populate content_types + formats from the code defaults when the tables
+    are empty. Idempotent: does nothing once any rows exist."""
+    from casinogurus_ai_content_engine___daily_5_topic_batch import registry
+
+    with connection() as conn:
+        has_ct = conn.execute("SELECT COUNT(*) AS n FROM content_types").fetchone()["n"]
+        if not has_ct:
+            for i, (ct_id, label) in enumerate(registry.DEFAULT_CONTENT_TYPES.items()):
+                conn.execute(
+                    """INSERT INTO content_types (id, label, sort_order) VALUES (%s, %s, %s)
+                       ON CONFLICT (id) DO NOTHING""",
+                    (ct_id, label, i),
+                )
+        has_fmt = conn.execute("SELECT COUNT(*) AS n FROM formats").fetchone()["n"]
+        if not has_fmt:
+            for i, spec in enumerate(registry.DEFAULT_FORMATS.values()):
+                pipeline = dict(spec.pipeline)
+                variant = pipeline.pop("task_variant", "default")
+                conn.execute(
+                    """INSERT INTO formats
+                       (id, content_type, label, description, enabled, task_variant,
+                        pipeline, stage_labels, sort_order)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (id) DO NOTHING""",
+                    (
+                        spec.id, spec.content_type, spec.label, spec.description, spec.enabled,
+                        variant, Jsonb(pipeline), Jsonb(list(spec.stage_labels)), i,
+                    ),
+                )
+
+
+def list_content_types() -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT id, label, sort_order, created_at FROM content_types ORDER BY sort_order, id"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def upsert_content_type(ct_id: str, label: str, sort_order: int = 0) -> dict:
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO content_types (id, label, sort_order) VALUES (%s, %s, %s)
+               ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label, sort_order = EXCLUDED.sort_order""",
+            (ct_id, label, sort_order),
+        )
+        row = conn.execute(
+            "SELECT id, label, sort_order, created_at FROM content_types WHERE id = %s", (ct_id,)
+        ).fetchone()
+        return dict(row)
+
+
+def delete_content_type(ct_id: str) -> None:
+    """Deletes the content type and (via cascade) its formats. Historical
+    batches keep their format string; the catalog no longer offers it."""
+    with connection() as conn:
+        conn.execute("DELETE FROM content_types WHERE id = %s", (ct_id,))
+
+
+def list_formats(content_type: str | None = None, enabled_only: bool = False) -> list[dict]:
+    clauses, params = [], {}
+    if content_type:
+        clauses.append("content_type = %(ct)s")
+        params["ct"] = content_type
+    if enabled_only:
+        clauses.append("enabled = true")
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    with connection() as conn:
+        rows = conn.execute(
+            f"""SELECT id, content_type, label, description, enabled, task_variant,
+                       pipeline, stage_labels, sort_order, created_at
+                FROM formats {where} ORDER BY sort_order, id""",
+            params,
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_format_row(format_id: str) -> dict | None:
+    with connection() as conn:
+        row = conn.execute(
+            """SELECT id, content_type, label, description, enabled, task_variant,
+                      pipeline, stage_labels, sort_order, created_at
+               FROM formats WHERE id = %s""",
+            (format_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def resolve_format_spec(format_id: str):
+    """Return a FormatSpec for ``format_id`` from the DB, or None if unknown.
+    Falls back to the code defaults when the DB is unreachable."""
+    from casinogurus_ai_content_engine___daily_5_topic_batch import registry
+
+    try:
+        row = get_format_row(format_id)
+    except Exception:
+        return registry.DEFAULT_FORMATS.get(format_id)
+    return registry.spec_from_row(row) if row else None
+
+
+def upsert_format(
+    format_id: str,
+    content_type: str,
+    label: str,
+    description: str = "",
+    enabled: bool = True,
+    task_variant: str = "default",
+    pipeline: dict | None = None,
+    stage_labels: list | None = None,
+    sort_order: int = 0,
+) -> dict:
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO formats
+               (id, content_type, label, description, enabled, task_variant,
+                pipeline, stage_labels, sort_order)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+               ON CONFLICT (id) DO UPDATE SET
+                   content_type = EXCLUDED.content_type,
+                   label = EXCLUDED.label,
+                   description = EXCLUDED.description,
+                   enabled = EXCLUDED.enabled,
+                   task_variant = EXCLUDED.task_variant,
+                   pipeline = EXCLUDED.pipeline,
+                   stage_labels = EXCLUDED.stage_labels,
+                   sort_order = EXCLUDED.sort_order""",
+            (
+                format_id, content_type, label, description, enabled, task_variant,
+                Jsonb(pipeline or {}), Jsonb(stage_labels or []), sort_order,
+            ),
+        )
+    return get_format_row(format_id)
+
+
+def delete_format(format_id: str) -> None:
+    with connection() as conn:
+        conn.execute("DELETE FROM formats WHERE id = %s", (format_id,))
+
+
+def serialisable_registry(enabled_only: bool = True) -> dict:
+    """Content types with their (optionally enabled-only) formats nested, for
+    cascading selectors. ``pipeline`` params stay backend-internal."""
+    cts = list_content_types()
+    formats = list_formats(enabled_only=enabled_only)
+    by_ct: dict[str, list] = {}
+    for f in formats:
+        by_ct.setdefault(f["content_type"], []).append(
+            {
+                "id": f["id"],
+                "label": f["label"],
+                "description": f["description"],
+                "enabled": f["enabled"],
+                "stage_labels": list(f.get("stage_labels") or []),
+            }
+        )
+    out = []
+    for ct in cts:
+        items = by_ct.get(ct["id"], [])
+        if enabled_only and not items:
+            continue  # hide empty categories from the run modal
+        out.append({"id": ct["id"], "label": ct["label"], "formats": items})
+    return {"content_types": out}
 
 
 def save_image(

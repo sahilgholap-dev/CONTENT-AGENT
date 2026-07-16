@@ -1,0 +1,24 @@
+A JSON object containing a batch of 1 Draft Package:
+{
+  "batch_date": "YYYY-MM-DD",
+  "total_packages": 1,
+  "ready_for_review_count": int,
+  "needs_review_count": int,
+  "packages": [
+    {
+      "package_id": str,
+      "topic": str,
+      "primary_keyword": str,
+      "pillar": "reviews"|"bonuses"|"crypto"|"guides"|"regional",
+      "created_at": str,
+      "revision_count": int,
+      "review_status": "ready_for_review"|"needs_heavier_review",
+      "escalation_reason": str|null,
+      "draft": { /* full draft fields */ },
+      "compliance_scorecard": { /* from Compliance Gate Check */ },
+      "seo_quality_scorecard": { /* from SEO and Quality Gate Check */ },
+      "verification_flags": [str],
+      "reviewer_notes": str
+    }
+  ]
+}

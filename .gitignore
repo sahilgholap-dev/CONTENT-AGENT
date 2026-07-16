@@ -6,3 +6,8 @@ __pycache__/
 content_engine.db
 content_engine.db-wal
 content_engine.db-shm
+
+# Crew run artifacts (regenerable). baseline_prompts IS committed: it is the
+# golden fixture for scripts/regression_prompt_diff.py.
+runs/crew_output_*.json
+runs/refactored_prompts/

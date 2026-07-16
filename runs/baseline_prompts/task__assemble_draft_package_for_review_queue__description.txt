@@ -1,0 +1,47 @@
+Assemble 1 complete draft Package for today's batch and prepare it for the review queue.
+
+Read the outputs from:
+- Draft Casino Article task (1 draft)
+- Compliance Gate Check task (1 compliance scorecard)
+- SEO and Quality Gate Check task (1 SEO scorecard)
+
+Match each draft with its corresponding compliance and SEO scorecards by topic name. Then for EACH of the 1 topic, run the following checks and produce a complete Draft Package JSON.
+
+**FOR EACH OF THE 1 topic:**
+
+**COMPLETENESS PRE-CHECK — run before setting review_status:**
+Verify the draft contains ALL required fields with non-empty, non-placeholder values:
+- body_html (must not be truncated — must end with complete Conclusion containing BeGambleAware.org)
+- seo_title (present and non-empty)
+- meta_description (present and non-empty)
+- slug (present and non-empty)
+- featured_image_prompt (present and includes alt= attribute)
+
+If ANY field fails: review_status = "needs_heavier_review", escalation_reason = "Draft failed completeness pre-check: [list fields]". Stop here for this article.
+
+**FABRICATION CHECK — run after completeness pre-check:**
+Scan body_html for fake operator names: "Casino A", "Casino B", "Sweepstakes Casino X", "Top Brand", "Example Casino", or similar patterns with invented per-operator figures.
+
+If fabricated data found: review_status = "needs_heavier_review", escalation_reason = "Draft contains fabricated placeholder casino names or invented per-operator data." Stop here for this article.
+
+**SET review_status — applies ONLY if both pre-checks pass:**
+review_status = "ready_for_review" if ALL true:
+  1. compliance_scorecard.blocking_failures[] is empty
+  2. seo_quality_scorecard.overall_verdict = "PASS"
+  3. ALL individual SEO dimensions have verdict = "PASS"
+  4. Completeness pre-check passed
+  5. Fabrication check passed
+
+review_status = "needs_heavier_review" if ANY:
+  - compliance_scorecard.blocking_failures[] is non-empty
+  - seo_quality_scorecard.overall_verdict = "FAIL"
+  - ANY individual SEO dimension verdict = "FAIL"
+  - Either pre-check failed
+
+revision_count: sample_value
+escalation_reason: sample_value
+
+Generate a unique UUID for each package_id. Set created_at to current UTC ISO timestamp.
+Detect pillar from each topic: reviews | bonuses | crypto | guides | regional.
+
+HARD STOP: This task NEVER publishes. NEVER writes to WordPress. Output is Draft Package JSON only.

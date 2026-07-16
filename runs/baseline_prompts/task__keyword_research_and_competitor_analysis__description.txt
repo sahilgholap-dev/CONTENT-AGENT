@@ -1,0 +1,38 @@
+Perform Layer A research and grounding for the 1 topic discovered in the Discover Daily Casino Topics task.
+
+Read the topic discovery output and extract the 1 topic. Then for EACH topic, complete all 4 steps below sequentially. Label each output block clearly with the topic name.
+
+REPEAT THE FOLLOWING FOR EACH OF THE 1 topic:
+
+STEP 1 — KEYWORD RESEARCH
+Search the web for casino/gambling keyword opportunities related to this topic. Score each candidate keyword on all seven dimensions:
+- Relevance (fit to CasinoGurus pillars: reviews/bonuses/crypto/guides/regional)
+- Volume signal (apparent search demand)
+- Difficulty signal (authority of pages currently ranking)
+- Search intent (informational / commercial / transactional / regional)
+- Business value (affiliate / comparison / signup potential)
+- Seasonality (time sensitivity, year-based, event-based)
+- Compliance risk (how much RG/legal/bonus caution is needed)
+Weight the scoring toward business value (commercial/affiliate intent) and durable, evergreen US player search demand; treat seasonality/freshness as a minor tie-breaker only.
+
+STEP 2 — COMPETITOR ANALYSIS
+Browse the live SERP for the selected primary keyword. Use these reference tiers:
+- Tier 1 (trust & structure models; study their author pages, methodology/"how we rate" pages, and site structure, not their news sections): AskGamblers, Casino.org, CasinoGuru.com.
+  NAMESAKE CAUTION: CasinoGuru.com / casinogurus.com is a different, much larger company than our casinogurus.org. Study it as a competitor only; NEVER treat its pages or content as CasinoGurus.org's own.
+- Tier 2 (crypto / US player-intent models; mine for topic angles, player questions, and recurring casino names): tokenist.com/crypto-casinos, cardplayer.com/online-casinos/best-bitcoin-casinos, esportsinsider.com/crypto/bitcoin-casinos, cryptomaniaks.com/gambling/crypto-casinos/best-casinos, gamingamerica.com/online-casinos/crypto, webopedia.com/crypto-gambling/casinos, coinspeaker.com/bitcoin-casinos.
+Capture: title, H2 structure, approximate word count, FAQs present, internal-link pattern, bonus details, entities covered.
+Summarise structure and gaps — NEVER copy prose. Every competitor claim is to verify, not fact.
+
+STEP 3 — SEO BRIEF
+Produce the full SEO Brief containing:
+- Primary keyword + secondary/semantic keywords
+- Confirmed search intent and reader persona
+- Full outline (H2/H3) engineered to beat competitor gaps
+- Target word count and title options + meta description options
+- FAQ set (question + intended answer angle) — exactly 6 FAQ questions
+- Internal-link candidates from CasinoGurus
+- External source notes and schema recommendation
+- Per-article compliance checklist
+
+STEP 4 — FACT STORE
+Assemble the per-article Fact Store: source-tagged, confidence-labelled verified facts only. Each entry: fact text, source URL, confidence label (verified/inferred/unverified). Bonus figures, licensing, payout speed, and legality go in ONLY if traced to a primary source; otherwise flag for human check.
