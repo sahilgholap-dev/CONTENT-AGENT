@@ -78,6 +78,8 @@ class RunAgentRequest(BaseModel):
     client_id: str = "casinogurus"
     content_type: str = "long_form"
     format: str = "blog"
+    # Optional user-provided topic. None/empty -> the agent discovers one.
+    topic: str | None = None
 
 
 class ClientUpsert(BaseModel):
@@ -541,7 +543,18 @@ def run_agent(body: RunAgentRequest | None = None):
         raise HTTPException(status_code=409, detail=f"client '{body.client_id}' is {client['status']}")
     if not client["profile_version"]:
         raise HTTPException(status_code=409, detail=f"client '{body.client_id}' has no profile yet")
-    run_row = storage.create_run(body.client_id, body.content_type, body.format)
+
+    # Optional user-provided topic: trimmed, bounded, and interpolation-safe
+    # (a {token} in the topic would be substituted into the prompts or crash
+    # kickoff — same rule as profile text).
+    topic = (body.topic or "").strip() or None
+    if topic:
+        if len(topic) > 300:
+            raise HTTPException(status_code=422, detail="topic must be at most 300 characters")
+        if re.search(r"\{[A-Za-z_][A-Za-z0-9_\-]*\}", topic):
+            raise HTTPException(status_code=422, detail="topic must not contain {placeholder}-style tokens")
+
+    run_row = storage.create_run(body.client_id, body.content_type, body.format, topic=topic)
 
     log_file = open(LOG_PATH, "w", encoding="utf-8")
     # First log line self-describes the run so the SSE terminal can label the
@@ -555,6 +568,7 @@ def run_agent(body: RunAgentRequest | None = None):
                 "client_name": client["display_name"],
                 "content_type": spec.content_type,
                 "format": spec.id,
+                "topic": topic,
                 "stage_labels": list(spec.stage_labels),
             }
         )

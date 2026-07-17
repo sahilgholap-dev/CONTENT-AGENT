@@ -14,6 +14,7 @@ const FALLBACK_LABELS = [
 type RunInfo = {
   client_name?: string;
   format?: string;
+  topic?: string | null;
   stage_labels?: string[];
 };
 
@@ -81,8 +82,11 @@ export default function TerminalLogs({ onClose }: { onClose: () => void }) {
   const currentTaskLabel = labels[currentTaskIndex];
   const progressPercentage =
     completedTasks === 0 && !isFinished ? 5 : Math.min((completedTasks / labels.length) * 100, 100);
+  const topicSuffix = runInfo?.topic
+    ? ` · Topic: "${runInfo.topic.length > 60 ? runInfo.topic.slice(0, 60) + "…" : runInfo.topic}"`
+    : "";
   const subtitle = runInfo?.client_name
-    ? `${runInfo.client_name}${runInfo.format ? ` — ${runInfo.format}` : ""}`
+    ? `${runInfo.client_name}${runInfo.format ? ` — ${runInfo.format}` : ""}${topicSuffix}`
     : null;
 
   return (

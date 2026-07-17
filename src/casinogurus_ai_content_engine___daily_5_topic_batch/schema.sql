@@ -130,6 +130,10 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS idx_runs_client ON runs(client_id, created_at DESC);
 
+-- Optional user-provided topic: when set, the discovery task structures this
+-- exact topic instead of discovering one (rendered via {topic_directive}).
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS topic TEXT;
+
 -- Append-only reviewer feedback events (shortlisted | approved | rejected).
 -- The learning loop distils from this log. Latest event per package = current status.
 CREATE TABLE IF NOT EXISTS package_reviews (

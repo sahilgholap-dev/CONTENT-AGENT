@@ -21,6 +21,8 @@ export default function RunAgentModal({
   const [clientId, setClientId] = useState<string>(() => defaultClientId ?? activeClients[0]?.id ?? "");
   const [contentType, setContentType] = useState<string>(() => formats[0]?.id ?? "");
   const [formatId, setFormatId] = useState<string>(() => formats[0]?.formats?.[0]?.id ?? "");
+  const [topicMode, setTopicMode] = useState<"discover" | "user">("discover");
+  const [topic, setTopic] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -32,13 +34,23 @@ export default function RunAgentModal({
       setError("Select a client.");
       return;
     }
+    const userTopic = topicMode === "user" ? topic.trim() : "";
+    if (topicMode === "user" && !userTopic) {
+      setError("Enter your topic, or switch back to automatic discovery.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       const res = await apiFetch("/api/run-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: clientId, content_type: contentType, format: formatId }),
+        body: JSON.stringify({
+          client_id: clientId,
+          content_type: contentType,
+          format: formatId,
+          topic: userTopic || null,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       // 409 => already running: still open the terminal to watch it.
@@ -118,6 +130,48 @@ export default function RunAgentModal({
             )}
           </div>
 
+          <div>
+            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Topic Source</label>
+            <div className="flex gap-4 text-sm text-gray-300 mb-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="topic-mode"
+                  checked={topicMode === "discover"}
+                  onChange={() => setTopicMode("discover")}
+                  className="accent-blue-500"
+                />
+                Discover automatically
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="topic-mode"
+                  checked={topicMode === "user"}
+                  onChange={() => setTopicMode("user")}
+                  className="accent-blue-500"
+                />
+                I have a topic
+              </label>
+            </div>
+            {topicMode === "user" && (
+              <>
+                <textarea
+                  className={selectClass + " resize-none"}
+                  rows={2}
+                  maxLength={300}
+                  placeholder="e.g. Litecoin vs Bitcoin withdrawal speeds at US casinos"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1 flex justify-between">
+                  <span>Your exact topic — the agent researches and writes on this, it won't substitute its own.</span>
+                  <span className="font-mono">{topic.trim().length}/300</span>
+                </p>
+              </>
+            )}
+          </div>
+
           {error && (
             <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-sm">{error}</div>
           )}
@@ -131,7 +185,7 @@ export default function RunAgentModal({
             </button>
             <button
               onClick={handleRun}
-              disabled={submitting || !clientId || !formatId}
+              disabled={submitting || !clientId || !formatId || (topicMode === "user" && !topic.trim())}
               className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
             >
               {submitting ? "Starting…" : "▶ Run Agent"}

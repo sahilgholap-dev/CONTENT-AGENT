@@ -118,6 +118,7 @@ def _resolve_run(run_id: str | None) -> tuple[dict | None, dict, str]:
             profile=profile,
             format_spec=spec,
             run_context=dict(_RUN_CONTEXT),
+            topic=run_row.get("topic"),
         )
         variant = (spec.pipeline or {}).get("task_variant", "default")
         return run_row, inputs, variant
@@ -177,6 +178,7 @@ def run(run_id: str | None = None):
                 format=run_row["format"],
                 run_id=str(run_row["id"]),
                 profile_version=run_row["profile_version"],
+                requested_topic=run_row.get("topic"),
             )
             storage.update_run(
                 run_row["id"], status="succeeded", batch_id=batch_id, finished_at=datetime.now(timezone.utc)

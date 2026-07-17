@@ -68,6 +68,12 @@ export default function BatchViewer({ batchId }: { batchId: number }) {
             <p className="text-sm text-gray-400">
               {batch.batch_date as string} • {(batch.packages as any[])?.length || 0} packages ({(batch.ready_for_review_count as number) || 0} ready, {(batch.needs_review_count as number) || 0} needs review)
             </p>
+            {batch.requested_topic && (
+              <p className="text-xs text-gray-500 mt-1">
+                <span className="text-gray-400 font-medium">Requested topic:</span>{" "}
+                {batch.requested_topic as string}
+              </p>
+            )}
           </div>
           <button
             onClick={handleDownload}

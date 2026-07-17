@@ -266,6 +266,7 @@ def save_batch(
     format: str | None = None,
     run_id: str | None = None,
     profile_version: int | None = None,
+    requested_topic: str | None = None,
 ) -> int:
     """Persist one batch (and all its packages) into the database.
 
@@ -286,6 +287,7 @@ def save_batch(
         "format": format,
         "run_id": run_id,
         "profile_version": profile_version,
+        "requested_topic": requested_topic,
     }
     for key, value in run_meta.items():
         if value is not None:
@@ -498,10 +500,8 @@ def insert_profile_version(client_id: str, profile: dict, created_by: str | None
 # Runs (the job record handed to the crew subprocess via --run-id)
 # ---------------------------------------------------------------------------
 
-def create_run(client_id: str, content_type: str, format: str) -> dict:
+def create_run(client_id: str, content_type: str, format: str, topic: str | None = None) -> dict:
     """Insert a queued run pinned to the client's current profile version."""
-    import uuid
-
     with connection() as conn:
         prof = conn.execute(
             "SELECT COALESCE(MAX(version), 0) AS v FROM client_profiles WHERE client_id = %s",
@@ -512,10 +512,10 @@ def create_run(client_id: str, content_type: str, format: str) -> dict:
             raise ValueError(f"client '{client_id}' has no profile version to run against")
         run_id = str(uuid.uuid4())
         row = conn.execute(
-            """INSERT INTO runs (id, client_id, profile_version, content_type, format)
-               VALUES (%s, %s, %s, %s, %s)
+            """INSERT INTO runs (id, client_id, profile_version, content_type, format, topic)
+               VALUES (%s, %s, %s, %s, %s, %s)
                RETURNING *""",
-            (run_id, client_id, version, content_type, format),
+            (run_id, client_id, version, content_type, format, topic),
         ).fetchone()
         return dict(row)
 

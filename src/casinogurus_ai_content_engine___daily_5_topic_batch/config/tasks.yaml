@@ -1,7 +1,7 @@
 ---
 discover_daily_casino_topics:
   description: |-
-    Discover exactly 1 unique {domain_noun} content topic for today's content production batch. Determine today's date, month, and year automatically; do not rely on any input variable for this.
+    Discover exactly 1 unique {domain_noun} content topic for today's content production batch. Determine today's date, month, and year automatically; do not rely on any input variable for this.{topic_directive}
 
     VOICE & BRAND CONTEXT:
     {voice_store}{client_directives}

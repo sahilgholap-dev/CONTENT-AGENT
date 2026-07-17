@@ -227,12 +227,37 @@ def _directives_block(profile: ClientProfile) -> str:
     return "\n\n" + "\n\n".join(parts)
 
 
+def _topic_directive(topic: str | None) -> str:
+    """Render the user-provided-topic block for the discovery tasks.
+
+    Empty string when no topic was given, so discover-mode prompts stay
+    byte-identical to today's (same pattern as _directives_block). When a
+    topic IS given, the block flips the discovery task from "find a topic"
+    to "structure THIS topic"."""
+    topic = (topic or "").strip()
+    if not topic:
+        return ""
+    return (
+        "\n\nUSER-PROVIDED TOPIC (mandatory): \"" + topic + "\"\n"
+        "The topic for this batch has already been chosen by the editorial team. "
+        "Do NOT run topic discovery and do NOT substitute a different topic. Instead:\n"
+        "1. Structure this exact topic into the output schema below — derive the "
+        "primary keyword, pillar, audience intent and angles FROM it.\n"
+        "2. Run your normal validation against the client's lane rules and reject "
+        "filters. If the topic conflicts with them, still proceed, but record every "
+        "concern verbatim in discovery_notes and set uniqueness_confirmed accordingly.\n"
+        "3. You may search the web ONLY to sharpen the keyword and angles for this "
+        "topic — never to replace it."
+    )
+
+
 def build_inputs(
     client_name: str,
     client_site: str,
     profile: ClientProfile,
     format_spec: FormatSpec,
     run_context: dict | None = None,
+    topic: str | None = None,
 ) -> dict:
     """Assemble the complete CrewAI kickoff inputs dict.
 
@@ -247,6 +272,8 @@ def build_inputs(
         "client_site": client_site,
         "voice_store": profile.voice,
         "client_directives": _directives_block(profile),
+        # Empty in discover mode; a mandatory-topic block in user-topic mode.
+        "topic_directive": _topic_directive(topic),
         # Pipeline text blocks.
         "compliance_rules": profile.compliance_rules,
         "topic_discovery_playbook": profile.topic_discovery_playbook,

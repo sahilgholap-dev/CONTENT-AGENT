@@ -7,7 +7,7 @@
 # arrives via the same profile placeholders the blog/social pipelines use.
 discover_video_topics:
   description: |-
-    Discover exactly 1 strong theme for a batch of {scripts_per_batch} video scripts for {client_name}. Determine today's date automatically; do not rely on any input variable for this.
+    Discover exactly 1 strong theme for a batch of {scripts_per_batch} video scripts for {client_name}. Determine today's date automatically; do not rely on any input variable for this.{topic_directive}
 
     VOICE & BRAND CONTEXT:
     {voice_store}{client_directives}
