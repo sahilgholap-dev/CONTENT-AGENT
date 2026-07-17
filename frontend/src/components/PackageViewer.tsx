@@ -32,7 +32,11 @@ export default function PackageViewer({ pkg }: { pkg: Record<string, any> }) {
   const renderTabContent = () => {
     switch (activeTab) {
       case "draft":
-        return <DraftView draft={pkg.draft as Record<string, any>} topic={pkg.topic as string} />;
+        return (pkg.draft as Record<string, any>)?.post_text ? (
+          <SocialPostView draft={pkg.draft as Record<string, any>} topic={pkg.topic as string} />
+        ) : (
+          <DraftView draft={pkg.draft as Record<string, any>} topic={pkg.topic as string} />
+        );
       case "compliance":
         return <ComplianceView data={pkg.compliance_scorecard as Record<string, any>} />;
       case "seo":
@@ -87,6 +91,87 @@ export default function PackageViewer({ pkg }: { pkg: Record<string, any> }) {
       </div>
 
       <div className="space-y-6">{renderTabContent()}</div>
+    </div>
+  );
+}
+
+function SocialPostView({ draft, topic }: { draft: Record<string, any>; topic: string }) {
+  const hashtags = (draft.hashtags as string[]) || [];
+  const vf = (draft.verification_flags as any[]) || [];
+  const sn = (draft.source_notes as any[]) || [];
+  const charCount = (draft.post_text as string)?.length ?? 0;
+
+  return (
+    <div className="space-y-6">
+      {/* The post itself, styled like a social card */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+          <h2 className="text-xl font-bold text-white">{topic || "Social Post"}</h2>
+          <span className="text-xs text-gray-500 font-mono">{charCount} chars</span>
+        </div>
+        {draft.hook && (
+          <div className="text-sm text-blue-300 font-semibold mb-3">Hook: <span className="text-gray-200 font-normal">{draft.hook}</span></div>
+        )}
+        <div className="bg-gray-950 border border-gray-800 rounded-lg p-5 text-gray-100 text-sm whitespace-pre-wrap leading-relaxed">
+          {draft.post_text}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {hashtags.map((h) => (
+            <span key={h} className="inline-block bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded-md px-2 py-1 text-xs">
+              {String(h).startsWith("#") ? h : `#${h}`}
+            </span>
+          ))}
+        </div>
+        {draft.cta && (
+          <div className="mt-4 text-sm"><span className="text-gray-500 font-medium">CTA:</span> <span className="text-gray-200">{draft.cta}</span></div>
+        )}
+      </div>
+
+      {/* Metadata */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-6 text-sm">
+          <div className="text-gray-500 font-medium">Category</div><div className="text-gray-300">{draft.category || "—"}</div>
+          <div className="text-gray-500 font-medium">Excerpt</div><div className="text-gray-300">{draft.excerpt || "—"}</div>
+          <div className="text-gray-500 font-medium">Image Prompt</div><div className="text-gray-300">{draft.featured_image_prompt || "—"}</div>
+          <div className="text-gray-500 font-medium">Compliance Line</div><div className="text-gray-300">{draft.responsible_gambling_note || "—"}</div>
+        </div>
+      </div>
+
+      {vf.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-white mb-4">Verification Flags</h3>
+          <div className="space-y-3">
+            {vf.map((f: any, i: number) => (
+              <div key={i} className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm">
+                <strong className="block text-yellow-500 mb-1">{f.location_in_draft || ""}</strong>
+                <span className="text-gray-300">{f.flag || f}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sn.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-white mb-4">Source Notes</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+                <tr><th className="px-4 py-3">Claim</th><th className="px-4 py-3">Confidence</th><th className="px-4 py-3">Source</th></tr>
+              </thead>
+              <tbody>
+                {sn.map((s: any, i: number) => (
+                  <tr key={i} className="border-b border-gray-800/50">
+                    <td className="px-4 py-3 text-gray-200">{s.claim}</td>
+                    <td className="px-4 py-3"><Pill>{s.confidence}</Pill></td>
+                    <td className="px-4 py-3"><a href={s.source_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline break-all">{s.source_url}</a></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

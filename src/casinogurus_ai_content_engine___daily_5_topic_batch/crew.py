@@ -46,8 +46,8 @@ def _haiku_llm() -> LLM:
     return LLM(model=_HAIKU, max_tokens=_MAX_TOKENS)
 
 
-def _sonnet_llm() -> LLM:
-    return LLM(model=_SONNET, max_tokens=_MAX_TOKENS)
+def _sonnet_llm(max_tokens: int = _MAX_TOKENS) -> LLM:
+    return LLM(model=_SONNET, max_tokens=max_tokens)
 
 
 # These agents run unattended in a batch pipeline. Haiku will otherwise sometimes
@@ -82,6 +82,22 @@ def _log_task_progress(output) -> None:
         print(f"[AGENT_PROGRESS] Task Completed: {name}".rstrip(": "), flush=True)
     except Exception:
         print("[AGENT_PROGRESS] Task Completed", flush=True)
+
+
+def _make_agent(config: dict, tools: list, llm: LLM) -> Agent:
+    """Shared agent construction (same knobs for every agent in every crew)."""
+    return Agent(
+        config=_cfg(config),
+        tools=tools,
+        reasoning=False,
+        max_reasoning_attempts=None,
+        inject_date=True,
+        allow_delegation=False,
+        max_iter=8,
+        max_rpm=None,
+        max_execution_time=None,
+        llm=llm,
+    )
 
 
 @CrewBase
@@ -232,3 +248,98 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             # Dashboard progress marker per completed task (see TerminalLogs).
             task_callback=_log_task_progress,
         )
+
+
+@CrewBase
+class SocialPostCrew:
+    """Short-form social-post crew (task_variant: social_post).
+
+    Five tasks from config/tasks_social.yaml, reusing the same agent
+    definitions (and therefore the same client-profile placeholders) as the
+    blog crew. Platform specifics (char limits, hashtags, tone) arrive via the
+    {format_directives} input rendered from the selected format's pipeline
+    params, so ONE variant serves Instagram, LinkedIn, Facebook, etc.
+    """
+
+    tasks_config = "config/tasks_social.yaml"
+
+    @agent
+    def casino_content_topic_discovery_specialist(self) -> Agent:
+        # Bounded Exa search keeps context under Haiku's 200K window.
+        return _make_agent(
+            self.agents_config["casino_content_topic_discovery_specialist"],
+            [BoundedExaSearchTool()],
+            _haiku_llm(),
+        )
+
+    @agent
+    def casino_seo_research_grounding_specialist(self) -> Agent:
+        return _make_agent(
+            self.agents_config["casino_seo_research_grounding_specialist"],
+            [BoundedExaSearchTool(), BoundedScrapeWebsiteTool()],
+            _haiku_llm(),
+        )
+
+    @agent
+    def casinogurus_grounded_article_drafter(self) -> Agent:
+        # Sonnet for drafting quality; tool-less so context stays small.
+        # 32K output cap (vs the default 16K): one drafting call emits ALL
+        # {posts_per_batch} post objects in a single JSON array, and the first
+        # live Instagram run truncated post 5 mid-hashtag at 16K.
+        return _make_agent(
+            self.agents_config["casinogurus_grounded_article_drafter"],
+            [],
+            _sonnet_llm(max_tokens=32000),
+        )
+
+    @agent
+    def casino_content_compliance_mandate_checker(self) -> Agent:
+        return _make_agent(
+            self.agents_config["casino_content_compliance_mandate_checker"],
+            [],
+            _haiku_llm(),
+        )
+
+    @task
+    def discover_social_topics(self) -> Task:
+        return Task(config=self.tasks_config["discover_social_topics"], markdown=False)
+
+    @task
+    def social_research_grounding(self) -> Task:
+        return Task(config=self.tasks_config["social_research_grounding"], markdown=False)
+
+    @task
+    def draft_social_posts(self) -> Task:
+        return Task(config=self.tasks_config["draft_social_posts"], markdown=False)
+
+    @task
+    def social_compliance_gate(self) -> Task:
+        return Task(config=self.tasks_config["social_compliance_gate"], markdown=False)
+
+    @task
+    def assemble_social_package(self) -> Task:
+        return Task(
+            config=self.tasks_config["assemble_social_package"],
+            markdown=False,
+            # Same validated batch contract as the blog crew, so storage /
+            # viewer / DOCX export work unchanged.
+            output_pydantic=Batch,
+        )
+
+    @crew
+    def crew(self) -> Crew:
+        return Crew(
+            agents=self.agents,
+            tasks=self.tasks,
+            process=Process.sequential,
+            verbose=False,
+            chat_llm=_haiku_llm(),
+            task_callback=_log_task_progress,
+        )
+
+
+# task_variant -> crew class. main.py selects the crew per run.
+CREW_BY_VARIANT = {
+    "default": CasinogurusAiContentEngineDaily5TopicBatchCrew,
+    "social_post": SocialPostCrew,
+}

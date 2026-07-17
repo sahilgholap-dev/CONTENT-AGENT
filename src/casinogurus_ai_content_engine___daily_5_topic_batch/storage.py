@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -207,6 +208,55 @@ def _coerce_batch(batch: Any) -> dict:
     raise TypeError(f"Cannot interpret batch of type {type(batch)!r} as a batch dict.")
 
 
+# A trustworthy package_id: optional "pkg_" prefix + a real UUID (hex only).
+# LLM-emitted ids frequently fail this (invalid hex like 'g', sequential
+# patterns like a1b2c3d4..., or labels like "pkg_incomplete-draft-5").
+_PKG_ID_RE = re.compile(
+    r"^(pkg_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _ensure_package_ids(conn, packages: list[dict]) -> None:
+    """Make every package_id safe to use as the packages-table PRIMARY KEY.
+
+    package_id is emitted by the assemble agent, and LLMs cannot generate
+    reliable randomness: fabricated ids can repeat across runs, and the
+    packages upsert (ON CONFLICT package_id DO UPDATE) would then silently
+    move a package OUT of its earlier batch. Regenerate the id in Python when
+    it is missing, malformed, duplicated within this batch, or already taken
+    by another batch (the caller deletes same-source rows first, so any
+    surviving match belongs to a different batch). Mutates the package dicts
+    in place so raw_json and the packages table stay consistent.
+    """
+    candidates = [
+        p.get("package_id")
+        for p in packages
+        if isinstance(p.get("package_id"), str) and _PKG_ID_RE.match(p["package_id"])
+    ]
+    taken_elsewhere: set[str] = set()
+    if candidates:
+        rows = conn.execute(
+            "SELECT package_id FROM packages WHERE package_id = ANY(%s)",
+            (candidates,),
+        ).fetchall()
+        taken_elsewhere = {r["package_id"] for r in rows}
+
+    seen: set[str] = set()
+    for pkg in packages:
+        pid = pkg.get("package_id")
+        ok = (
+            isinstance(pid, str)
+            and _PKG_ID_RE.match(pid)
+            and pid not in taken_elsewhere
+            and pid not in seen
+        )
+        if not ok:
+            pid = f"pkg_{uuid.uuid4()}"
+            pkg["package_id"] = pid
+        seen.add(pid)
+
+
 def save_batch(
     batch: Any,
     source: str = "unknown",
@@ -254,6 +304,10 @@ def save_batch(
 
         # Replace any prior ingest from the same source to stay idempotent.
         conn.execute("DELETE FROM batches WHERE source = %s", (source,))
+
+        # After the same-source delete so a surviving id conflict is always a
+        # different batch's. Mutates packages (and therefore data/raw_json).
+        _ensure_package_ids(conn, packages)
 
         batch_id = conn.execute(
             """INSERT INTO batches
@@ -545,35 +599,34 @@ def latest_reviews_for_packages(package_ids: list[str]) -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 def seed_registry_defaults() -> None:
-    """Populate content_types + formats from the code defaults when the tables
-    are empty. Idempotent: does nothing once any rows exist."""
+    """Top-up content_types + formats with any code defaults not yet present.
+    ON CONFLICT DO NOTHING per row: user edits and deletions of NON-default
+    rows are never touched, and existing default rows keep their edits. (A
+    default row the user deleted will reappear after a redeploy — rename or
+    disable instead of deleting defaults.)"""
     from casinogurus_ai_content_engine___daily_5_topic_batch import registry
 
     with connection() as conn:
-        has_ct = conn.execute("SELECT COUNT(*) AS n FROM content_types").fetchone()["n"]
-        if not has_ct:
-            for i, (ct_id, label) in enumerate(registry.DEFAULT_CONTENT_TYPES.items()):
-                conn.execute(
-                    """INSERT INTO content_types (id, label, sort_order) VALUES (%s, %s, %s)
-                       ON CONFLICT (id) DO NOTHING""",
-                    (ct_id, label, i),
-                )
-        has_fmt = conn.execute("SELECT COUNT(*) AS n FROM formats").fetchone()["n"]
-        if not has_fmt:
-            for i, spec in enumerate(registry.DEFAULT_FORMATS.values()):
-                pipeline = dict(spec.pipeline)
-                variant = pipeline.pop("task_variant", "default")
-                conn.execute(
-                    """INSERT INTO formats
-                       (id, content_type, label, description, enabled, task_variant,
-                        pipeline, stage_labels, sort_order)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                       ON CONFLICT (id) DO NOTHING""",
-                    (
-                        spec.id, spec.content_type, spec.label, spec.description, spec.enabled,
-                        variant, Jsonb(pipeline), Jsonb(list(spec.stage_labels)), i,
-                    ),
-                )
+        for i, (ct_id, label) in enumerate(registry.DEFAULT_CONTENT_TYPES.items()):
+            conn.execute(
+                """INSERT INTO content_types (id, label, sort_order) VALUES (%s, %s, %s)
+                   ON CONFLICT (id) DO NOTHING""",
+                (ct_id, label, i),
+            )
+        for i, spec in enumerate(registry.DEFAULT_FORMATS.values()):
+            pipeline = dict(spec.pipeline)
+            variant = pipeline.pop("task_variant", "default")
+            conn.execute(
+                """INSERT INTO formats
+                   (id, content_type, label, description, enabled, task_variant,
+                    pipeline, stage_labels, sort_order)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (id) DO NOTHING""",
+                (
+                    spec.id, spec.content_type, spec.label, spec.description, spec.enabled,
+                    variant, Jsonb(pipeline), Jsonb(list(spec.stage_labels)), i,
+                ),
+            )
 
 
 def list_content_types() -> list[dict]:

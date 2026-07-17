@@ -1,0 +1,203 @@
+---
+# Short-form social-post pipeline (task_variant: social_post).
+# Generic across platforms: the SAME five tasks serve Instagram captions,
+# LinkedIn posts, Facebook captions, etc. — the platform, character limits,
+# hashtag policy and tone all arrive via {format_directives} from the format
+# row in the registry. Client identity arrives via the same profile
+# placeholders the blog pipeline uses.
+discover_social_topics:
+  description: |-
+    Discover exactly 1 strong theme for a batch of {posts_per_batch} social media posts for {client_name}. Determine today's date automatically; do not rely on any input variable for this.
+
+    VOICE & BRAND CONTEXT:
+    {voice_store}{client_directives}
+
+    OUTPUT FORMAT CONTEXT (the posts will be written for this format):
+    {format_directives}
+
+    TOPIC DISCOVERY GUIDANCE (adapted from the client's playbook; apply its audience tests, lane rules, reject filters and uniqueness checks, but select ONE theme suited to short-form social content rather than a long article):
+    {topic_discovery_playbook}
+
+    SOCIAL ANGLE REQUIREMENTS:
+    - The theme must work as {posts_per_batch} distinct short posts (different hooks/angles on one theme), not one long piece cut up.
+    - Prefer themes with immediate, scroll-stopping relevance to the client's audience: questions people actually ask, surprising facts, practical tips, myth-busting.
+    - Stay strictly inside the client's lane and reject filters above.
+  expected_output: |-
+    A JSON object with exactly 1 theme:
+    {
+      "batch_date": "YYYY-MM-DD",
+      "theme": str,
+      "primary_keyword": str,
+      "pillar": {pillar_enum},
+      "audience_intent": str,
+      "angle_ideas": [str],
+      "uniqueness_confirmed": bool,
+      "discovery_notes": str
+    }
+  agent: casino_content_topic_discovery_specialist
+social_research_grounding:
+  description: |-
+    Build a compact Fact Store for the social theme discovered in the previous task. This is Layer A grounding for SHORT-FORM content: no SEO brief, no competitor structure analysis — verified facts only.
+
+    STEPS:
+    1. Read the discovery output and extract the theme and primary keyword.
+    2. Search the web for current, verifiable facts that support short posts on this theme. Focus on: concrete numbers, dates, named entities, practical steps, and safety/compliance-relevant facts.
+    3. Record ONLY facts you can trace to a source URL. Label each fact's confidence (verified / inferred / unverified). Facts about {high_risk_claim_types} go in ONLY if traced to a primary source; otherwise flag them for human check.
+    4. Suggest 2-3 short-form content hooks the facts can support.
+
+    Keep it light: 6 to 12 facts is plenty for {posts_per_batch} short posts. NEVER copy competitor prose.
+  expected_output: |-
+    A JSON object:
+    {
+      "theme": str,
+      "primary_keyword": str,
+      "FACT_STORE": {
+        "facts": [{"fact": str, "source_url": str, "confidence": "verified"|"inferred"|"unverified", "flag_for_human": bool}]
+      },
+      "hook_suggestions": [str]
+    }
+  agent: casino_seo_research_grounding_specialist
+  context:
+  - discover_social_topics
+draft_social_posts:
+  description: |-
+    Write exactly {posts_per_batch} distinct social media posts on the researched theme, strictly from the Fact Store provided. Never draft from memory or inference.
+
+    VOICE STORE (tone/style only — no facts):
+    {voice_store}{client_directives}
+
+    FORMAT DIRECTIVES (hard requirements for every post):
+    {format_directives}
+
+    PER-POST REQUIREMENTS:
+    - Each post must take a DIFFERENT angle/hook on the theme (use the researched hook suggestions; no two posts may feel interchangeable).
+    - Each post carries: hook (first line, scroll-stopping), post_text (the full post copy, hook included), hashtags (as the format directives allow; [] if not allowed), cta (one clear call to action).
+    - Every factual claim must map to a Fact Store entry. Time-sensitive figures from the Fact Store MUST be followed immediately by [VERIFICATION_FLAG: confirm current value before publish]. NEVER invent facts, statistics, or named offers.
+    - MANDATORY LANGUAGE: where the client's mandatory language below applies to public promotional posts, include the shortest compliant adaptation inside post_text (e.g. an age marker and a responsible-use line where the rules demand them). Do not paste long legal blocks; adapt to platform norms while keeping the substance:
+    {mandatory_language}
+
+    BANNED PHRASES (never use in any post):
+    {banned_phrases}
+
+    STYLE SELF-SCANS before finalising (all mandatory):
+    {self_scan_rules}
+
+    Also respect the character limits from the format directives: count characters of post_text (including hashtags if the platform convention is inline) and rewrite anything over the limit.
+
+    OUTPUT DISCIPLINE (hard rule): your entire response is the JSON array and NOTHING else. No analysis, no plan, no per-post commentary, no text before the opening bracket or after the closing bracket. Draft silently; spend your output budget on the posts themselves.
+  expected_output: |-
+    A JSON array containing exactly {posts_per_batch} post objects, with no text before or after it:
+    [
+      {
+        "angle": str,
+        "hook": str,
+        "post_text": str,
+        "hashtags": [str],
+        "cta": str,
+        "char_count": int,
+        "source_notes": [{"claim": str, "fact_store_entry": str, "source_url": str, "confidence": str}],
+        "verification_flags": [{"flag": str, "location_in_draft": str}]
+      }
+    ]
+  agent: casinogurus_grounded_article_drafter
+  context:
+  - social_research_grounding
+social_compliance_gate:
+  description: |-
+    Run the compliance mandate gate on the {posts_per_batch} social posts from the drafting task. Evaluate EACH post independently and label each scorecard with its angle.
+
+    CLIENT COMPLIANCE RULES (apply every rule that can apply to a short public social post; word-count floors and long-form structural checks do NOT apply here):
+    {compliance_rules}
+
+    SHORT-FORM ADAPTATIONS (how to apply the rules to posts):
+    - A post PASSES a mandatory-language check if it carries a reasonable short-form adaptation of the required language (full legal blocks are not expected inside a social post).
+    - Banned phrases and guaranteed-win/risk-free style violations are checked verbatim against post_text, hook, cta and hashtags.
+    - Any specific figure lacking both a source note and a [VERIFICATION_FLAG is a failure.
+    - VERIFICATION-FLAG PRE-CHECK: before writing FAIL for any sentence, check whether it contains "[VERIFICATION_FLAG". If YES you MUST write PASS for that sentence.
+
+    OVERALL VERDICT RULE per post:
+    overall_verdict = "PASS" if blocking_failures[] is empty.
+    overall_verdict = "FAIL" only if blocking_failures[] contains at least one High-severity item.
+  expected_output: |-
+    A JSON array with one compliance scorecard per post:
+    [
+      {
+        "angle": str,
+        "compliance_scorecard": {
+          "overall_verdict": "PASS"|"FAIL",
+          "checks": [{"check_name": str, "verdict": "PASS"|"FAIL", "severity": "High"|"Medium"|"Low", "notes": str}],
+          "blocking_failures": [],
+          "revision_instructions": []
+        }
+      }
+    ]
+  agent: casino_content_compliance_mandate_checker
+  context:
+  - draft_social_posts
+assemble_social_package:
+  description: |-
+    Assemble the final batch of {posts_per_batch} social post Packages for the review queue.
+
+    Read the outputs from the drafting task ({posts_per_batch} posts) and the compliance gate ({posts_per_batch} scorecards). Match each post with its scorecard by angle. Produce ONE package per post using the exact schema below.
+
+    FOR EACH POST:
+
+    COMPLETENESS PRE-CHECK:
+    - post_text present, non-empty, and within the character limit from the format directives below
+    - hook and cta present and non-empty
+    If any fails: review_status = "needs_heavier_review", escalation_reason = "Post failed completeness pre-check: [list fields]".
+
+    FORMAT DIRECTIVES (for the character-limit check):
+    {format_directives}
+
+    FABRICATION CHECK: scan post_text for invented operator/brand names or invented figures with no source note. If found: review_status = "needs_heavier_review", escalation_reason = "Post contains fabricated data."
+
+    SET review_status (only if both pre-checks pass):
+    review_status = "ready_for_review" if the post's compliance_scorecard.blocking_failures[] is empty, else "needs_heavier_review".
+
+    PACKAGE FIELD MAPPING (important — keeps the review dashboard working):
+    - topic: the theme plus the post's angle, e.g. "Theme — Angle"
+    - draft.body_html: the post_text as simple HTML: one <p> per paragraph, then one <p> with the hashtags (space-separated, # included) when hashtags exist
+    - draft.post_text / draft.hashtags / draft.hook / draft.cta: copied verbatim from the post
+    - draft.seo_title: the hook (max 70 chars)
+    - draft.meta_description: one-sentence summary of the post (max 155 chars)
+    - draft.slug: kebab-case from theme + angle
+    - draft.category: the pillar; draft.tags: 3-6 relevant tags; draft.excerpt: first sentence of post_text
+    - draft.featured_image_prompt: an image prompt for the post, MUST include alt='[description]'
+    - draft.responsible_gambling_note: the short-form mandatory-language line used in the post (or "" if the client rules require none)
+    - draft.source_notes / draft.verification_flags: copied from the post
+    - revision_count: {revision_count}
+    - escalation_reason: {escalation_reason}
+
+    Generate a unique UUID for each package_id. Set created_at to current UTC ISO timestamp. Detect pillar from the theme: {pillar_list_spaced}.
+
+    HARD STOP: This task NEVER publishes. Output is the batch JSON only.
+  expected_output: |-
+    A JSON object containing a batch of {posts_per_batch} Packages:
+    {
+      "batch_date": "YYYY-MM-DD",
+      "total_packages": {posts_per_batch},
+      "ready_for_review_count": int,
+      "needs_review_count": int,
+      "packages": [
+        {
+          "package_id": str,
+          "topic": str,
+          "primary_keyword": str,
+          "pillar": {pillar_enum},
+          "created_at": str,
+          "revision_count": int,
+          "review_status": "ready_for_review"|"needs_heavier_review",
+          "escalation_reason": str|null,
+          "draft": { /* mapped fields incl. post_text, hashtags, hook, cta, body_html */ },
+          "compliance_scorecard": { /* from the compliance gate */ },
+          "seo_quality_scorecard": {},
+          "verification_flags": [str],
+          "reviewer_notes": str
+        }
+      ]
+    }
+  agent: casino_seo_research_grounding_specialist
+  context:
+  - draft_social_posts
+  - social_compliance_gate

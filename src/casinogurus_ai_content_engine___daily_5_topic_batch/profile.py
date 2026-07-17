@@ -67,7 +67,7 @@ class ClientProfile(BaseModel):
     topic_discovery_playbook: str
     competitor_refs: str
     content_skeletons: str
-    word_count_rules: str
+    word_count_rules: str = ""  # empty => rendered from the format's pipeline params
     self_scan_rules: str
     eeat_guidance: str
     first_use_definitions: str = ""
@@ -140,6 +140,61 @@ def load_seed_client(client_id: str) -> ClientRecord:
     return ClientRecord.model_validate(doc)
 
 
+def _word_count_rules(profile: ClientProfile, format_spec: FormatSpec) -> str:
+    """Profile text wins when the team authored it (keeps legacy prompts
+    byte-identical); otherwise render rules from the format's pipeline params
+    so new formats/clients are format-driven."""
+    if profile.word_count_rules.strip():
+        return profile.word_count_rules
+    pipe = format_spec.pipeline or {}
+    floor = pipe.get("word_floor")
+    ceiling = pipe.get("word_target_max")
+    if not floor and not ceiling:
+        return "- No hard word-count floor for this format. Match the format directives below."
+    lines = []
+    if floor:
+        lines.append(
+            f"- HARD FLOOR: {floor:,} words of body copy. A draft below this will be REJECTED "
+            "by the quality gate and sent back for expansion. Count before finalising."
+        )
+    if floor and ceiling:
+        lines.append(f"- TARGET RANGE: {floor:,} to {ceiling:,} words.")
+    elif ceiling:
+        lines.append(f"- HARD CEILING: {ceiling:,} words. Trim anything longer.")
+    lines.append("- Expansion must add genuine value. NEVER pad with filler or repetition.")
+    return "\n".join(lines)
+
+
+def _format_directives(format_spec: FormatSpec) -> str:
+    """Render the format's platform directives (char limits, hashtag policy,
+    tone, etc.) as prompt text. Used by format-aware task templates (e.g. the
+    social_post variant); blog templates don't reference it."""
+    pipe = format_spec.pipeline or {}
+    lines = [f"FORMAT: {format_spec.label} ({format_spec.content_type})."]
+    if format_spec.description:
+        lines.append(format_spec.description)
+    if pipe.get("platform"):
+        lines.append(f"- Platform: {pipe['platform']}")
+    if pipe.get("char_limit"):
+        lines.append(
+            f"- HARD LIMIT: each post_text must be at most {pipe['char_limit']} characters "
+            "(count characters, not words). Posts over the limit are rejected."
+        )
+    if pipe.get("target_chars"):
+        lines.append(f"- Target length: around {pipe['target_chars']} characters per post.")
+    if "hashtags" in pipe:
+        lines.append(
+            f"- Hashtags: {pipe['hashtags']}" if isinstance(pipe["hashtags"], str)
+            else ("- Hashtags: include a relevant hashtag set per post." if pipe["hashtags"]
+                  else "- Hashtags: do NOT use hashtags.")
+        )
+    if pipe.get("tone"):
+        lines.append(f"- Tone: {pipe['tone']}")
+    for extra in pipe.get("extra_directives", []) or []:
+        lines.append(f"- {extra}")
+    return "\n".join(lines)
+
+
 def _directives_block(profile: ClientProfile) -> str:
     """Compose the optional client-directives text appended after the voice
     store. Empty for clients with no extra directives (so legacy prompts are
@@ -183,7 +238,7 @@ def build_inputs(
         "topic_discovery_playbook": profile.topic_discovery_playbook,
         "competitor_refs": profile.competitor_refs,
         "content_skeletons": profile.content_skeletons,
-        "word_count_rules": profile.word_count_rules,
+        "word_count_rules": _word_count_rules(profile, format_spec),
         "self_scan_rules": profile.self_scan_rules,
         "eeat_guidance": profile.eeat_guidance,
         "first_use_definitions": profile.first_use_definitions,
@@ -195,9 +250,12 @@ def build_inputs(
         "pillar_enum": "|".join(f'"{p}"' for p in pillars),
         "pillar_slash_list": "/".join(pillars),
         "pillar_list_spaced": " | ".join(pillars),
-        # Format identity (Phase 2 wires these into prompts).
+        # Format identity + directives (referenced by format-aware templates).
         "content_type": format_spec.content_type,
         "format": format_spec.id,
+        "format_label": format_spec.label,
+        "format_directives": _format_directives(format_spec),
+        "posts_per_batch": (format_spec.pipeline or {}).get("posts_per_batch", 5),
     }
     inputs.update(profile.personas)
     inputs.update(profile.lexicon)
@@ -210,8 +268,10 @@ def audit_yaml_placeholders(inputs: dict) -> None:
     provided input key (kickoff would raise KeyError mid-run otherwise)."""
     known = set(inputs)
     problems: list[str] = []
-    for fname in ("agents.yaml", "tasks.yaml"):
-        data = yaml.safe_load((_PKG_DIR / "config" / fname).read_text(encoding="utf-8"))
+    config_dir = _PKG_DIR / "config"
+    yaml_files = ["agents.yaml"] + sorted(p.name for p in config_dir.glob("tasks*.yaml"))
+    for fname in yaml_files:
+        data = yaml.safe_load((config_dir / fname).read_text(encoding="utf-8"))
         for section, cfg in data.items():
             for field_name, text in cfg.items():
                 if not isinstance(text, str):

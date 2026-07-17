@@ -32,7 +32,10 @@ class FormatSpec:
 # Task variants that actually exist in the pipeline code. A format may only be
 # saved against one of these (the API validates it). New variants require a new
 # task-template branch in the crew.
-AVAILABLE_TASK_VARIANTS: list[str] = ["default"]
+#   default     -> 6-task long-form blog crew (config/tasks.yaml)
+#   social_post -> 5-task short-form social crew (config/tasks_social.yaml);
+#                  platform specifics come from the format's pipeline params.
+AVAILABLE_TASK_VARIANTS: list[str] = ["default", "social_post"]
 
 
 # Seed data. content_type id -> label.
@@ -64,6 +67,70 @@ DEFAULT_FORMATS: dict[str, FormatSpec] = {
         ],
     ),
 }
+
+_SOCIAL_STAGES = [
+    "Topic Discovery",
+    "Research & Fact Store",
+    "Drafting Posts",
+    "Compliance Check",
+    "Assembling Package",
+]
+
+DEFAULT_FORMATS.update(
+    {
+        "instagram_caption": FormatSpec(
+            id="instagram_caption",
+            content_type="short_form",
+            label="Instagram Caption",
+            description="Scroll-stopping Instagram captions with hashtags, fact-grounded and compliance-checked.",
+            enabled=True,
+            pipeline={
+                "task_variant": "social_post",
+                "posts_per_batch": 5,
+                "platform": "Instagram",
+                "char_limit": 2200,
+                "target_chars": 500,
+                "hashtags": "include 5-10 relevant hashtags per post, placed at the end of post_text",
+                "tone": "punchy, visual-first, first line must hook before the fold",
+            },
+            stage_labels=list(_SOCIAL_STAGES),
+        ),
+        "linkedin_post": FormatSpec(
+            id="linkedin_post",
+            content_type="short_form",
+            label="LinkedIn Post",
+            description="Professional LinkedIn posts with a strong hook and clear takeaway.",
+            enabled=True,
+            pipeline={
+                "task_variant": "social_post",
+                "posts_per_batch": 5,
+                "platform": "LinkedIn",
+                "char_limit": 3000,
+                "target_chars": 1200,
+                "hashtags": "at most 3 professional hashtags at the very end",
+                "tone": "professional, insight-led, short paragraphs with line breaks, no hype",
+            },
+            stage_labels=list(_SOCIAL_STAGES),
+        ),
+        "facebook_caption": FormatSpec(
+            id="facebook_caption",
+            content_type="short_form",
+            label="Facebook Caption",
+            description="Conversational Facebook captions that invite engagement.",
+            enabled=True,
+            pipeline={
+                "task_variant": "social_post",
+                "posts_per_batch": 5,
+                "platform": "Facebook",
+                "char_limit": 2000,
+                "target_chars": 400,
+                "hashtags": "0-3 hashtags only when genuinely relevant",
+                "tone": "conversational, community-minded, ends with a question or clear CTA",
+            },
+            stage_labels=list(_SOCIAL_STAGES),
+        ),
+    }
+)
 
 
 def spec_from_row(row: dict) -> FormatSpec:

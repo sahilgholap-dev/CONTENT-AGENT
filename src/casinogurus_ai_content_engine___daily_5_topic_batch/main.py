@@ -11,7 +11,10 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from casinogurus_ai_content_engine___daily_5_topic_batch.crew import CasinogurusAiContentEngineDaily5TopicBatchCrew
+from casinogurus_ai_content_engine___daily_5_topic_batch.crew import (
+    CREW_BY_VARIANT,
+    CasinogurusAiContentEngineDaily5TopicBatchCrew,
+)
 from casinogurus_ai_content_engine___daily_5_topic_batch import storage
 from casinogurus_ai_content_engine___daily_5_topic_batch.profile import (
     ClientProfile,
@@ -77,7 +80,7 @@ def _resolve_spec(format_id: str):
     return spec or registry.get_format(format_id)
 
 
-def _seed_inputs() -> tuple[None, dict]:
+def _seed_inputs() -> tuple[None, dict, str]:
     """Inputs from the committed seed profile (no database involved)."""
     record = load_seed_client(DEFAULT_CLIENT)
     spec = registry.get_format("blog")
@@ -88,11 +91,11 @@ def _seed_inputs() -> tuple[None, dict]:
         format_spec=spec,
         run_context=dict(_RUN_CONTEXT),
     )
-    return None, inputs
+    return None, inputs, "default"
 
 
-def _resolve_run(run_id: str | None) -> tuple[dict | None, dict]:
-    """Return (run_row_or_None, kickoff_inputs).
+def _resolve_run(run_id: str | None) -> tuple[dict | None, dict, str]:
+    """Return (run_row_or_None, kickoff_inputs, task_variant).
 
     With --run-id: the API already created the run; load its pinned profile
     version (any failure here is fatal — the API guaranteed the data exists).
@@ -116,7 +119,8 @@ def _resolve_run(run_id: str | None) -> tuple[dict | None, dict]:
             format_spec=spec,
             run_context=dict(_RUN_CONTEXT),
         )
-        return run_row, inputs
+        variant = (spec.pipeline or {}).get("task_variant", "default")
+        return run_row, inputs, variant
 
     try:
         init_schema()
@@ -137,14 +141,19 @@ def _resolve_run(run_id: str | None) -> tuple[dict | None, dict]:
 
 def run(run_id: str | None = None):
     """Run the crew for one client/format run."""
-    run_row, inputs = _resolve_run(run_id)
+    run_row, inputs, task_variant = _resolve_run(run_id)
     audit_yaml_placeholders(inputs)
+
+    crew_cls = CREW_BY_VARIANT.get(task_variant)
+    if crew_cls is None:
+        raise SystemExit(f"[run] task variant '{task_variant}' has no crew implementation")
+    print(f"[run] task variant: {task_variant} ({crew_cls.__name__})")
 
     if run_row:
         storage.update_run(run_row["id"], status="running", started_at=datetime.now(timezone.utc))
 
     try:
-        result = CasinogurusAiContentEngineDaily5TopicBatchCrew().crew().kickoff(inputs=inputs)
+        result = crew_cls().crew().kickoff(inputs=inputs)
     except Exception as e:
         if run_row:
             storage.update_run(
