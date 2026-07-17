@@ -1,0 +1,215 @@
+---
+# Video-script pipeline (task_variant: video_script).
+# Generic across video formats: the SAME five tasks serve short vertical videos
+# (Shorts/Reels) and long chaptered YouTube videos — the platform, duration
+# window, orientation, scene granularity and tone all arrive via
+# {format_directives} from the format row in the registry. Client identity
+# arrives via the same profile placeholders the blog/social pipelines use.
+discover_video_topics:
+  description: |-
+    Discover exactly 1 strong theme for a batch of {scripts_per_batch} video scripts for {client_name}. Determine today's date automatically; do not rely on any input variable for this.
+
+    VOICE & BRAND CONTEXT:
+    {voice_store}{client_directives}
+
+    OUTPUT FORMAT CONTEXT (the scripts will be written for this format):
+    {format_directives}
+
+    TOPIC DISCOVERY GUIDANCE (adapted from the client's playbook; apply its audience tests, lane rules, reject filters and uniqueness checks, but select ONE theme suited to video rather than a written article):
+    {topic_discovery_playbook}
+
+    VIDEO ANGLE REQUIREMENTS:
+    - The theme must work as {scripts_per_batch} distinct videos (different angles/hooks on one theme), not one video cut in half.
+    - Prefer themes that are VISUAL and demonstrable: comparisons, step-by-steps, myth-busting, "what nobody tells you" reveals — things a viewer can watch happen, not just hear about.
+    - Each angle idea must state the visual premise in one line (what the viewer SEES).
+    - Stay strictly inside the client's lane and reject filters above.
+  expected_output: |-
+    A JSON object with exactly 1 theme:
+    {
+      "batch_date": "YYYY-MM-DD",
+      "theme": str,
+      "primary_keyword": str,
+      "pillar": {pillar_enum},
+      "audience_intent": str,
+      "angle_ideas": [{"angle": str, "visual_premise": str}],
+      "uniqueness_confirmed": bool,
+      "discovery_notes": str
+    }
+  agent: casino_content_topic_discovery_specialist
+video_research_grounding:
+  description: |-
+    Build a Fact Store for the video theme discovered in the previous task. This is Layer A grounding for VIDEO content: no SEO brief, no competitor structure analysis — verified facts only.
+
+    STEPS:
+    1. Read the discovery output and extract the theme, primary keyword and angle ideas.
+    2. Search the web for current, verifiable facts that support the scripts. Focus on: concrete numbers, dates, named entities, practical steps, and safety/compliance-relevant facts. Favour facts that can be SHOWN on screen (a number, a step, a comparison).
+    3. Record ONLY facts you can trace to a source URL. Label each fact's confidence (verified / inferred / unverified). Facts about {high_risk_claim_types} go in ONLY if traced to a primary source; otherwise flag them for human check.
+    4. Suggest 2-3 hook lines per angle the facts can support.
+
+    Scale the store to the format: 8 to 16 facts is plenty for {scripts_per_batch} scripts. NEVER copy competitor prose.
+  expected_output: |-
+    A JSON object:
+    {
+      "theme": str,
+      "primary_keyword": str,
+      "FACT_STORE": {
+        "facts": [{"fact": str, "source_url": str, "confidence": "verified"|"inferred"|"unverified", "flag_for_human": bool}]
+      },
+      "hook_suggestions": [str]
+    }
+  agent: casino_seo_research_grounding_specialist
+  context:
+  - discover_video_topics
+draft_video_scripts:
+  description: |-
+    Write exactly {scripts_per_batch} distinct video scripts on the researched theme, strictly from the Fact Store provided. Never draft from memory or inference.
+
+    VOICE STORE (tone/style only — no facts):
+    {voice_store}{client_directives}
+
+    FORMAT DIRECTIVES (hard requirements for every script, including the duration window and scene structure):
+    {format_directives}
+
+    PER-SCRIPT REQUIREMENTS:
+    - Each script must take a DIFFERENT angle/hook on the theme (use the researched angle ideas and hook suggestions; no two scripts may feel interchangeable).
+    - Each script is a list of scenes. Every scene carries: scene_no, duration_sec, voiceover (the exact words spoken), on_screen_text (short text overlay; "" if none), visual_direction (what the viewer sees: framing, B-roll, graphics, demonstrations).
+    - The hook is the first scene: it must land within the first 2 seconds of voiceover and match the format's tone directive.
+    - total_duration_sec MUST equal the sum of the scenes' duration_sec and MUST sit inside the format's duration window. Add or trim scenes to fit; never pad with filler.
+    - The final scene delivers the cta verbatim in its voiceover.
+    - Every factual claim in voiceover or on_screen_text must map to a Fact Store entry. Time-sensitive figures MUST be followed immediately by [VERIFICATION_FLAG: confirm current value before publish] in the voiceover text. NEVER invent facts, statistics, or named offers.
+    - MANDATORY LANGUAGE: where the client's mandatory language below applies to public promotional video, the shortest compliant adaptation MUST appear BOTH spoken in a scene's voiceover AND as that scene's on_screen_text (visible and audible). Do not paste long legal blocks; adapt to platform norms while keeping the substance:
+    {mandatory_language}
+
+    BANNED PHRASES (never use in any script — voiceover, on-screen text, description or hashtags):
+    {banned_phrases}
+
+    STYLE SELF-SCANS before finalising (all mandatory; apply them to voiceover and on_screen_text):
+    {self_scan_rules}
+
+    Also write for each script a video_description (the platform description copy, 1-3 sentences plus the compliance line) and hashtags as the format directives allow ([] if not allowed).
+
+    OUTPUT DISCIPLINE (hard rule): your entire response is the JSON array and NOTHING else. No analysis, no plan, no per-script commentary, no text before the opening bracket or after the closing bracket. Draft silently; spend your output budget on the scripts themselves.
+  expected_output: |-
+    A JSON array containing exactly {scripts_per_batch} script objects, with no text before or after it:
+    [
+      {
+        "angle": str,
+        "title": str,
+        "hook": str,
+        "scenes": [{"scene_no": int, "duration_sec": int, "voiceover": str, "on_screen_text": str, "visual_direction": str}],
+        "total_duration_sec": int,
+        "cta": str,
+        "video_description": str,
+        "hashtags": [str],
+        "source_notes": [{"claim": str, "fact_store_entry": str, "source_url": str, "confidence": str}],
+        "verification_flags": [{"flag": str, "location_in_draft": str}]
+      }
+    ]
+  agent: casinogurus_grounded_article_drafter
+  context:
+  - video_research_grounding
+video_compliance_gate:
+  description: |-
+    Run the compliance mandate gate on the {scripts_per_batch} video scripts from the drafting task. Evaluate EACH script independently and label each scorecard with its angle.
+
+    CLIENT COMPLIANCE RULES (apply every rule that can apply to a public video; word-count floors and long-form structural checks do NOT apply here):
+    {compliance_rules}
+
+    VIDEO ADAPTATIONS (how to apply the rules to scripts):
+    - Check EVERY scene's voiceover AND on_screen_text, plus the title, video_description and hashtags. A violation anywhere in any of these fails the check.
+    - MANDATORY-LANGUAGE CHECK: a script PASSES only if the required language appears BOTH spoken in some scene's voiceover AND as on_screen_text in a scene (short-form adaptation is fine; full legal blocks are not expected).
+    - DURATION CHECK: total_duration_sec must equal the sum of scene duration_sec values and sit inside the duration window from the format directives below. Outside the window is a High-severity failure.
+    {format_directives}
+    - Banned phrases and guaranteed-win/risk-free style violations are checked verbatim.
+    - Any specific figure lacking both a source note and a [VERIFICATION_FLAG is a failure.
+    - VERIFICATION-FLAG PRE-CHECK: before writing FAIL for any line, check whether it contains "[VERIFICATION_FLAG". If YES you MUST write PASS for that line.
+
+    OVERALL VERDICT RULE per script:
+    overall_verdict = "PASS" if blocking_failures[] is empty.
+    overall_verdict = "FAIL" only if blocking_failures[] contains at least one High-severity item.
+  expected_output: |-
+    A JSON array with one compliance scorecard per script:
+    [
+      {
+        "angle": str,
+        "compliance_scorecard": {
+          "overall_verdict": "PASS"|"FAIL",
+          "checks": [{"check_name": str, "verdict": "PASS"|"FAIL", "severity": "High"|"Medium"|"Low", "notes": str}],
+          "blocking_failures": [],
+          "revision_instructions": []
+        }
+      }
+    ]
+  agent: casino_content_compliance_mandate_checker
+  context:
+  - draft_video_scripts
+assemble_video_package:
+  description: |-
+    Assemble the final batch of {scripts_per_batch} video script Packages for the review queue.
+
+    Read the outputs from the drafting task ({scripts_per_batch} scripts) and the compliance gate ({scripts_per_batch} scorecards). Match each script with its scorecard by angle. Produce ONE package per script using the exact schema below.
+
+    FOR EACH SCRIPT:
+
+    COMPLETENESS PRE-CHECK:
+    - scenes present and non-empty; every scene has voiceover and visual_direction; the last scene's voiceover contains the cta
+    - title and hook present and non-empty
+    - total_duration_sec equals the sum of scene duration_sec values and sits inside the duration window from the format directives below
+    If any fails: review_status = "needs_heavier_review", escalation_reason = "Script failed completeness pre-check: [list problems]".
+
+    FORMAT DIRECTIVES (for the duration check):
+    {format_directives}
+
+    FABRICATION CHECK: scan all voiceover and on_screen_text for invented operator/brand names or invented figures with no source note. If found: review_status = "needs_heavier_review", escalation_reason = "Script contains fabricated data."
+
+    SET review_status (only if both pre-checks pass):
+    review_status = "ready_for_review" if the script's compliance_scorecard.blocking_failures[] is empty, else "needs_heavier_review".
+
+    PACKAGE FIELD MAPPING (important — keeps the review dashboard working):
+    - topic: the theme plus the script's angle, e.g. "Theme — Angle"
+    - draft.scenes: copied VERBATIM from the script — every scene, every field. THIS IS THE MOST IMPORTANT FIELD IN THE PACKAGE: the review dashboard renders the script from draft.scenes, so a package without its full scenes array is INVALID and must never be emitted. NEVER omit, summarise or truncate scenes to save space — if output length is a concern, shorten body_html instead (scenes always win).
+    - draft.total_duration_sec / draft.hook / draft.cta / draft.video_description / draft.hashtags: copied verbatim from the script
+    - draft.title: the script's title
+    - draft.body_html: a simple HTML rendering of the script — for each scene one <p> of the form "<strong>Scene N (Xs):</strong> voiceover text" (this keeps the DOCX export and fallback viewer readable)
+    - draft.seo_title: the title (max 70 chars)
+    - draft.meta_description: the video_description trimmed to max 155 chars
+    - draft.slug: kebab-case from theme + angle
+    - draft.category: the pillar; draft.tags: 3-6 relevant tags; draft.excerpt: the hook
+    - draft.featured_image_prompt: a thumbnail image prompt for the video, MUST include alt='[description]'
+    - draft.responsible_gambling_note: the mandatory-language line used in the script (or "" if the client rules require none)
+    - draft.source_notes / draft.verification_flags: copied from the script
+    - revision_count: {revision_count}
+    - escalation_reason: {escalation_reason}
+
+    Generate a unique UUID for each package_id. Set created_at to current UTC ISO timestamp. Detect pillar from the theme: {pillar_list_spaced}.
+
+    HARD STOP: This task NEVER publishes. Output is the batch JSON only.
+  expected_output: |-
+    A JSON object containing a batch of {scripts_per_batch} Packages:
+    {
+      "batch_date": "YYYY-MM-DD",
+      "total_packages": {scripts_per_batch},
+      "ready_for_review_count": int,
+      "needs_review_count": int,
+      "packages": [
+        {
+          "package_id": str,
+          "topic": str,
+          "primary_keyword": str,
+          "pillar": {pillar_enum},
+          "created_at": str,
+          "revision_count": int,
+          "review_status": "ready_for_review"|"needs_heavier_review",
+          "escalation_reason": str|null,
+          "draft": { /* mapped fields — "scenes" (full verbatim array) is REQUIRED in every package, plus total_duration_sec, title, hook, cta, video_description, hashtags, body_html */ },
+          "compliance_scorecard": { /* from the compliance gate */ },
+          "seo_quality_scorecard": {},
+          "verification_flags": [str],
+          "reviewer_notes": str
+        }
+      ]
+    }
+  agent: casino_seo_research_grounding_specialist
+  context:
+  - draft_video_scripts
+  - video_compliance_gate

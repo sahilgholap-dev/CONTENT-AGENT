@@ -32,16 +32,19 @@ class FormatSpec:
 # Task variants that actually exist in the pipeline code. A format may only be
 # saved against one of these (the API validates it). New variants require a new
 # task-template branch in the crew.
-#   default     -> 6-task long-form blog crew (config/tasks.yaml)
-#   social_post -> 5-task short-form social crew (config/tasks_social.yaml);
-#                  platform specifics come from the format's pipeline params.
-AVAILABLE_TASK_VARIANTS: list[str] = ["default", "social_post"]
+#   default      -> 6-task long-form blog crew (config/tasks.yaml)
+#   social_post  -> 5-task short-form social crew (config/tasks_social.yaml);
+#                   platform specifics come from the format's pipeline params.
+#   video_script -> 5-task video-script crew (config/tasks_video.yaml); duration,
+#                   orientation and scene granularity come from pipeline params.
+AVAILABLE_TASK_VARIANTS: list[str] = ["default", "social_post", "video_script"]
 
 
 # Seed data. content_type id -> label.
 DEFAULT_CONTENT_TYPES: dict[str, str] = {
     "long_form": "Long-form",
     "short_form": "Short-form",
+    "video": "Video",
 }
 
 DEFAULT_FORMATS: dict[str, FormatSpec] = {
@@ -128,6 +131,56 @@ DEFAULT_FORMATS.update(
                 "tone": "conversational, community-minded, ends with a question or clear CTA",
             },
             stage_labels=list(_SOCIAL_STAGES),
+        ),
+    }
+)
+
+
+_VIDEO_STAGES = [
+    "Topic Discovery",
+    "Research & Fact Store",
+    "Writing Scripts",
+    "Compliance Check",
+    "Assembling Package",
+]
+
+DEFAULT_FORMATS.update(
+    {
+        "youtube_short": FormatSpec(
+            id="youtube_short",
+            content_type="video",
+            label="YouTube Short / Reel",
+            description="60-90 second vertical video scripts: hook-first, scene-by-scene voiceover with on-screen text and visual directions.",
+            enabled=True,
+            pipeline={
+                "task_variant": "video_script",
+                "scripts_per_batch": 2,
+                "platform": "YouTube Shorts / Instagram Reels",
+                "orientation": "vertical 9:16",
+                "duration_min_sec": 60,
+                "duration_max_sec": 90,
+                "scene_length_rule": "3-8 seconds per scene; every scene has voiceover, on-screen text and a visual direction",
+                "tone": "fast, punchy, hook lands in the first 2 seconds, one idea per video, no filler",
+            },
+            stage_labels=list(_VIDEO_STAGES),
+        ),
+        "youtube_long": FormatSpec(
+            id="youtube_long",
+            content_type="video",
+            label="YouTube Video (5-10 min)",
+            description="Chaptered long-form YouTube scripts with B-roll directions, retention hooks between chapters and an outro CTA.",
+            enabled=True,
+            pipeline={
+                "task_variant": "video_script",
+                "scripts_per_batch": 2,
+                "platform": "YouTube",
+                "orientation": "landscape 16:9",
+                "duration_min_sec": 300,
+                "duration_max_sec": 600,
+                "scene_length_rule": "chapters of 45-90 seconds, each broken into scenes; every scene has voiceover, on-screen text and a visual/B-roll direction",
+                "tone": "expert, conversational, retention-focused with an open loop into each next chapter, no hype",
+            },
+            stage_labels=list(_VIDEO_STAGES),
         ),
     }
 )

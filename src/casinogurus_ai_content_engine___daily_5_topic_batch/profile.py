@@ -188,6 +188,20 @@ def _format_directives(format_spec: FormatSpec) -> str:
             else ("- Hashtags: include a relevant hashtag set per post." if pipe["hashtags"]
                   else "- Hashtags: do NOT use hashtags.")
         )
+    if pipe.get("orientation"):
+        lines.append(f"- Orientation: {pipe['orientation']}")
+    dur_min, dur_max = pipe.get("duration_min_sec"), pipe.get("duration_max_sec")
+    if dur_min or dur_max:
+        if dur_min and dur_max:
+            window = f"between {dur_min} and {dur_max} seconds"
+        else:
+            window = f"at least {dur_min} seconds" if dur_min else f"at most {dur_max} seconds"
+        lines.append(
+            f"- HARD LIMIT: each script's total_duration_sec (the sum of its scene durations) must be {window}. "
+            "Scripts outside this window are rejected."
+        )
+    if pipe.get("scene_length_rule"):
+        lines.append(f"- Scene structure: {pipe['scene_length_rule']}")
     if pipe.get("tone"):
         lines.append(f"- Tone: {pipe['tone']}")
     for extra in pipe.get("extra_directives", []) or []:
@@ -256,6 +270,7 @@ def build_inputs(
         "format_label": format_spec.label,
         "format_directives": _format_directives(format_spec),
         "posts_per_batch": (format_spec.pipeline or {}).get("posts_per_batch", 5),
+        "scripts_per_batch": (format_spec.pipeline or {}).get("scripts_per_batch", 2),
     }
     inputs.update(profile.personas)
     inputs.update(profile.lexicon)

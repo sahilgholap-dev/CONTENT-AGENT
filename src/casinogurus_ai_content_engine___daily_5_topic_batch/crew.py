@@ -42,8 +42,8 @@ _SONNET = "anthropic/claude-sonnet-5"
 _MAX_TOKENS = 16000
 
 
-def _haiku_llm() -> LLM:
-    return LLM(model=_HAIKU, max_tokens=_MAX_TOKENS)
+def _haiku_llm(max_tokens: int = _MAX_TOKENS) -> LLM:
+    return LLM(model=_HAIKU, max_tokens=max_tokens)
 
 
 def _sonnet_llm(max_tokens: int = _MAX_TOKENS) -> LLM:
@@ -338,8 +338,103 @@ class SocialPostCrew:
         )
 
 
+@CrewBase
+class VideoScriptCrew:
+    """Video-script crew (task_variant: video_script).
+
+    Five tasks from config/tasks_video.yaml, reusing the same agent
+    definitions (and therefore the same client-profile placeholders) as the
+    blog/social crews. Duration window, orientation, scene granularity and
+    tone arrive via the {format_directives} input rendered from the selected
+    format's pipeline params, so ONE variant serves short vertical videos
+    (Shorts/Reels) and long chaptered YouTube videos alike.
+    """
+
+    tasks_config = "config/tasks_video.yaml"
+
+    @agent
+    def casino_content_topic_discovery_specialist(self) -> Agent:
+        # Bounded Exa search keeps context under Haiku's 200K window.
+        return _make_agent(
+            self.agents_config["casino_content_topic_discovery_specialist"],
+            [BoundedExaSearchTool()],
+            _haiku_llm(),
+        )
+
+    @agent
+    def casino_seo_research_grounding_specialist(self) -> Agent:
+        # 32K output cap: this agent also runs assemble_video_package, whose
+        # output carries every script's scenes verbatim PLUS the body_html
+        # rendering — for two long-format scripts that exceeds 16K, and the
+        # first live youtube_long run responded by silently dropping the
+        # scenes arrays from the final packages.
+        return _make_agent(
+            self.agents_config["casino_seo_research_grounding_specialist"],
+            [BoundedExaSearchTool(), BoundedScrapeWebsiteTool()],
+            _haiku_llm(max_tokens=32000),
+        )
+
+    @agent
+    def casinogurus_grounded_article_drafter(self) -> Agent:
+        # Sonnet for drafting quality; tool-less so context stays small.
+        # 32K output cap: one drafting call emits ALL {scripts_per_batch}
+        # script objects (a long-format script is ~1,300-1,500 spoken words
+        # plus per-scene JSON overhead), which does not fit the default 16K.
+        return _make_agent(
+            self.agents_config["casinogurus_grounded_article_drafter"],
+            [],
+            _sonnet_llm(max_tokens=32000),
+        )
+
+    @agent
+    def casino_content_compliance_mandate_checker(self) -> Agent:
+        return _make_agent(
+            self.agents_config["casino_content_compliance_mandate_checker"],
+            [],
+            _haiku_llm(),
+        )
+
+    @task
+    def discover_video_topics(self) -> Task:
+        return Task(config=self.tasks_config["discover_video_topics"], markdown=False)
+
+    @task
+    def video_research_grounding(self) -> Task:
+        return Task(config=self.tasks_config["video_research_grounding"], markdown=False)
+
+    @task
+    def draft_video_scripts(self) -> Task:
+        return Task(config=self.tasks_config["draft_video_scripts"], markdown=False)
+
+    @task
+    def video_compliance_gate(self) -> Task:
+        return Task(config=self.tasks_config["video_compliance_gate"], markdown=False)
+
+    @task
+    def assemble_video_package(self) -> Task:
+        return Task(
+            config=self.tasks_config["assemble_video_package"],
+            markdown=False,
+            # Same validated batch contract as the blog crew, so storage /
+            # viewer / DOCX export work unchanged.
+            output_pydantic=Batch,
+        )
+
+    @crew
+    def crew(self) -> Crew:
+        return Crew(
+            agents=self.agents,
+            tasks=self.tasks,
+            process=Process.sequential,
+            verbose=False,
+            chat_llm=_haiku_llm(),
+            task_callback=_log_task_progress,
+        )
+
+
 # task_variant -> crew class. main.py selects the crew per run.
 CREW_BY_VARIANT = {
     "default": CasinogurusAiContentEngineDaily5TopicBatchCrew,
     "social_post": SocialPostCrew,
+    "video_script": VideoScriptCrew,
 }

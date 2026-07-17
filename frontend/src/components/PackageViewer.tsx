@@ -31,12 +31,17 @@ export default function PackageViewer({ pkg }: { pkg: Record<string, any> }) {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case "draft":
-        return (pkg.draft as Record<string, any>)?.post_text ? (
-          <SocialPostView draft={pkg.draft as Record<string, any>} topic={pkg.topic as string} />
+      case "draft": {
+        const draft = pkg.draft as Record<string, any>;
+        if (Array.isArray(draft?.scenes) && draft.scenes.length > 0) {
+          return <VideoScriptView draft={draft} topic={pkg.topic as string} />;
+        }
+        return draft?.post_text ? (
+          <SocialPostView draft={draft} topic={pkg.topic as string} />
         ) : (
-          <DraftView draft={pkg.draft as Record<string, any>} topic={pkg.topic as string} />
+          <DraftView draft={draft} topic={pkg.topic as string} />
         );
+      }
       case "compliance":
         return <ComplianceView data={pkg.compliance_scorecard as Record<string, any>} />;
       case "seo":
@@ -91,6 +96,134 @@ export default function PackageViewer({ pkg }: { pkg: Record<string, any> }) {
       </div>
 
       <div className="space-y-6">{renderTabContent()}</div>
+    </div>
+  );
+}
+
+function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: string }) {
+  const scenes = (draft.scenes as any[]) || [];
+  const hashtags = (draft.hashtags as string[]) || [];
+  const vf = (draft.verification_flags as any[]) || [];
+  const sn = (draft.source_notes as any[]) || [];
+  const totalSec =
+    (draft.total_duration_sec as number) ??
+    scenes.reduce((s, sc) => s + (Number(sc?.duration_sec) || 0), 0);
+  const fmtDur = (sec: number) =>
+    sec >= 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : `${sec}s`;
+
+  return (
+    <div className="space-y-6">
+      {/* Script header */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
+          <h2 className="text-xl font-bold text-white">{draft.title || topic || "Video Script"}</h2>
+          <span className="text-xs text-gray-500 font-mono">
+            {scenes.length} scenes · {fmtDur(totalSec)}
+          </span>
+        </div>
+        {draft.hook && (
+          <div className="text-sm text-blue-300 font-semibold mb-3">
+            Hook: <span className="text-gray-200 font-normal">{draft.hook}</span>
+          </div>
+        )}
+
+        {/* Scene-by-scene table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+              <tr>
+                <th className="px-3 py-3 whitespace-nowrap">Scene</th>
+                <th className="px-3 py-3 whitespace-nowrap">Duration</th>
+                <th className="px-3 py-3">Voiceover</th>
+                <th className="px-3 py-3">On-screen text</th>
+                <th className="px-3 py-3">Visual direction</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenes.map((sc: any, i: number) => (
+                <tr key={i} className="border-b border-gray-800/50 align-top">
+                  <td className="px-3 py-3 text-gray-400 font-mono">{sc.scene_no ?? i + 1}</td>
+                  <td className="px-3 py-3 text-gray-400 font-mono whitespace-nowrap">
+                    {sc.duration_sec != null ? `${sc.duration_sec}s` : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-gray-100 whitespace-pre-wrap">{sc.voiceover}</td>
+                  <td className="px-3 py-3 text-blue-200">{sc.on_screen_text || "—"}</td>
+                  <td className="px-3 py-3 text-gray-400 italic">{sc.visual_direction || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {draft.cta && (
+          <div className="mt-4 text-sm">
+            <span className="text-gray-500 font-medium">CTA:</span>{" "}
+            <span className="text-gray-200">{draft.cta}</span>
+          </div>
+        )}
+        {hashtags.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {hashtags.map((h) => (
+              <span
+                key={h}
+                className="inline-block bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded-md px-2 py-1 text-xs"
+              >
+                {String(h).startsWith("#") ? h : `#${h}`}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Metadata */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-6 text-sm">
+          <div className="text-gray-500 font-medium">Video Description</div>
+          <div className="text-gray-300">{draft.video_description || "—"}</div>
+          <div className="text-gray-500 font-medium">Category</div>
+          <div className="text-gray-300">{draft.category || "—"}</div>
+          <div className="text-gray-500 font-medium">Thumbnail Prompt</div>
+          <div className="text-gray-300">{draft.featured_image_prompt || "—"}</div>
+          <div className="text-gray-500 font-medium">Compliance Line</div>
+          <div className="text-gray-300">{draft.responsible_gambling_note || "—"}</div>
+        </div>
+      </div>
+
+      {vf.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-white mb-4">Verification Flags</h3>
+          <div className="space-y-3">
+            {vf.map((f: any, i: number) => (
+              <div key={i} className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm">
+                <strong className="block text-yellow-500 mb-1">{f.location_in_draft || ""}</strong>
+                <span className="text-gray-300">{f.flag || f}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sn.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-white mb-4">Source Notes</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+                <tr><th className="px-4 py-3">Claim</th><th className="px-4 py-3">Confidence</th><th className="px-4 py-3">Source</th></tr>
+              </thead>
+              <tbody>
+                {sn.map((s: any, i: number) => (
+                  <tr key={i} className="border-b border-gray-800/50">
+                    <td className="px-4 py-3 text-gray-200">{s.claim}</td>
+                    <td className="px-4 py-3"><Pill>{s.confidence}</Pill></td>
+                    <td className="px-4 py-3"><a href={s.source_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline break-all">{s.source_url}</a></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

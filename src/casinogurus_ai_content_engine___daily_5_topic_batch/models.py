@@ -31,7 +31,12 @@ class Package(BaseModel):
     draft: dict[str, Any] = Field(default_factory=dict)
     compliance_scorecard: dict[str, Any] = Field(default_factory=dict)
     seo_quality_scorecard: dict[str, Any] = Field(default_factory=dict)
-    verification_flags: list[Any] = Field(default_factory=list)
+    # NOT list[Any]: that renders as a bare {} items schema, which Anthropic's
+    # structured-output transform rejects ("Schema must have a 'type', ...")
+    # whenever CrewAI's converter-LLM fallback kicks in (i.e. whenever the
+    # assemble output isn't directly parseable JSON). str|dict renders as a
+    # valid anyOf and still accepts every shape the tasks emit.
+    verification_flags: list[str | dict[str, Any]] = Field(default_factory=list)
 
 
 class Batch(BaseModel):
