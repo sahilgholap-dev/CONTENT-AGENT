@@ -77,7 +77,12 @@ def require_user(
     (``sub``, ``email``, ``role``, ...) so handlers can identify the user.
     """
     if _auth_disabled():
-        return {"sub": "local-dev", "email": "local@dev", "role": "authenticated"}
+        return {
+            "sub": "local-dev",
+            "email": "local@dev",
+            "role": "authenticated",
+            "app_metadata": {"role": "admin", "client_id": None},
+        }
 
     token = None
     if creds is not None and creds.scheme.lower() == "bearer":
@@ -119,3 +124,56 @@ def require_user(
         raise _unauthorized(f"Invalid token: {e}")
 
     return payload
+
+
+# --------------------------------------------------------------------------- #
+# Role-based access (portal split)
+#
+# Roles live in Supabase ``app_metadata`` -- settable ONLY server-side (via the
+# Admin API / service_role key), and embedded in every JWT, so neither the
+# user nor the frontend can forge them:
+#     app_metadata: {"role": "admin"}                              # internal team
+#     app_metadata: {"role": "client", "client_id": "casinogurus"} # portal login
+# --------------------------------------------------------------------------- #
+
+def portal_role(payload: dict) -> str | None:
+    return ((payload.get("app_metadata") or {}).get("role")) or None
+
+
+def require_admin(user: dict = Depends(require_user)) -> dict:
+    """FastAPI dependency: valid token AND app_metadata.role == 'admin'."""
+    if portal_role(user) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    return user
+
+
+def require_client(user: dict = Depends(require_user)) -> dict:
+    """FastAPI dependency for the client portal.
+
+    Admits role == 'client' (scoped to their own client_id) and also admins
+    (who may browse any client's portal view). Returns the claims with a
+    normalised ``portal_client_id`` key: the token's client_id for clients,
+    or None for admins (portal endpoints must then take it from the request).
+    """
+    role = portal_role(user)
+    if role == "admin":
+        user = dict(user)
+        user["portal_client_id"] = None
+        return user
+    if role != "client":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Portal access required.",
+        )
+    client_id = (user.get("app_metadata") or {}).get("client_id")
+    if not client_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This login is not linked to a client. Contact your administrator.",
+        )
+    user = dict(user)
+    user["portal_client_id"] = client_id
+    return user

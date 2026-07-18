@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import ClientProfileForm from "@/components/ClientProfileForm";
+import LearningPanel from "@/components/LearningPanel";
 import { apiFetch } from "@/lib/api";
 
 export default function ClientsPage() {
@@ -65,8 +66,8 @@ export default function ClientsPage() {
             Clients
           </h1>
           <div className="flex justify-between items-center mt-2">
-            <Link href="/" className="text-xs text-gray-400 hover:text-gray-200 transition-colors">
-              ← Back to batches
+            <Link href="/admin" className="text-xs text-gray-400 hover:text-gray-200 transition-colors">
+              â† Back to batches
             </Link>
             <button
               onClick={() => {
@@ -133,7 +134,7 @@ export default function ClientsPage() {
             {creating
               ? "The profile below is authored by the internal team and is strictly specific to this client."
               : displayedClient
-              ? `Profile v${displayedClient.profile_version} — saving creates v${(displayedClient.profile_version ?? 0) + 1}; in-flight runs keep their pinned version.`
+              ? `Profile v${displayedClient.profile_version} â€” saving creates v${(displayedClient.profile_version ?? 0) + 1}; in-flight runs keep their pinned version.`
               : ""}
           </p>
           {detailLoading ? (
@@ -143,11 +144,14 @@ export default function ClientsPage() {
           ) : creating ? (
             <ClientProfileForm key="__new__" client={null} onSaved={loadClients} />
           ) : displayedClient ? (
-            <ClientProfileForm
-              key={`${displayedClient.id}-v${displayedClient.profile_version}`}
-              client={displayedClient}
-              onSaved={handleSaved}
-            />
+            <>
+              <LearningPanel clientId={displayedClient.id} onAccepted={handleSaved} />
+              <ClientProfileForm
+                key={`${displayedClient.id}-v${displayedClient.profile_version}`}
+                client={displayedClient}
+                onSaved={handleSaved}
+              />
+            </>
           ) : (
             <div className="text-gray-500">Select a client on the left, or create a new one.</div>
           )}

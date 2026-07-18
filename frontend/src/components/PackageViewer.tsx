@@ -26,8 +26,17 @@ const Pill = ({ children, type }: { children: React.ReactNode; type?: string }) 
   );
 };
 
-export default function PackageViewer({ pkg }: { pkg: Record<string, any> }) {
+export default function PackageViewer({
+  pkg,
+  portal = false,
+}: {
+  pkg: Record<string, any>;
+  /** Client-portal mode: same view, minus the Raw JSON tab; feedback posts
+   *  to the client-scoped endpoint. */
+  portal?: boolean;
+}) {
   const [activeTab, setActiveTab] = useState("draft");
+  const tabs = portal ? TABS.filter((t) => t.id !== "raw") : TABS;
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -65,9 +74,9 @@ export default function PackageViewer({ pkg }: { pkg: Record<string, any> }) {
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
-      <FeedbackBar key={(pkg.package_id as string) || "none"} pkg={pkg} />
+      <FeedbackBar key={(pkg.package_id as string) || "none"} pkg={pkg} portal={portal} />
       <div className="flex flex-wrap gap-2 mb-6">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           if (
             (tab.id === "draft" && !pkg.draft) ||
             (tab.id === "compliance" && !pkg.compliance_scorecard) ||

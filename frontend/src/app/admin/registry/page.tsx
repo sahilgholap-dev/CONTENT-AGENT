@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -119,8 +119,8 @@ export default function RegistryPage() {
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
             Content Types & Formats
           </h1>
-          <Link href="/" className="text-xs text-gray-400 hover:text-gray-200 transition-colors">
-            ← Back to batches
+          <Link href="/admin" className="text-xs text-gray-400 hover:text-gray-200 transition-colors">
+            â† Back to batches
           </Link>
         </div>
         <p className="text-sm text-gray-500 mb-8">
@@ -284,7 +284,7 @@ function FormatEditor({
       <div className="w-full max-w-lg bg-gray-950 border border-gray-800 rounded-xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-gray-200">{isNew ? "New Format" : `Edit "${value.label}"`}</h2>
-          <button onClick={onCancel} className="text-gray-400 hover:text-white text-xl">✕</button>
+          <button onClick={onCancel} className="text-gray-400 hover:text-white text-xl">âœ•</button>
         </div>
 
         <div className="space-y-4">

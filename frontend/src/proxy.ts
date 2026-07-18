@@ -4,9 +4,13 @@ import { NextResponse, type NextRequest } from "next/server";
 // NOTE: In this Next.js version the `middleware` convention was renamed to
 // `proxy` (see node_modules/next/dist/docs/.../file-conventions/proxy.md).
 // This runs on the Node.js runtime by default and guards every page: it
-// refreshes the Supabase session cookie and redirects unauthenticated users to
-// /login. The API itself is separately protected by JWT verification on the
-// FastAPI backend, so this is defence-in-depth for the dashboard pages.
+// refreshes the Supabase session cookie, redirects unauthenticated users to
+// /login, and routes by portal role. The role lives in app_metadata (only
+// settable server-side via the Supabase Admin API), so it can't be forged:
+//   role === "admin"  -> /admin/*   (internal team)
+//   role === "client" -> /portal/*  (client logins, scoped to their client_id)
+// The API is separately protected by JWT + role verification on FastAPI, so
+// this is defence-in-depth for the dashboard pages.
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -33,19 +37,25 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isLoginPage = request.nextUrl.pathname.startsWith("/login");
+  const path = request.nextUrl.pathname;
+  const isLoginPage = path.startsWith("/login");
 
-  if (!user && !isLoginPage) {
+  const redirect = (pathname: string) => {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = pathname;
     return NextResponse.redirect(url);
-  }
+  };
 
-  if (user && isLoginPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
+  if (!user && !isLoginPage) return redirect("/login");
+  if (!user) return response;
+
+  // Pre-migration users (no role yet) are the internal team -> treat as admin.
+  const role = (user.app_metadata as Record<string, unknown> | null)?.role ?? "admin";
+  const home = role === "client" ? "/portal" : "/admin";
+
+  if (isLoginPage || path === "/") return redirect(home);
+  if (role === "client" && !path.startsWith("/portal")) return redirect(home);
+  if (role !== "client" && path.startsWith("/portal")) return redirect(home);
 
   return response;
 }

@@ -26,7 +26,13 @@ const ACTIONS: { id: "shortlisted" | "approved" | "rejected"; label: string; act
  *  (package_reviews) and feed the learning loop; the latest event is the
  *  current status, seeded from pkg.feedback merged in by the batch endpoint.
  *  Rendered with key={package_id} so state re-initialises per package. */
-export default function FeedbackBar({ pkg }: { pkg: Record<string, any> }) {
+export default function FeedbackBar({
+  pkg,
+  portal = false,
+}: {
+  pkg: Record<string, any>;
+  portal?: boolean;
+}) {
   const packageId = pkg.package_id as string | undefined;
   const [status, setStatus] = useState<string | null>(() => (pkg.feedback?.status as string) ?? null);
   const [notes, setNotes] = useState<string>(() => (pkg.feedback?.notes as string) ?? "");
@@ -41,7 +47,8 @@ export default function FeedbackBar({ pkg }: { pkg: Record<string, any> }) {
     setPending(action);
     setError(null);
     try {
-      const res = await apiFetch(`/api/packages/${encodeURIComponent(packageId)}/feedback`, {
+      const base = portal ? "/api/portal/packages" : "/api/packages";
+      const res = await apiFetch(`${base}/${encodeURIComponent(packageId)}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: action, notes: notes.trim() || null }),

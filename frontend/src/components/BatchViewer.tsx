@@ -2,15 +2,23 @@ import React, { useEffect, useState } from "react";
 import PackageViewer from "./PackageViewer";
 import { apiFetch, apiUrlWithToken } from "@/lib/api";
 
-export default function BatchViewer({ batchId }: { batchId: number }) {
+export default function BatchViewer({
+  batchId,
+  portal = false,
+}: {
+  batchId: number;
+  /** Client-portal mode: uses the client-scoped API and hides internal-only UI. */
+  portal?: boolean;
+}) {
   const [batch, setBatch] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPackageIdx, setSelectedPackageIdx] = useState(0);
+  const apiBase = portal ? "/api/portal" : "/api";
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
-    apiFetch(`/api/batches/${batchId}`)
+    apiFetch(`${apiBase}/batches/${batchId}`)
       .then((res) => res.json())
       .then((data) => {
         setBatch(data);
@@ -21,7 +29,7 @@ export default function BatchViewer({ batchId }: { batchId: number }) {
         console.error("Failed to load batch details", err);
         setLoading(false);
       });
-  }, [batchId]);
+  }, [batchId, apiBase]);
 
   if (loading) {
     return (
@@ -41,7 +49,7 @@ export default function BatchViewer({ batchId }: { batchId: number }) {
 
   const handleDownload = async () => {
     // Token goes in the query string: a plain navigation can't set headers.
-    const url = await apiUrlWithToken(`/api/batches/${batch.id}/download`);
+    const url = await apiUrlWithToken(`${apiBase}/batches/${batch.id}/download`);
     window.location.href = url;
   };
 
@@ -101,7 +109,7 @@ export default function BatchViewer({ batchId }: { batchId: number }) {
 
       <div className="flex-1 overflow-y-auto p-6">
         {(batch.packages as any[])[selectedPackageIdx] && (
-          <PackageViewer pkg={(batch.packages as any[])[selectedPackageIdx]} />
+          <PackageViewer pkg={(batch.packages as any[])[selectedPackageIdx]} portal={portal} />
         )}
       </div>
     </div>

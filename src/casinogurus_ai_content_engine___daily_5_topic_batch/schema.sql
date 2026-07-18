@@ -160,6 +160,24 @@ ALTER TABLE packages ADD COLUMN IF NOT EXISTS client_id       TEXT;
 CREATE INDEX IF NOT EXISTS idx_batches_client         ON batches(client_id);
 CREATE INDEX IF NOT EXISTS idx_packages_client_status ON packages(client_id, review_status);
 
+-- Learning loop: LLM-distilled learned_style proposals, human-gated. A distill
+-- run reads package_reviews past the last watermark, proposes an updated
+-- learned_style, and parks it here. Accepting writes a new profile version via
+-- insert_profile_version; the profile itself is never touched automatically.
+CREATE TABLE IF NOT EXISTS learning_proposals (
+    id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    client_id      TEXT NOT NULL,
+    proposed_text  TEXT NOT NULL,
+    current_text   TEXT NOT NULL DEFAULT '',   -- learned_style at distill time
+    last_review_id BIGINT NOT NULL,            -- watermark: max package_reviews.id analysed
+    review_count   INTEGER NOT NULL DEFAULT 0, -- events analysed in this run
+    status         TEXT NOT NULL DEFAULT 'pending',  -- pending | accepted | dismissed | superseded
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    decided_at     TIMESTAMPTZ,
+    decided_by     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_learning_client ON learning_proposals(client_id, created_at DESC);
+
 -- Content-type / format catalog (the "master"). Rows are seeded from the code
 -- defaults (registry.py) at startup when empty, then managed via the API. The
 -- pipeline behaviour of a format is chosen by its task_variant (code); all

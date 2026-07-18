@@ -28,8 +28,16 @@ Endpoints (all under /api require a valid token):
     GET  /api/packages/{pid}/image
     POST /api/packages/{pid}/image[?force=1]
     POST /api/packages/{pid}/feedback         -> shortlist/approve/reject event
+    GET  /api/clients/{id}/learning           -> pending proposal + stats
+    POST /api/clients/{id}/learning/distill   -> distil feedback into a proposal
+    POST /api/clients/{id}/learning/proposals/{pid}/accept  -> new profile version
+    POST /api/clients/{id}/learning/proposals/{pid}/dismiss
     POST /api/run-agent                       -> {client_id, content_type, format}
     GET  /api/agent-logs                      -> SSE
+    GET/POST /api/admin/users[...]            -> portal login management
+    GET  /api/portal/me|batches|batches/{id}[/download]  -> client-scoped (JWT client_id)
+    GET  /api/portal/packages/{pid}/image     -> client-scoped
+    POST /api/portal/packages/{pid}/feedback  -> client-scoped feedback event
 """
 
 from __future__ import annotations
@@ -51,7 +59,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ValidationError
 
-from casinogurus_ai_content_engine___daily_5_topic_batch.auth import require_user
+from casinogurus_ai_content_engine___daily_5_topic_batch.auth import (
+    require_admin,
+    require_client,
+    require_user,
+)
 from casinogurus_ai_content_engine___daily_5_topic_batch.db import (
     _PROJECT_ROOT,
     connection,
@@ -93,6 +105,17 @@ class ClientUpsert(BaseModel):
 class FeedbackRequest(BaseModel):
     status: Literal["shortlisted", "approved", "rejected"]
     notes: str | None = None
+
+
+class PortalUserCreate(BaseModel):
+    email: str
+    role: Literal["admin", "client"] = "client"
+    client_id: str | None = None  # required when role == "client"
+
+
+class ProposalAccept(BaseModel):
+    # Admin may edit the distilled text before accepting; None = accept as proposed.
+    text: str | None = None
 
 
 class ContentTypeUpsert(BaseModel):
@@ -302,7 +325,10 @@ def build_batch_zip(batch: dict) -> bytes:
 # --------------------------------------------------------------------------- #
 # Routes
 # --------------------------------------------------------------------------- #
-api = APIRouter(prefix="/api", dependencies=[Depends(require_user)])
+# Everything on this router is internal-team functionality: it requires
+# app_metadata.role == 'admin'. Client-portal logins use the /api/portal
+# router further below, which scopes every query to the token's client_id.
+api = APIRouter(prefix="/api", dependencies=[Depends(require_admin)])
 
 
 @api.get("/formats")
@@ -444,6 +470,139 @@ def package_feedback(pid: str, body: FeedbackRequest, user: dict = Depends(requi
     return jsonable(row)
 
 
+# --------------------------------------------------------------------------- #
+# Portal user management (Supabase Auth Admin API; admin-only like the rest
+# of this router). Client logins carry app_metadata {role, client_id}.
+# --------------------------------------------------------------------------- #
+def _sb():
+    from casinogurus_ai_content_engine___daily_5_topic_batch import supabase_admin
+
+    return supabase_admin
+
+
+def _user_row(u: dict) -> dict:
+    meta = u.get("app_metadata") or {}
+    return {
+        "id": u.get("id"),
+        "email": u.get("email"),
+        "role": meta.get("role"),
+        "client_id": meta.get("client_id"),
+        "created_at": u.get("created_at"),
+        "last_sign_in_at": u.get("last_sign_in_at"),
+        "disabled": bool(u.get("banned_until")),
+    }
+
+
+def _sb_call(fn, *args, **kwargs):
+    from casinogurus_ai_content_engine___daily_5_topic_batch.supabase_admin import (
+        SupabaseAdminError,
+    )
+
+    try:
+        return fn(*args, **kwargs)
+    except SupabaseAdminError as e:
+        raise HTTPException(status_code=e.status_code if e.status_code < 500 else 502, detail=str(e))
+
+
+@api.get("/admin/users")
+def list_portal_users():
+    return [_user_row(u) for u in _sb_call(_sb().list_users)]
+
+
+@api.post("/admin/users")
+def create_portal_user(body: PortalUserCreate):
+    email = body.email.strip().lower()
+    if body.role == "client":
+        if not body.client_id:
+            raise HTTPException(status_code=422, detail="client_id is required for client logins")
+        if not storage.get_client(body.client_id):
+            raise HTTPException(status_code=404, detail=f"client '{body.client_id}' not found")
+    sb = _sb()
+    temp_password = sb.generate_temp_password()
+    user = _sb_call(
+        sb.create_user, email, temp_password, body.role,
+        body.client_id if body.role == "client" else None,
+    )
+    # temp_password is returned ONCE, here, and never stored.
+    return {"user": _user_row(user), "temp_password": temp_password}
+
+
+@api.post("/admin/users/{user_id}/reset-password")
+def reset_portal_user_password(user_id: str):
+    sb = _sb()
+    temp_password = sb.generate_temp_password()
+    _sb_call(sb.set_password, user_id, temp_password)
+    return {"temp_password": temp_password}
+
+
+@api.post("/admin/users/{user_id}/disable")
+def disable_portal_user(user_id: str, user: dict = Depends(require_user)):
+    if user_id == user.get("sub"):
+        raise HTTPException(status_code=409, detail="You cannot disable your own account.")
+    return _user_row(_sb_call(_sb().set_banned, user_id, True))
+
+
+@api.post("/admin/users/{user_id}/enable")
+def enable_portal_user(user_id: str):
+    return _user_row(_sb_call(_sb().set_banned, user_id, False))
+
+
+# --------------------------------------------------------------------------- #
+# Learning loop (human-gated learned_style distillation)
+# --------------------------------------------------------------------------- #
+@api.get("/clients/{client_id}/learning")
+def learning_state(client_id: str):
+    """Pending proposal, unprocessed-event count, and approval-rate stats."""
+    if not storage.get_client(client_id):
+        raise HTTPException(status_code=404, detail=f"client '{client_id}' not found")
+    state = storage.get_learning_state(client_id)
+    state["stats"] = storage.approval_stats_by_profile_version(client_id)
+    return jsonable(state)
+
+
+@api.post("/clients/{client_id}/learning/distill")
+def learning_distill(client_id: str):
+    """Analyse new review events and park a pending learned_style proposal."""
+    if not storage.get_client(client_id):
+        raise HTTPException(status_code=404, detail=f"client '{client_id}' not found")
+    from casinogurus_ai_content_engine___daily_5_topic_batch import learning
+
+    try:
+        result = learning.distill_client(client_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"distillation failed: {e}")
+    return jsonable(result)
+
+
+@api.post("/clients/{client_id}/learning/proposals/{proposal_id}/accept")
+def learning_accept(
+    client_id: str, proposal_id: int, body: ProposalAccept, user: dict = Depends(require_user)
+):
+    """Accept a proposal (optionally with admin edits) -> new profile version."""
+    decided_by = (user or {}).get("email") or (user or {}).get("sub")
+    row = storage.decide_learning_proposal(proposal_id, client_id, "accepted", decided_by)
+    if not row:
+        raise HTTPException(status_code=404, detail="no matching pending proposal")
+    client = storage.get_client(client_id)
+    if not client or not client.get("profile"):
+        raise HTTPException(status_code=409, detail=f"client '{client_id}' has no profile to update")
+    profile = dict(client["profile"])
+    profile["learned_style"] = (body.text if body.text is not None else row["proposed_text"]).strip()
+    version = storage.insert_profile_version(
+        client_id, _validated_profile(profile), created_by=f"learning-loop:{decided_by}"
+    )
+    return jsonable({"proposal": row, "profile_version": version})
+
+
+@api.post("/clients/{client_id}/learning/proposals/{proposal_id}/dismiss")
+def learning_dismiss(client_id: str, proposal_id: int, user: dict = Depends(require_user)):
+    decided_by = (user or {}).get("email") or (user or {}).get("sub")
+    row = storage.decide_learning_proposal(proposal_id, client_id, "dismissed", decided_by)
+    if not row:
+        raise HTTPException(status_code=404, detail="no matching pending proposal")
+    return jsonable({"proposal": row})
+
+
 @api.get("/batches")
 def list_batches(client_id: str | None = Query(default=None)):
     return jsonable(_list_batches(client_id))
@@ -499,6 +658,132 @@ def generate_package_image(pid: str, force: bool = Query(default=False)):
     payload = _image_payload(row)
     status_code = 200 if payload and payload.get("status") == "ok" else 502
     return JSONResponse(status_code=status_code, content=jsonable(payload or {"package_id": pid, "status": "error"}))
+
+
+# --------------------------------------------------------------------------- #
+# Client portal API. Every endpoint is scoped to the client_id baked into the
+# caller's JWT (app_metadata.client_id) -- NEVER to a query param from a
+# client login. Admins may also call these for support/testing by passing
+# ?client_id= explicitly. No run-agent, registry, or profile access here.
+# --------------------------------------------------------------------------- #
+portal = APIRouter(prefix="/api/portal", dependencies=[Depends(require_client)])
+
+
+def _portal_cid(user: dict, client_id: str | None = None) -> str:
+    """The effective client scope: token's client_id, or (admins only) the
+    explicit ?client_id= param."""
+    cid = user.get("portal_client_id")
+    if cid:
+        return cid  # client login: token wins, any param is ignored
+    if client_id:
+        return client_id  # admin browsing on a client's behalf
+    raise HTTPException(
+        status_code=422,
+        detail="client_id query param is required when an admin calls portal endpoints",
+    )
+
+
+def _batch_client_id(batch_id: int) -> str | None:
+    with connection() as conn:
+        row = conn.execute("SELECT client_id FROM batches WHERE id = %s", (batch_id,)).fetchone()
+        return row["client_id"] if row else None
+
+
+def _package_client_id(pid: str) -> str | None:
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT client_id FROM packages WHERE package_id = %s", (pid,)
+        ).fetchone()
+        return row["client_id"] if row else None
+
+
+def _own_batch_or_404(batch_id: int, cid: str) -> dict:
+    # Same 404 whether the batch doesn't exist or belongs to another client --
+    # portal callers can't probe other clients' batch ids.
+    if _batch_client_id(batch_id) != cid:
+        raise HTTPException(status_code=404, detail=f"batch {batch_id} not found")
+    batch = _get_batch(batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail=f"batch {batch_id} not found")
+    return batch
+
+
+def _own_package_or_404(pid: str, cid: str) -> None:
+    if _package_client_id(pid) != cid:
+        raise HTTPException(status_code=404, detail=f"package '{pid}' not found")
+
+
+@portal.get("/me")
+def portal_me(user: dict = Depends(require_client), client_id: str | None = Query(default=None)):
+    cid = _portal_cid(user, client_id)
+    client = storage.get_client(cid)
+    if not client:
+        raise HTTPException(status_code=404, detail="client not found")
+    # Deliberately NOT the profile: it contains internal prompt engineering.
+    return jsonable(
+        {
+            "id": client["id"],
+            "display_name": client["display_name"],
+            "site_domain": client["site_domain"],
+            "status": client["status"],
+            "email": user.get("email"),
+        }
+    )
+
+
+@portal.get("/batches")
+def portal_batches(user: dict = Depends(require_client), client_id: str | None = Query(default=None)):
+    return jsonable(_list_batches(_portal_cid(user, client_id)))
+
+
+@portal.get("/batches/{batch_id}")
+def portal_batch(
+    batch_id: int, user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    return _own_batch_or_404(batch_id, _portal_cid(user, client_id))
+
+
+@portal.get("/batches/{batch_id}/download")
+def portal_download(
+    batch_id: int, user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    batch = _own_batch_or_404(batch_id, _portal_cid(user, client_id))
+    body = build_batch_zip(batch)
+    batch_date = batch.get("batch_date", "download")
+    return Response(
+        content=body,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="batch_{batch_date}.zip"'},
+    )
+
+
+@portal.get("/packages/{pid}/image")
+def portal_package_image(
+    pid: str, user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    _own_package_or_404(pid, _portal_cid(user, client_id))
+    payload = _image_payload(get_image(pid))
+    if payload is None or payload.get("status") != "ok" or not payload.get("image_b64"):
+        body = payload or {"package_id": pid, "status": "none"}
+        return JSONResponse(status_code=404, content=jsonable(body))
+    return payload
+
+
+@portal.post("/packages/{pid}/feedback")
+def portal_feedback(
+    pid: str,
+    body: FeedbackRequest,
+    user: dict = Depends(require_client),
+    client_id: str | None = Query(default=None),
+):
+    """Client feedback -- the same event stream the learning loop distils."""
+    _own_package_or_404(pid, _portal_cid(user, client_id))
+    reviewer = user.get("email") or user.get("sub")
+    try:
+        row = storage.add_package_review(pid, body.status, body.notes, reviewer)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"package '{pid}' not found")
+    return jsonable(row)
 
 
 def _tee_output(process, log_file):
@@ -702,3 +987,4 @@ def healthz():
 
 
 app.include_router(api)
+app.include_router(portal)

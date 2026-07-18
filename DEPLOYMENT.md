@@ -4,7 +4,7 @@ Production stack:
 
 | Layer | Tech | Host |
 |-------|------|------|
-| Frontend | Next.js 16 dashboard | **Firebase App Hosting** |
+| Frontend | Next.js 16 dashboard | **Vercel** |
 | Backend API | FastAPI (`app.py`) + CrewAI | **Railway** (Docker, always-on) |
 | Database | PostgreSQL (JSONB) | **Supabase** |
 | Auth | Supabase Auth (email/password) | Supabase |
@@ -15,8 +15,8 @@ is already in the repo. Do them in order.
 ---
 
 ## 0. Prerequisites
-- Accounts: [Supabase](https://supabase.com), [Railway](https://railway.app), [Firebase](https://console.firebase.google.com).
-- The repo pushed to GitHub (Railway + Firebase deploy from it).
+- Accounts: [Supabase](https://supabase.com), [Railway](https://railway.app), [Vercel](https://vercel.com).
+- The repo pushed to GitHub — the public **CONTENT-AGENT** repo (Railway + Vercel deploy from it).
 - Local tools for the one-time data migration: `uv` and Python 3.10–3.13.
 
 ---
@@ -40,7 +40,18 @@ is already in the repo. Do them in order.
    - `NEXT_PUBLIC_SUPABASE_URL` = *Project URL*.
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the **publishable** key (or the legacy
      *anon public* key). Either works as the client API key in supabase-js.
-5. **Create user accounts.** Authentication → **Users** → *Add user* (one per team member, with email + password). Optionally turn off public sign-ups (Authentication → Providers/Settings) so only invited users exist.
+5. **Create user accounts.** The app is a split portal — internal team (admin) at
+   `/admin`, client logins at `/portal`. Roles live in each user's
+   `app_metadata` (`{"role": "admin"}` or `{"role": "client", "client_id": "..."}`)
+   and are enforced by both the frontend proxy and the API.
+   - **Admins (internal team):** Authentication → **Users** → *Add user* in the
+     Supabase dashboard, then grant the role by running (once per new batch of
+     dashboard-created users): `uv run python scripts/grant_admin_roles.py --apply`.
+   - **Client logins:** create them from the app itself — `/admin/users` →
+     *Create Login* (picks the client, generates a temporary password shown
+     once). Requires `SUPABASE_SERVICE_ROLE_KEY` on the backend (step 3).
+   - Turn off public sign-ups (Authentication → Providers/Settings) so only
+     accounts you create exist.
 
 The app creates its own tables on first startup, so no manual SQL is required.
 
@@ -85,7 +96,8 @@ runs. You can start on the trial without a card.
    | `DATABASE_URL` | the Supabase URI from step 1.2 |
    | `SUPABASE_URL` | your Project URL from step 1.3 (e.g. `https://<ref>.supabase.co`) |
    | `SUPABASE_JWT_SECRET` | *optional* — only if still using legacy HS256 tokens (step 1.3) |
-   | `FRONTEND_ORIGIN` | your Firebase URL, e.g. `https://<app>.web.app` (add `http://localhost:3000` too, comma-separated, if you want local dev to hit prod) |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → **service_role** key. Needed for portal user management (creating client logins). **Server-side only — never expose to the frontend.** |
+   | `FRONTEND_ORIGIN` | your Vercel URL, e.g. `https://content-agent-bice.vercel.app` (add `http://localhost:3000` too, comma-separated, if you want local dev to hit prod) |
    | `ANTHROPIC_API_KEY` | your key |
    | `OPENAI_API_KEY` | your key |
    | `EXA_API_KEY` | your key |
@@ -103,27 +115,39 @@ runs. You can start on the trial without a card.
 
 ---
 
-## 4. Frontend — Firebase App Hosting
+## 4. Frontend — Vercel
 
-1. Edit **`frontend/apphosting.yaml`** and set the three values:
+The production frontend is deployed on Vercel from the public **CONTENT-AGENT**
+GitHub repo (current URL: `https://content-agent-bice.vercel.app`). Every push
+to `main` triggers an automatic redeploy.
+
+1. Vercel → **Add New… → Project** → import the CONTENT-AGENT GitHub repo.
+   - Set **Root Directory** to **`frontend`**. Vercel auto-detects Next.js;
+     no build settings need changing.
+2. Set the environment variables (Project → **Settings → Environment Variables**):
    - `NEXT_PUBLIC_API_URL` → the Railway URL from step 3.5
    - `NEXT_PUBLIC_SUPABASE_URL` → from step 1.4
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → from step 1.4
 
    (These are public by design; real access control is the Supabase login + the
    backend JWT check.)
-2. Firebase Console → **App Hosting** → **Get started** → connect the GitHub repo,
-   set the app root to **`frontend`**, and pick the branch to deploy.
-3. Deploy. Firebase builds with `apphosting.yaml` and gives you a URL
-   (`https://<app>.web.app`).
+3. Deploy. Vercel gives you a URL (`https://<project>.vercel.app`).
 4. **Back-fill CORS:** make sure that URL is in the backend's `FRONTEND_ORIGIN`
    on Railway (step 3.3). Redeploy the backend if you changed it.
+   (`https://content-agent-bice.vercel.app` is also hardcoded as a safe CORS
+   default in `app.py`, so the current production URL works even if the
+   variable is stale.)
+
+> **Alternative — Firebase App Hosting:** the repo also ships
+> `frontend/apphosting.yaml`. Set the same three values in that file, then
+> Firebase Console → **App Hosting** → connect the repo with app root
+> `frontend`. The URL is then `https://<app>.web.app`.
 
 ---
 
 ## 5. Smoke test (production)
 
-Open the Firebase URL and verify:
+Open the Vercel URL and verify:
 1. You're redirected to **/login**; signing in with a Supabase user works.
 2. Existing batches load in the sidebar (from the migration); opening one shows
    the draft/compliance/SEO tabs.
@@ -163,5 +187,5 @@ npm run dev                        # http://localhost:3000
 - **Images** are stored in Postgres (`images` table). If the dashboard later
   renders featured images and the table grows large, move the bytes to Supabase
   Storage and keep only URLs in the DB.
-- **Secrets** live only in Railway / Firebase / Supabase dashboards. `.env` is
+- **Secrets** live only in Railway / Vercel / Supabase dashboards. `.env` is
   gitignored and excluded from the Docker image (`.dockerignore`).

@@ -60,18 +60,25 @@ export default function Sidebar({
             ))}
           </select>
           <Link
-            href="/clients"
+            href="/admin/clients"
             className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded hover:text-gray-200 hover:border-gray-500 transition-colors"
             title="Manage clients"
           >
             Clients
           </Link>
           <Link
-            href="/registry"
+            href="/admin/registry"
             className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded hover:text-gray-200 hover:border-gray-500 transition-colors"
             title="Manage content types & formats"
           >
             Formats
+          </Link>
+          <Link
+            href="/admin/users"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded hover:text-gray-200 hover:border-gray-500 transition-colors"
+            title="Manage portal logins"
+          >
+            Users
           </Link>
         </div>
 

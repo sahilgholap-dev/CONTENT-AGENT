@@ -63,6 +63,12 @@ __all__ = [
     "list_runs",
     "add_package_review",
     "latest_reviews_for_packages",
+    "learning_watermark",
+    "feedback_events_since",
+    "create_learning_proposal",
+    "get_learning_state",
+    "decide_learning_proposal",
+    "approval_stats_by_profile_version",
     "seed_registry_defaults",
     "list_content_types",
     "upsert_content_type",
@@ -592,6 +598,137 @@ def latest_reviews_for_packages(package_ids: list[str]) -> dict[str, dict]:
             (package_ids,),
         ).fetchall()
         return {r["package_id"]: dict(r) for r in rows}
+
+
+# ---------------------------------------------------------------------------
+# Learning loop (distilled learned_style proposals; human-gated)
+# ---------------------------------------------------------------------------
+
+def learning_watermark(client_id: str) -> int:
+    """Highest package_reviews.id already incorporated into the profile.
+
+    Only ACCEPTED proposals advance the watermark: a dismissed proposal's
+    events are re-analysed (with more data) on the next distill run.
+    """
+    with connection() as conn:
+        row = conn.execute(
+            """SELECT COALESCE(MAX(last_review_id), 0) AS wm
+               FROM learning_proposals
+               WHERE client_id = %s AND status = 'accepted'""",
+            (client_id,),
+        ).fetchone()
+        return row["wm"]
+
+
+def feedback_events_since(client_id: str, after_id: int, limit: int = 60) -> list[dict]:
+    """Review events past the watermark, joined with the reviewed content.
+
+    body_html is truncated in SQL so a big backlog can't blow up the
+    distillation prompt.
+    """
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT r.id, r.action, r.feedback, r.reviewer, r.created_at,
+                      p.package_id, p.topic, p.seo_title, p.excerpt, p.pillar,
+                      LEFT(p.body_html, 6000) AS body_sample
+               FROM package_reviews r
+               JOIN packages p ON p.package_id = r.package_id
+               WHERE r.client_id = %s AND r.id > %s
+               ORDER BY r.id
+               LIMIT %s""",
+            (client_id, after_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def create_learning_proposal(
+    client_id: str,
+    proposed_text: str,
+    current_text: str,
+    last_review_id: int,
+    review_count: int,
+) -> dict:
+    """Insert a new pending proposal, superseding any older pending one."""
+    with connection() as conn:
+        conn.execute(
+            """UPDATE learning_proposals
+               SET status = 'superseded', decided_at = now()
+               WHERE client_id = %s AND status = 'pending'""",
+            (client_id,),
+        )
+        row = conn.execute(
+            """INSERT INTO learning_proposals
+                   (client_id, proposed_text, current_text, last_review_id, review_count)
+               VALUES (%s, %s, %s, %s, %s)
+               RETURNING *""",
+            (client_id, proposed_text, current_text, last_review_id, review_count),
+        ).fetchone()
+        return dict(row)
+
+
+def get_learning_state(client_id: str) -> dict:
+    """Pending proposal (if any) + how many unprocessed review events exist."""
+    watermark = learning_watermark(client_id)
+    with connection() as conn:
+        pending = conn.execute(
+            """SELECT * FROM learning_proposals
+               WHERE client_id = %s AND status = 'pending'
+               ORDER BY created_at DESC LIMIT 1""",
+            (client_id,),
+        ).fetchone()
+        new_events = conn.execute(
+            "SELECT COUNT(*) AS n FROM package_reviews WHERE client_id = %s AND id > %s",
+            (client_id, watermark),
+        ).fetchone()["n"]
+    return {
+        "pending_proposal": dict(pending) if pending else None,
+        "watermark": watermark,
+        "new_event_count": new_events,
+    }
+
+
+def decide_learning_proposal(
+    proposal_id: int, client_id: str, status: str, decided_by: str | None = None
+) -> dict | None:
+    """Mark a pending proposal accepted or dismissed. Returns the row or None."""
+    if status not in ("accepted", "dismissed"):
+        raise ValueError(f"invalid proposal decision: {status}")
+    with connection() as conn:
+        row = conn.execute(
+            """UPDATE learning_proposals
+               SET status = %s, decided_at = now(), decided_by = %s
+               WHERE id = %s AND client_id = %s AND status = 'pending'
+               RETURNING *""",
+            (status, decided_by, proposal_id, client_id),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def approval_stats_by_profile_version(client_id: str) -> list[dict]:
+    """Latest review verdict per package, grouped by the profile version the
+    batch ran with — the measurement that shows whether learning helps."""
+    with connection() as conn:
+        rows = conn.execute(
+            """WITH latest AS (
+                   SELECT DISTINCT ON (r.package_id) r.package_id, r.action
+                   FROM package_reviews r
+                   WHERE r.client_id = %s
+                   ORDER BY r.package_id, r.created_at DESC
+               )
+               SELECT b.profile_version,
+                      COUNT(*)                                            AS reviewed,
+                      COUNT(*) FILTER (WHERE l.action = 'approved')       AS approved,
+                      COUNT(*) FILTER (WHERE l.action = 'rejected')       AS rejected,
+                      COUNT(*) FILTER (WHERE l.action = 'shortlisted')    AS shortlisted
+               FROM latest l
+               JOIN packages p ON p.package_id = l.package_id
+               JOIN batches  b ON b.id = p.batch_id
+               WHERE b.profile_version IS NOT NULL
+               GROUP BY b.profile_version
+               ORDER BY b.profile_version""",
+            (client_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
