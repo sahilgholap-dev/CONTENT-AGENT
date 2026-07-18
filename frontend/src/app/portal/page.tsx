@@ -1,20 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BatchViewer from "@/components/BatchViewer";
+import PortalRunModal from "@/components/PortalRunModal";
 import { apiFetch } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
+const ACTIVE_STATUSES = new Set(["queued", "running", "started"]);
+
 /** Client portal home: their batches only (scoped server-side by the JWT's
- *  client_id), with the standard batch viewer in portal mode. */
+ *  client_id), with the standard batch viewer in portal mode. Clients can
+ *  launch runs for their own business and review the drafts. */
 export default function PortalDashboard() {
   const router = useRouter();
   const [me, setMe] = useState<Record<string, any> | null>(null);
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [formats, setFormats] = useState<any[]>([]);
+  const [isRunModalOpen, setIsRunModalOpen] = useState(false);
+  const [activeRun, setActiveRun] = useState<Record<string, any> | null>(null);
+  const [runNotice, setRunNotice] = useState<string | null>(null);
+  const wasRunning = useRef(false);
 
   const load = useCallback(() => {
     apiFetch("/api/portal/me")
@@ -35,7 +44,42 @@ export default function PortalDashboard() {
 
   useEffect(() => {
     load();
+    apiFetch("/api/portal/formats")
+      .then((res) => res.json())
+      .then((data) => Array.isArray(data?.content_types) && setFormats(data.content_types))
+      .catch(() => {});
   }, [load]);
+
+  // Poll run status: while a run is active, check every 10s; when it leaves
+  // the active set, refresh the batch list so the new content appears.
+  const checkRuns = useCallback(() => {
+    apiFetch("/api/portal/runs")
+      .then((res) => res.json())
+      .then((runs) => {
+        if (!Array.isArray(runs)) return;
+        const active = runs.find((r) => ACTIVE_STATUSES.has(String(r.status)));
+        setActiveRun(active ?? null);
+        if (active) {
+          wasRunning.current = true;
+        } else if (wasRunning.current) {
+          wasRunning.current = false;
+          const latest = runs[0];
+          setRunNotice(
+            latest?.status === "failed"
+              ? "The last content run did not complete — our team has been notified. Please try again later."
+              : "Your new content is ready below."
+          );
+          load();
+        }
+      })
+      .catch(() => {});
+  }, [load]);
+
+  useEffect(() => {
+    checkRuns();
+    const timer = setInterval(checkRuns, 10_000);
+    return () => clearInterval(timer);
+  }, [checkRuns]);
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -70,6 +114,30 @@ export default function PortalDashboard() {
               </button>
             </div>
           </div>
+
+          <button
+            onClick={() => setIsRunModalOpen(true)}
+            disabled={!!activeRun || formats.length === 0}
+            className="mt-3 w-full px-3 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs uppercase font-bold tracking-wider hover:bg-blue-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {activeRun ? "Generating…" : "▶ Generate Content"}
+          </button>
+
+          {activeRun && (
+            <div className="mt-2 flex items-center gap-2 text-[11px] text-blue-300">
+              <span className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+              Content run in progress ({activeRun.format ?? "article"}) — new drafts appear here
+              automatically when it finishes.
+            </div>
+          )}
+          {runNotice && !activeRun && (
+            <div className="mt-2 flex items-start justify-between gap-2 text-[11px] text-green-300">
+              <span>{runNotice}</span>
+              <button onClick={() => setRunNotice(null)} className="text-gray-500 hover:text-gray-300">
+                ✕
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {loading ? (
@@ -122,6 +190,17 @@ export default function PortalDashboard() {
           </div>
         )}
       </main>
+
+      {isRunModalOpen && (
+        <PortalRunModal
+          onClose={() => setIsRunModalOpen(false)}
+          onStarted={() => {
+            setRunNotice(null);
+            checkRuns();
+          }}
+          formats={formats}
+        />
+      )}
     </div>
   );
 }

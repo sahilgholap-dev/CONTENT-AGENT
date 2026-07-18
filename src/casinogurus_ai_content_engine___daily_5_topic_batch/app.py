@@ -113,6 +113,14 @@ class PortalUserCreate(BaseModel):
     client_id: str | None = None  # required when role == "client"
 
 
+class PortalRunRequest(BaseModel):
+    """Portal run launch: client_id comes from the JWT, never the body."""
+
+    content_type: str = "long_form"
+    format: str = "blog"
+    topic: str | None = None
+
+
 class ProposalAccept(BaseModel):
     # Admin may edit the distilled text before accepting; None = accept as proposed.
     text: str | None = None
@@ -786,6 +794,36 @@ def portal_feedback(
     return jsonable(row)
 
 
+@portal.get("/formats")
+def portal_formats():
+    """Enabled content-type/format catalog for the portal run modal (same
+    non-sensitive payload the admin run modal uses)."""
+    return jsonable(storage.serialisable_registry(enabled_only=True))
+
+
+@portal.post("/run-agent")
+def portal_run_agent(
+    body: PortalRunRequest,
+    user: dict = Depends(require_client),
+    client_id: str | None = Query(default=None),
+):
+    """Clients can generate content for their own business; the run is always
+    scoped to the JWT's client_id."""
+    cid = _portal_cid(user, client_id)
+    return _start_agent_run(cid, body.content_type, body.format, body.topic)
+
+
+@portal.get("/runs")
+def portal_runs(user: dict = Depends(require_client), client_id: str | None = Query(default=None)):
+    """The caller's run history, trimmed to non-internal fields (the portal
+    polls this to show progress and refresh batches when a run finishes)."""
+    cid = _portal_cid(user, client_id)
+    rows = storage.list_runs(client_id=cid)
+    keep = ("id", "status", "content_type", "format", "topic",
+            "created_at", "started_at", "finished_at", "batch_id")
+    return jsonable([{k: r.get(k) for k in keep} for r in rows])
+
+
 def _tee_output(process, log_file):
     try:
         for line in iter(process.stdout.readline, b""):
@@ -800,46 +838,47 @@ def _tee_output(process, log_file):
         log_file.close()
 
 
-@api.post("/run-agent")
-def run_agent(body: RunAgentRequest | None = None):
+def _start_agent_run(client_id: str, content_type: str, format_id: str, raw_topic: str | None) -> dict:
+    """Shared run-launch path for the admin endpoint and the client portal.
+
+    All validation lives here so both surfaces behave identically; the only
+    difference is where client_id comes from (request body vs JWT)."""
     proc = _run_state["process"]
     if proc is not None and proc.poll() is None:
         raise HTTPException(status_code=409, detail="Agent is already running")
 
-    body = body or RunAgentRequest()
-
     # Validate the requested format against the DB catalog.
-    spec = storage.resolve_format_spec(body.format)
+    spec = storage.resolve_format_spec(format_id)
     if spec is None:
-        raise HTTPException(status_code=422, detail=f"unknown format '{body.format}' (see /api/formats)")
+        raise HTTPException(status_code=422, detail=f"unknown format '{format_id}' (see /api/formats)")
     if not spec.enabled:
-        raise HTTPException(status_code=422, detail=f"format '{body.format}' is not enabled")
-    if spec.content_type != body.content_type:
+        raise HTTPException(status_code=422, detail=f"format '{format_id}' is not enabled")
+    if spec.content_type != content_type:
         raise HTTPException(
             status_code=422,
-            detail=f"format '{body.format}' belongs to content type '{spec.content_type}', not '{body.content_type}'",
+            detail=f"format '{format_id}' belongs to content type '{spec.content_type}', not '{content_type}'",
         )
 
     # Validate the client and pin its current profile version via a runs row.
-    client = storage.get_client(body.client_id)
+    client = storage.get_client(client_id)
     if not client:
-        raise HTTPException(status_code=404, detail=f"client '{body.client_id}' not found")
+        raise HTTPException(status_code=404, detail=f"client '{client_id}' not found")
     if client["status"] != "active":
-        raise HTTPException(status_code=409, detail=f"client '{body.client_id}' is {client['status']}")
+        raise HTTPException(status_code=409, detail=f"client '{client_id}' is {client['status']}")
     if not client["profile_version"]:
-        raise HTTPException(status_code=409, detail=f"client '{body.client_id}' has no profile yet")
+        raise HTTPException(status_code=409, detail=f"client '{client_id}' has no profile yet")
 
     # Optional user-provided topic: trimmed, bounded, and interpolation-safe
     # (a {token} in the topic would be substituted into the prompts or crash
     # kickoff — same rule as profile text).
-    topic = (body.topic or "").strip() or None
+    topic = (raw_topic or "").strip() or None
     if topic:
         if len(topic) > 300:
             raise HTTPException(status_code=422, detail="topic must be at most 300 characters")
         if re.search(r"\{[A-Za-z_][A-Za-z0-9_\-]*\}", topic):
             raise HTTPException(status_code=422, detail="topic must not contain {placeholder}-style tokens")
 
-    run_row = storage.create_run(body.client_id, body.content_type, body.format, topic=topic)
+    run_row = storage.create_run(client_id, content_type, format_id, topic=topic)
 
     log_file = open(LOG_PATH, "w", encoding="utf-8")
     # First log line self-describes the run so the SSE terminal can label the
@@ -882,6 +921,12 @@ def run_agent(body: RunAgentRequest | None = None):
         "client_id": client["id"],
         "format": spec.id,
     }
+
+
+@api.post("/run-agent")
+def run_agent(body: RunAgentRequest | None = None):
+    body = body or RunAgentRequest()
+    return _start_agent_run(body.client_id, body.content_type, body.format, body.topic)
 
 
 @api.get("/agent-logs")
