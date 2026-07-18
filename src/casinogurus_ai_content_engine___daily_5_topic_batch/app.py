@@ -813,6 +813,49 @@ def portal_run_agent(
     return _start_agent_run(cid, body.content_type, body.format, body.topic)
 
 
+@portal.get("/run-progress")
+def portal_run_progress(
+    user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    """Stage progress of the CURRENT agent run, only if it belongs to the
+    caller's client. Parsed server-side from the run log (the [AGENT_RUN]
+    header + '[AGENT_PROGRESS] Task Completed' markers the crew emits) so
+    clients never see the raw log stream — another client's run returns the
+    same empty shape as no run at all."""
+    empty = {"active": False, "stage": 0, "total": 0, "label": None}
+    cid = _portal_cid(user, client_id)
+    proc = _run_state["process"]
+    running = proc is not None and proc.poll() is None
+    if not os.path.exists(LOG_PATH):
+        return empty
+    header: dict | None = None
+    completed = 0
+    try:
+        with open(LOG_PATH, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if header is None and line.startswith("[AGENT_RUN] "):
+                    try:
+                        header = json.loads(line[len("[AGENT_RUN] "):])
+                    except Exception:
+                        header = {}
+                if "[AGENT_PROGRESS] Task Completed" in line:
+                    completed += 1
+    except OSError:
+        return empty
+    if not header or header.get("client_id") != cid:
+        return empty
+    labels = [str(x) for x in (header.get("stage_labels") or [])]
+    total = len(labels) or 5
+    stage = min(completed, total)
+    return {
+        "active": running,
+        "stage": stage,
+        "total": total,
+        "label": labels[stage] if (running and stage < len(labels)) else None,
+        "run_id": header.get("run_id"),
+    }
+
+
 @portal.get("/runs")
 def portal_runs(user: dict = Depends(require_client), client_id: str | None = Query(default=None)):
     """The caller's run history, trimmed to non-internal fields (the portal

@@ -22,6 +22,7 @@ export default function PortalDashboard() {
   const [formats, setFormats] = useState<any[]>([]);
   const [isRunModalOpen, setIsRunModalOpen] = useState(false);
   const [activeRun, setActiveRun] = useState<Record<string, any> | null>(null);
+  const [progress, setProgress] = useState<Record<string, any> | null>(null);
   const [runNotice, setRunNotice] = useState<string | null>(null);
   const wasRunning = useRef(false);
 
@@ -81,6 +82,30 @@ export default function PortalDashboard() {
     return () => clearInterval(timer);
   }, [checkRuns]);
 
+  // While a run is active, poll stage progress (server-side parsed, scoped to
+  // this client's run) every 5s to drive the progress bar.
+  useEffect(() => {
+    if (!activeRun) {
+      setProgress(null);
+      return;
+    }
+    let cancelled = false;
+    const poll = () => {
+      apiFetch("/api/portal/run-progress")
+        .then((res) => res.json())
+        .then((data) => {
+          if (!cancelled && data && typeof data.total === "number") setProgress(data);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const timer = setInterval(poll, 5_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [activeRun]);
+
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -124,10 +149,31 @@ export default function PortalDashboard() {
           </button>
 
           {activeRun && (
-            <div className="mt-2 flex items-center gap-2 text-[11px] text-blue-300">
-              <span className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
-              Content run in progress ({activeRun.format ?? "article"}) — new drafts appear here
-              automatically when it finishes.
+            <div className="mt-2">
+              <div className="flex items-center gap-2 text-[11px] text-blue-300">
+                <span className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+                {progress?.label
+                  ? `${progress.label}…`
+                  : `Content run in progress (${activeRun.format ?? "article"})`}
+              </div>
+              <div className="mt-2 h-1.5 w-full rounded-full bg-gray-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-blue-500 transition-all duration-700"
+                  style={{
+                    width: progress && progress.total
+                      ? `${Math.max(6, Math.round((100 * progress.stage) / progress.total))}%`
+                      : "6%",
+                  }}
+                />
+              </div>
+              <div className="mt-1 flex justify-between text-[10px] text-gray-500">
+                <span>
+                  {progress && progress.total
+                    ? `Step ${Math.min(progress.stage + 1, progress.total)} of ${progress.total}`
+                    : "Starting…"}
+                </span>
+                <span>New drafts appear automatically</span>
+              </div>
             </div>
           )}
           {runNotice && !activeRun && (
