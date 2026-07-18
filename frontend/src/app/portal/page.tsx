@@ -45,9 +45,9 @@ export default function PortalDashboard() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950">
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-gray-950">
       {/* Left: batch list */}
-      <div className="w-80 bg-gray-900/50 backdrop-blur-md border-r border-gray-800 flex flex-col h-full shrink-0">
+      <div className="w-full md:w-80 bg-gray-900/50 backdrop-blur-md border-b md:border-b-0 md:border-r border-gray-800 flex flex-col max-h-[45vh] md:max-h-none md:h-full shrink-0">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
             {me?.display_name ?? "Content Portal"}
@@ -113,7 +113,7 @@ export default function PortalDashboard() {
       </div>
 
       {/* Right: batch viewer (portal mode — no Raw JSON, scoped API) */}
-      <main className="flex-1 min-w-0 overflow-hidden">
+      <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
         {selectedBatchId != null ? (
           <BatchViewer batchId={selectedBatchId} portal />
         ) : (

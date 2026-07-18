@@ -56,7 +56,7 @@ export default function BatchViewer({
   return (
     <div className="flex flex-col h-full bg-gray-950">
       <div className="shrink-0 p-6 border-b border-gray-800 bg-gray-900/40 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h2 className="text-2xl font-bold text-white">
@@ -91,7 +91,7 @@ export default function BatchViewer({
           </button>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm font-medium text-gray-400">Package:</label>
           <select
             className="flex-1 max-w-xl bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none transition-colors"

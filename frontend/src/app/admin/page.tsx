@@ -64,7 +64,7 @@ export default function Dashboard() {
   }, [loadBatches]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950">
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-gray-950">
       <Sidebar
         batches={batches}
         selectedBatchId={selectedBatchId}
@@ -76,7 +76,7 @@ export default function Dashboard() {
         onSelectClient={handleSelectClient}
         onRunStarted={loadBatches}
       />
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto">
         {selectedBatchId ? (
           <BatchViewer batchId={selectedBatchId} />
         ) : (

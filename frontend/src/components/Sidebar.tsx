@@ -39,15 +39,15 @@ export default function Sidebar({
 
   return (
     <>
-      <div className="w-80 bg-gray-900/50 backdrop-blur-md border-r border-gray-800 flex flex-col h-full shrink-0">
+      <div className="w-full md:w-80 bg-gray-900/50 backdrop-blur-md border-b md:border-b-0 md:border-r border-gray-800 flex flex-col max-h-[45vh] md:max-h-none md:h-full shrink-0">
       <div className="p-6 border-b border-gray-800">
         <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
           Content Engine
         </h1>
 
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3">
           <select
-            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 outline-none transition-colors"
+            className="w-full bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 outline-none transition-colors"
             value={selectedClientId ?? "__all__"}
             onChange={(e) => onSelectClient(e.target.value === "__all__" ? null : e.target.value)}
           >
@@ -59,23 +59,26 @@ export default function Sidebar({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="mt-2 grid grid-cols-3 gap-2">
           <Link
             href="/admin/clients"
-            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded hover:text-gray-200 hover:border-gray-500 transition-colors"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded text-center hover:text-gray-200 hover:border-gray-500 transition-colors"
             title="Manage clients"
           >
             Clients
           </Link>
           <Link
             href="/admin/registry"
-            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded hover:text-gray-200 hover:border-gray-500 transition-colors"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded text-center hover:text-gray-200 hover:border-gray-500 transition-colors"
             title="Manage content types & formats"
           >
             Formats
           </Link>
           <Link
             href="/admin/users"
-            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded hover:text-gray-200 hover:border-gray-500 transition-colors"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded text-center hover:text-gray-200 hover:border-gray-500 transition-colors"
             title="Manage portal logins"
           >
             Users

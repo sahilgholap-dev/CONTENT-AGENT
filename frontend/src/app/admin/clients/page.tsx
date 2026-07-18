@@ -58,9 +58,9 @@ export default function ClientsPage() {
   const detailLoading = !creating && !!selectedId && !displayedClient;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950">
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-gray-950">
       {/* Left: client list */}
-      <div className="w-80 bg-gray-900/50 backdrop-blur-md border-r border-gray-800 flex flex-col h-full shrink-0">
+      <div className="w-full md:w-80 bg-gray-900/50 backdrop-blur-md border-b md:border-b-0 md:border-r border-gray-800 flex flex-col max-h-[40vh] md:max-h-none md:h-full shrink-0">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
             Clients
@@ -125,7 +125,7 @@ export default function ClientsPage() {
       </div>
 
       {/* Right: profile editor */}
-      <main className="flex-1 min-w-0 overflow-y-auto">
+      <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-8">
           <h2 className="text-2xl font-bold text-white mb-1">
             {creating ? "Onboard New Client" : displayedClient?.display_name ?? "Select a client"}

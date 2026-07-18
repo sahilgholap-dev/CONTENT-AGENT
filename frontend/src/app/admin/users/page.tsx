@@ -202,8 +202,8 @@ export default function UsersPage() {
           </form>
         )}
 
-        <div className="rounded-xl border border-gray-800 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border border-gray-800 overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-gray-900 text-left text-xs uppercase tracking-wider text-gray-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Email</th>
