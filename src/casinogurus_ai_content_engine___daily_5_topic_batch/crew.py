@@ -134,7 +134,13 @@ class CasinogurusAiContentEngineDaily5TopicBatchCrew:
             max_execution_time=None,
             # Sonnet 5 for draft quality. No tools -> only the bounded research JSON
             # in context, so it stays in the cheap <=200K price tier.
-            llm=_sonnet_llm(),
+            # 32K output cap (vs the default 16K): Sonnet 5 runs adaptive thinking
+            # by default and max_tokens caps thinking + answer COMBINED. On a heavy
+            # client profile (first Gemmere blog run) the model spent most of 16K
+            # thinking and the article JSON was cut off ~600 tokens in, leaving
+            # seo_title/meta_description/slug/featured_image_prompt empty. Social
+            # and video drafters were already raised to 32K for the same reason.
+            llm=_sonnet_llm(max_tokens=32000),
         )
 
     @agent

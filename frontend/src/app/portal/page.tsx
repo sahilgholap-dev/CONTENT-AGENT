@@ -184,9 +184,13 @@ export default function PortalDashboard() {
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
         {selectedBatchId != null ? (
           <BatchViewer batchId={selectedBatchId} portal />
+        ) : loading ? (
+          <div className="flex h-full items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
         ) : (
           <div className="flex h-full items-center justify-center text-gray-500">
-            {loading ? "" : "Select a batch on the left."}
+            {batches.length === 0 ? "" : "Select a batch on the left."}
           </div>
         )}
       </main>
