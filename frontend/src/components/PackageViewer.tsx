@@ -11,6 +11,22 @@ const TABS = [
   { id: "raw", label: "Raw JSON" },
 ];
 
+// Draft fields come from LLM output: array-ish fields occasionally arrive as a
+// string, object, or null instead of an array (live crash: hashtags.map is not
+// a function). Never call .map on them without normalising first.
+function asArray<T = any>(v: unknown): T[] {
+  if (Array.isArray(v)) return v as T[];
+  if (v == null || v === "") return [];
+  return [v as T];
+}
+
+// Hashtags/tags specifically: a single "#a #b, #c" string becomes real tags.
+function asTags(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map(String).filter(Boolean);
+  if (typeof v === "string") return v.split(/[,\s]+/).filter(Boolean);
+  return v == null ? [] : [String(v)];
+}
+
 const Pill = ({ children, type }: { children: React.ReactNode; type?: string }) => {
   let colorClass = "bg-gray-800 text-gray-300";
   const t = String(children || type).toUpperCase();
@@ -110,10 +126,10 @@ export default function PackageViewer({
 }
 
 function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: string }) {
-  const scenes = (draft.scenes as any[]) || [];
-  const hashtags = (draft.hashtags as string[]) || [];
-  const vf = (draft.verification_flags as any[]) || [];
-  const sn = (draft.source_notes as any[]) || [];
+  const scenes = asArray(draft.scenes);
+  const hashtags = asTags(draft.hashtags);
+  const vf = asArray(draft.verification_flags);
+  const sn = asArray(draft.source_notes);
   const totalSec =
     (draft.total_duration_sec as number) ??
     scenes.reduce((s, sc) => s + (Number(sc?.duration_sec) || 0), 0);
@@ -238,9 +254,9 @@ function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: 
 }
 
 function SocialPostView({ draft, topic }: { draft: Record<string, any>; topic: string }) {
-  const hashtags = (draft.hashtags as string[]) || [];
-  const vf = (draft.verification_flags as any[]) || [];
-  const sn = (draft.source_notes as any[]) || [];
+  const hashtags = asTags(draft.hashtags);
+  const vf = asArray(draft.verification_flags);
+  const sn = asArray(draft.source_notes);
   const charCount = (draft.post_text as string)?.length ?? 0;
 
   return (
@@ -320,9 +336,9 @@ function SocialPostView({ draft, topic }: { draft: Record<string, any>; topic: s
 
 function DraftView({ draft, topic }: { draft: Record<string, any>; topic: string }) {
   if (!draft) return null;
-  const links = (draft.internal_links as any[]) || [];
-  const vf = (draft.verification_flags as any[]) || [];
-  const sn = (draft.source_notes as any[]) || [];
+  const links = asArray(draft.internal_links);
+  const vf = asArray(draft.verification_flags);
+  const sn = asArray(draft.source_notes);
   
   return (
     <div className="space-y-6">
@@ -337,7 +353,7 @@ function DraftView({ draft, topic }: { draft: Record<string, any>; topic: string
           <div className="text-gray-500 font-medium">Excerpt</div><div className="text-gray-300">{draft.excerpt || "—"}</div>
           <div className="text-gray-500 font-medium">Tags</div>
           <div className="text-gray-300">
-            {((draft.tags as string[]) || []).length > 0 
+            {asTags(draft.tags).length > 0 
               ? (draft.tags as string[]).map(t => <span key={t} className="inline-block bg-gray-800 border border-gray-700 rounded-md px-2 py-1 mr-2 text-xs">{t}</span>)
               : "—"}
           </div>
@@ -426,10 +442,10 @@ function renderInstr(ri: any) {
 
 function ComplianceView({ data }: { data: Record<string, any> }) {
   if (!data) return null;
-  const checks = (data.checks as any[]) || [];
+  const checks = asArray(data.checks);
   const failCount = checks.filter(c => String(c.verdict || c.result).toUpperCase() === 'FAIL').length;
   
-  const blockingFailures = (data.blocking_failures as any[]) || [];
+  const blockingFailures = asArray(data.blocking_failures);
   const simpleBlocking = blockingFailures.filter(b => typeof b === 'string' || (!b.violation && !b.remediation));
   const detailedBlocking = blockingFailures.filter(b => typeof b !== 'string' && (b.violation || b.remediation));
 
@@ -543,7 +559,7 @@ function SeoView({ data }: { data: Record<string, any> }) {
       </div>
       
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm space-y-6">
-        {((data.dimensions as any[]) || []).map((d: any, i: number) => {
+        {asArray(data.dimensions).map((d: any, i: number) => {
           const dn = d.dimension ?? d.name ?? '';
           return (
             <div key={i}>
@@ -585,7 +601,7 @@ function BriefView({ data }: { data: Record<string, any> }) {
           <div className="text-gray-500 font-medium">Word Count Target</div><div className="text-gray-300">{data.word_count_target}</div>
           <div className="text-gray-500 font-medium">Secondary Keywords</div>
           <div className="text-gray-300">
-            {((data.secondary_keywords as string[]) || []).map(k => <span key={k} className="inline-block bg-gray-800 border border-gray-700 rounded-md px-2 py-1 mr-2 mb-1 text-xs">{k}</span>)}
+            {asArray(data.secondary_keywords).map(k => <span key={k} className="inline-block bg-gray-800 border border-gray-700 rounded-md px-2 py-1 mr-2 mb-1 text-xs">{k}</span>)}
           </div>
           <div className="text-gray-500 font-medium">Schema</div><div className="text-gray-300">{data.schema_recommendation}</div>
           <div className="text-gray-500 font-medium">Selection Rationale</div><div className="text-gray-300">{data.selection_rationale}</div>
@@ -606,7 +622,7 @@ function BriefView({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {((data.outline as any[]) || []).length > 0 && (
+      {asArray(data.outline).length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-bold text-white mb-4">Outline</h3>
           <div className="space-y-2">
@@ -614,7 +630,7 @@ function BriefView({ data }: { data: Record<string, any> }) {
               <details key={i} className="group bg-gray-800/30 rounded-lg">
                 <summary className="p-3 font-semibold text-gray-200 cursor-pointer select-none">{o.h2}</summary>
                 <div className="p-3 pt-0 text-sm text-gray-400">
-                  {((o.h3s as any[]) || []).length > 0 ? (
+                  {asArray(o.h3s).length > 0 ? (
                     <ul className="list-disc pl-5 space-y-1">
                       {(o.h3s as any[]).map((h, j) => <li key={j}>{h}</li>)}
                     </ul>
@@ -626,7 +642,7 @@ function BriefView({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {((data.faq_set as any[]) || []).length > 0 && (
+      {asArray(data.faq_set).length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-bold text-white mb-4">FAQ Set</h3>
           <div className="space-y-3">
@@ -640,7 +656,7 @@ function BriefView({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {((data.title_options as string[]) || []).length > 0 && (
+      {asArray(data.title_options).length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-bold text-white mb-4">Title Options</h3>
           <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
@@ -649,7 +665,7 @@ function BriefView({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {((data.meta_description_options as string[]) || []).length > 0 && (
+      {asArray(data.meta_description_options).length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm mt-6">
           <h3 className="text-lg font-bold text-white mb-4">Meta Description Options</h3>
           <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
@@ -658,7 +674,7 @@ function BriefView({ data }: { data: Record<string, any> }) {
         </div>
       )}
       
-      {((data.compliance_checklist as any[]) || []).length > 0 && (
+      {asArray(data.compliance_checklist).length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm mt-6">
           <h3 className="text-lg font-bold text-white mb-4">Compliance Checklist</h3>
           <ul className="list-disc pl-5 text-sm text-gray-300 space-y-2">
@@ -671,7 +687,7 @@ function BriefView({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {((data.competitor_gaps as string[]) || []).length > 0 && (
+      {asArray(data.competitor_gaps).length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm mt-6">
           <h3 className="text-lg font-bold text-white mb-4">Competitor Gaps</h3>
           <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
@@ -695,7 +711,7 @@ function FactsView({ data }: { data: Record<string, any> }) {
           <tr><th className="px-4 py-3">Fact</th><th className="px-4 py-3">Confidence</th><th className="px-4 py-3">Flag</th><th className="px-4 py-3">Source</th></tr>
         </thead>
         <tbody>
-          {((data.facts as any[]) || []).map((f: any, i: number) => (
+          {asArray(data.facts).map((f: any, i: number) => (
             <tr key={i} className="border-b border-gray-800/50">
               <td className="px-4 py-4 text-gray-200 font-medium">{f.fact}</td>
               <td className="px-4 py-4"><Pill>{f.confidence}</Pill></td>
@@ -710,7 +726,7 @@ function FactsView({ data }: { data: Record<string, any> }) {
 }
 
 function MetaView({ pkg }: { pkg: Record<string, any> }) {
-  const vf = (pkg.verification_flags as any[]) || [];
+  const vf = asArray(pkg.verification_flags);
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
       <h2 className="text-xl font-bold text-white mb-6 pb-4 border-b border-gray-800">Package Metadata</h2>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -67,7 +67,7 @@ export default function ClientsPage() {
           </h1>
           <div className="flex justify-between items-center mt-2">
             <Link href="/admin" className="text-xs text-gray-400 hover:text-gray-200 transition-colors">
-              â† Back to batches
+              ← Back to batches
             </Link>
             <button
               onClick={() => {
@@ -134,7 +134,7 @@ export default function ClientsPage() {
             {creating
               ? "The profile below is authored by the internal team and is strictly specific to this client."
               : displayedClient
-              ? `Profile v${displayedClient.profile_version} â€” saving creates v${(displayedClient.profile_version ?? 0) + 1}; in-flight runs keep their pinned version.`
+              ? `Profile v${displayedClient.profile_version} — saving creates v${(displayedClient.profile_version ?? 0) + 1}; in-flight runs keep their pinned version.`
               : ""}
           </p>
           {detailLoading ? (
