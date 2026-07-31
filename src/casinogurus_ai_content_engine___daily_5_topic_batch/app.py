@@ -112,7 +112,15 @@ class FeedbackRequest(BaseModel):
 class PortalUserCreate(BaseModel):
     email: str
     role: Literal["admin", "client"] = "client"
-    client_id: str | None = None  # required when role == "client"
+    client_ids: list[str] = []  # one or more clients for client logins
+    client_id: str | None = None  # legacy single-client field, folded into client_ids
+
+
+class PortalUserUpdate(BaseModel):
+    """Edit an existing login's role / client assignments."""
+
+    role: Literal["admin", "client"]
+    client_ids: list[str] = []
 
 
 class PortalRunRequest(BaseModel):
@@ -496,7 +504,7 @@ def _user_row(u: dict) -> dict:
         "id": u.get("id"),
         "email": u.get("email"),
         "role": meta.get("role"),
-        "client_id": meta.get("client_id"),
+        "client_ids": allowed_client_ids(meta),
         "created_at": u.get("created_at"),
         "last_sign_in_at": u.get("last_sign_in_at"),
         "disabled": bool(u.get("banned_until")),
@@ -519,22 +527,48 @@ def list_portal_users():
     return [_user_row(u) for u in _sb_call(_sb().list_users)]
 
 
+def _validated_client_ids(role: str, client_ids: list[str]) -> list[str] | None:
+    """Normalised, validated client list for a login: None for admins, a
+    deduped non-empty list of EXISTING client ids for client logins."""
+    if role != "client":
+        return None
+    seen: set[str] = set()
+    ids: list[str] = []
+    for raw in client_ids:
+        cid = (raw or "").strip()
+        if cid and cid not in seen:
+            seen.add(cid)
+            ids.append(cid)
+    if not ids:
+        raise HTTPException(
+            status_code=422, detail="at least one client_id is required for client logins"
+        )
+    for cid in ids:
+        if not storage.get_client(cid):
+            raise HTTPException(status_code=404, detail=f"client '{cid}' not found")
+    return ids
+
+
 @api.post("/admin/users")
 def create_portal_user(body: PortalUserCreate):
     email = body.email.strip().lower()
-    if body.role == "client":
-        if not body.client_id:
-            raise HTTPException(status_code=422, detail="client_id is required for client logins")
-        if not storage.get_client(body.client_id):
-            raise HTTPException(status_code=404, detail=f"client '{body.client_id}' not found")
+    requested = list(body.client_ids)
+    if body.client_id:  # legacy single-client callers
+        requested.append(body.client_id)
+    client_ids = _validated_client_ids(body.role, requested)
     sb = _sb()
     temp_password = sb.generate_temp_password()
-    user = _sb_call(
-        sb.create_user, email, temp_password, body.role,
-        body.client_id if body.role == "client" else None,
-    )
+    user = _sb_call(sb.create_user, email, temp_password, body.role, client_ids)
     # temp_password is returned ONCE, here, and never stored.
     return {"user": _user_row(user), "temp_password": temp_password}
+
+
+@api.put("/admin/users/{user_id}")
+def update_portal_user(user_id: str, body: PortalUserUpdate, user: dict = Depends(require_user)):
+    if user_id == user.get("sub"):
+        raise HTTPException(status_code=409, detail="You cannot edit your own account.")
+    client_ids = _validated_client_ids(body.role, body.client_ids)
+    return _user_row(_sb_call(_sb().set_role, user_id, body.role, client_ids))
 
 
 @api.post("/admin/users/{user_id}/reset-password")

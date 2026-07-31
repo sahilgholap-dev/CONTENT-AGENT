@@ -76,7 +76,14 @@ def get_user(user_id: str) -> dict:
     return _request("GET", f"/admin/users/{user_id}")
 
 
-def create_user(email: str, password: str, role: str, client_id: str | None) -> dict:
+def _role_metadata(role: str, client_ids: list[str] | None) -> dict:
+    # client_id: None deliberately overwrites the legacy single-client key
+    # (GoTrue merges app_metadata top-level keys on update, so an edit must
+    # blank it out rather than leave a stale value behind).
+    return {"role": role, "client_ids": client_ids or None, "client_id": None}
+
+
+def create_user(email: str, password: str, role: str, client_ids: list[str] | None) -> dict:
     return _request(
         "POST",
         "/admin/users",
@@ -84,7 +91,7 @@ def create_user(email: str, password: str, role: str, client_id: str | None) -> 
             "email": email,
             "password": password,
             "email_confirm": True,  # closed portal: no confirmation email flow
-            "app_metadata": {"role": role, "client_id": client_id},
+            "app_metadata": _role_metadata(role, client_ids),
         },
     )
 
@@ -94,8 +101,8 @@ def update_user(user_id: str, **fields) -> dict:
     return _request("PUT", f"/admin/users/{user_id}", json=fields)
 
 
-def set_role(user_id: str, role: str, client_id: str | None = None) -> dict:
-    return update_user(user_id, app_metadata={"role": role, "client_id": client_id})
+def set_role(user_id: str, role: str, client_ids: list[str] | None = None) -> dict:
+    return update_user(user_id, app_metadata=_role_metadata(role, client_ids))
 
 
 def set_password(user_id: str, password: str) -> dict:
