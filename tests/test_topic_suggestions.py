@@ -108,3 +108,42 @@ def test_yaml_placeholder_audit_passes_with_default_inputs():
 def test_suggest_crew_variant_registered():
     from casinogurus_ai_content_engine___daily_5_topic_batch.crew import CREW_BY_VARIANT
     assert "suggest" in CREW_BY_VARIANT
+
+
+import json
+from types import SimpleNamespace
+
+from casinogurus_ai_content_engine___daily_5_topic_batch.main import _suggestion_items
+from casinogurus_ai_content_engine___daily_5_topic_batch.models import (
+    TopicSuggestionBatch,
+    TopicSuggestionItem,
+)
+
+
+# ------------------------------ _suggestion_items -------------------------- #
+
+def test_suggestion_items_prefers_pydantic_output():
+    obj = TopicSuggestionBatch(suggestions=[
+        TopicSuggestionItem(topic="A", pillar="p", rationale="r"),
+        TopicSuggestionItem(topic="  "),  # blank topic dropped
+    ])
+    result = SimpleNamespace(pydantic=obj, raw="")
+    items = _suggestion_items(result)
+    assert [i["topic"] for i in items] == ["A"]
+
+
+def test_suggestion_items_parses_raw_json_dict():
+    raw = json.dumps({"suggestions": [{"topic": "B", "pillar": "x"}, {"topic": ""}]})
+    result = SimpleNamespace(pydantic=None, raw=raw)
+    assert [i["topic"] for i in _suggestion_items(result)] == ["B"]
+
+
+def test_suggestion_items_parses_raw_json_list():
+    raw = json.dumps([{"topic": "C"}])
+    result = SimpleNamespace(pydantic=None, raw=raw)
+    assert [i["topic"] for i in _suggestion_items(result)] == ["C"]
+
+
+def test_suggestion_items_malformed_returns_empty():
+    assert _suggestion_items(SimpleNamespace(pydantic=None, raw="not json {")) == []
+    assert _suggestion_items(SimpleNamespace(pydantic=None, raw=json.dumps({"x": 1}))) == []

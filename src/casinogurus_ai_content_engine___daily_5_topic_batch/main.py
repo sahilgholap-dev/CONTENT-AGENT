@@ -7,6 +7,7 @@ a hardcoded brand constant. The API creates a ``runs`` row and passes only
 client, falling back to the committed seed profile when no database is
 reachable so a local crew run always works.
 """
+import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -21,6 +22,7 @@ from casinogurus_ai_content_engine___daily_5_topic_batch.profile import (
     audit_yaml_placeholders,
     build_inputs,
     load_seed_client,
+    suggestion_directive,
 )
 from casinogurus_ai_content_engine___daily_5_topic_batch import registry
 from casinogurus_ai_content_engine___daily_5_topic_batch.storage import _PROJECT_ROOT, init_schema, save_batch
@@ -52,6 +54,23 @@ def _dump_raw_output(result) -> str | None:
     except Exception as e:
         print(f"[storage] WARNING: could not write raw output dump: {e}")
         return None
+
+
+def _suggestion_items(result) -> list[dict]:
+    """Suggestion dicts from a suggest-crew result: the coerced pydantic
+    output when present, else best-effort JSON from the raw text. Items
+    without a topic are dropped; [] means the round is unusable."""
+    obj = getattr(result, "pydantic", None)
+    if obj is not None and getattr(obj, "suggestions", None):
+        return [i.model_dump() for i in obj.suggestions if (i.topic or "").strip()]
+    try:
+        data = json.loads(getattr(result, "raw", None) or str(result))
+    except Exception:
+        return []
+    items = data.get("suggestions") if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        return []
+    return [i for i in items if isinstance(i, dict) and (i.get("topic") or "").strip()]
 
 
 def _generate_images(batch_id):
@@ -112,15 +131,35 @@ def _resolve_run(run_id: str | None) -> tuple[dict | None, dict, str]:
             raise SystemExit(f"[run] client/profile missing for run {run_id}")
         profile = ClientProfile.model_validate(prof["profile"])
         spec = _resolve_spec(run_row["format"])
+        variant = (spec.pipeline or {}).get("task_variant", "default")
+        run_context = dict(_RUN_CONTEXT)
+
+        # Shortlist-launched generate runs pin a topic LIST. The blog crew is
+        # single-piece, so its (always length-1) list collapses onto the
+        # existing single-topic path and tasks.yaml needs no changes.
+        topic = run_row.get("topic")
+        topics = list(run_row.get("topics") or []) or None
+        if topics and variant == "default":
+            topic, topics = topics[0], None
+
+        if run_row.get("kind") == "suggest":
+            variant = "suggest"
+            avoid = storage.recent_suggestion_topics(
+                run_row["client_id"], run_row["format"], limit=50
+            ) + storage.recent_package_topics(run_row["client_id"], limit=100)
+            # For suggest runs the topic column carries the taste hint.
+            run_context["suggestion_directive"] = suggestion_directive(topic, avoid)
+            topic, topics = None, None
+
         inputs = build_inputs(
             client_name=client["display_name"],
             client_site=client["site_domain"],
             profile=profile,
             format_spec=spec,
-            run_context=dict(_RUN_CONTEXT),
-            topic=run_row.get("topic"),
+            run_context=run_context,
+            topic=topic,
+            topics=topics,
         )
-        variant = (spec.pipeline or {}).get("task_variant", "default")
         return run_row, inputs, variant
 
     try:
@@ -160,7 +199,27 @@ def run(run_id: str | None = None):
             storage.update_run(
                 run_row["id"], status="failed", error=str(e)[:2000], finished_at=datetime.now(timezone.utc)
             )
+            if run_row.get("topics"):
+                storage.revert_selected_suggestions(str(run_row["id"]))
         raise
+
+    # Suggest runs save topic_suggestions rows, not a batch (and no images).
+    if run_row and run_row.get("kind") == "suggest":
+        _dump_raw_output(result)
+        items = _suggestion_items(result)
+        if not items:
+            storage.update_run(
+                run_row["id"], status="failed",
+                error="suggest run produced no parseable suggestions (raw output dumped to runs/)",
+                finished_at=datetime.now(timezone.utc),
+            )
+        else:
+            n = storage.save_topic_suggestions(run_row, items)
+            print(f"[suggest] Saved {n} topic suggestions for client '{run_row['client_id']}'.")
+            storage.update_run(
+                run_row["id"], status="succeeded", finished_at=datetime.now(timezone.utc)
+            )
+        return result
 
     # Always dump the raw output first, so a save failure never loses the run.
     _dump_raw_output(result)
@@ -183,6 +242,8 @@ def run(run_id: str | None = None):
             storage.update_run(
                 run_row["id"], status="succeeded", batch_id=batch_id, finished_at=datetime.now(timezone.utc)
             )
+            if run_row.get("topics"):
+                storage.mark_generated_suggestions(str(run_row["id"]))
         else:
             source = "crew_run:" + datetime.now(timezone.utc).isoformat()
             batch_id = save_batch(result, source=source, client_id=DEFAULT_CLIENT,
@@ -199,6 +260,8 @@ def run(run_id: str | None = None):
                     error=f"crew succeeded but save failed: {e}"[:2000],
                     finished_at=datetime.now(timezone.utc),
                 )
+                if run_row.get("topics"):
+                    storage.revert_selected_suggestions(str(run_row["id"]))
             except Exception:
                 pass
         print(f"\n[storage] WARNING: could not save batch to Postgres: {e}")
