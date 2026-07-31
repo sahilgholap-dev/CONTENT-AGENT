@@ -1,0 +1,41 @@
+---
+# Discovery-only suggestion pipeline (run kind: suggest). ONE task: propose a
+# shortlist of individual content topics for one client + format. Output is
+# saved to the topic_suggestions table, never to batches/packages.
+suggest_topics:
+  description: |-
+    Propose exactly {suggestion_count} DISTINCT content topic suggestions for {client_name} for the "{format_label}" format. Determine today's date automatically; do not rely on any input variable for this.
+
+    VOICE & BRAND CONTEXT:
+    {voice_store}{client_directives}
+
+    OUTPUT FORMAT CONTEXT (every suggested topic must suit this format):
+    {format_directives}
+
+    TOPIC DISCOVERY GUIDANCE (apply the audience tests, lane rules, seed queries, reject filters and uniqueness checks from the client's playbook to EVERY suggestion):
+    {topic_discovery_playbook}
+
+    {suggestion_directive}
+
+    SUGGESTION REQUIREMENTS:
+    - Every suggestion is ONE individual piece of content (one article, one post, or one script) — never a theme for multiple pieces.
+    - Suggestions must be meaningfully different from each other: different questions, audiences, occasions or angles, not rewordings of one idea.
+    - Search the web for current search language and demand before finalising the list.
+    - Each topic string must read as a publishable, consumer-facing title.
+    - rationale: ONE sentence on why this topic deserves to exist for this client (who searches it and what they get).
+    - Never use curly braces in any output string.
+  expected_output: |-
+    A JSON object, and nothing else:
+    {
+      "suggestions": [
+        {
+          "topic": str,
+          "pillar": {pillar_enum},
+          "primary_keyword": str,
+          "search_intent": "informational"|"commercial"|"transactional",
+          "rationale": str
+        }
+      ]
+    }
+    The suggestions array contains exactly {suggestion_count} entries.
+  agent: casino_content_topic_discovery_specialist

@@ -7,7 +7,7 @@
 # arrives via the same profile placeholders the blog/social pipelines use.
 discover_video_topics:
   description: |-
-    Discover exactly 1 strong theme for a batch of {scripts_per_batch} video scripts for {client_name}. Determine today's date automatically; do not rely on any input variable for this.{topic_directive}
+    Discover exactly 1 strong theme for a batch of {scripts_per_batch} video scripts for {client_name}. Determine today's date automatically; do not rely on any input variable for this.{topic_directive}{pinned_topics_directive}
 
     VOICE & BRAND CONTEXT:
     {voice_store}{client_directives}
@@ -47,6 +47,8 @@ video_research_grounding:
     4. Suggest 2-3 hook lines per angle the facts can support.
 
     Scale the store to the format: 8 to 16 facts is plenty for {scripts_per_batch} scripts. NEVER copy competitor prose.
+
+    {pinned_topics_directive}
   expected_output: |-
     A JSON object:
     {
@@ -89,6 +91,8 @@ draft_video_scripts:
     Also write for each script a video_description (the platform description copy, 1-3 sentences plus the compliance line) and hashtags as the format directives allow ([] if not allowed).
 
     OUTPUT DISCIPLINE (hard rule): your entire response is the JSON array and NOTHING else. No analysis, no plan, no per-script commentary, no text before the opening bracket or after the closing bracket. Draft silently; spend your output budget on the scripts themselves.
+
+    {pinned_topics_directive}
   expected_output: |-
     A JSON array containing exactly {scripts_per_batch} script objects, with no text before or after it:
     [
@@ -184,6 +188,8 @@ assemble_video_package:
     Generate a unique UUID for each package_id. Set created_at to current UTC ISO timestamp. Detect pillar from the theme: {pillar_list_spaced}.
 
     HARD STOP: This task NEVER publishes. Output is the batch JSON only.
+
+    {pinned_topics_directive}
   expected_output: |-
     A JSON object containing a batch of {scripts_per_batch} Packages:
     {

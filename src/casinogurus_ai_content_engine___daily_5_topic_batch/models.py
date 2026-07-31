@@ -47,3 +47,22 @@ class Batch(BaseModel):
     ready_for_review_count: int = 0
     needs_review_count: int = 0
     packages: list[Package] = Field(default_factory=list)
+
+
+class TopicSuggestionItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    topic: str = ""
+    pillar: str = ""
+    primary_keyword: str = ""
+    search_intent: str = ""
+    rationale: str = ""
+
+
+class TopicSuggestionBatch(BaseModel):
+    """Validated output of the suggest crew's single task (same
+    output_pydantic coercion pattern as Batch)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    suggestions: list[TopicSuggestionItem] = Field(default_factory=list)

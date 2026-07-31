@@ -91,3 +91,20 @@ def test_build_inputs_topics_override_posts_per_batch():
     assert inputs["posts_per_batch"] == 3
     assert inputs["scripts_per_batch"] == 3
     assert "1. T1" in inputs["pinned_topics_directive"]
+
+
+from casinogurus_ai_content_engine___daily_5_topic_batch.profile import audit_yaml_placeholders
+
+
+# ------------------------------ crew variant ------------------------------- #
+
+def test_yaml_placeholder_audit_passes_with_default_inputs():
+    """Every {token} in agents.yaml + ALL tasks*.yaml (including the new
+    tasks_suggest.yaml and the pinned-directive injections) must be a
+    build_inputs key — this is exactly the check every kickoff runs."""
+    audit_yaml_placeholders(_seed_inputs())
+
+
+def test_suggest_crew_variant_registered():
+    from casinogurus_ai_content_engine___daily_5_topic_batch.crew import CREW_BY_VARIANT
+    assert "suggest" in CREW_BY_VARIANT

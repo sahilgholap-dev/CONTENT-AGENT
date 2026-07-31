@@ -7,7 +7,7 @@
 # placeholders the blog pipeline uses.
 discover_social_topics:
   description: |-
-    Discover exactly 1 strong theme for a batch of {posts_per_batch} social media posts for {client_name}. Determine today's date automatically; do not rely on any input variable for this.{topic_directive}
+    Discover exactly 1 strong theme for a batch of {posts_per_batch} social media posts for {client_name}. Determine today's date automatically; do not rely on any input variable for this.{topic_directive}{pinned_topics_directive}
 
     VOICE & BRAND CONTEXT:
     {voice_store}{client_directives}
@@ -46,6 +46,8 @@ social_research_grounding:
     4. Suggest 2-3 short-form content hooks the facts can support.
 
     Keep it light: 6 to 12 facts is plenty for {posts_per_batch} short posts. NEVER copy competitor prose.
+
+    {pinned_topics_directive}
   expected_output: |-
     A JSON object:
     {
@@ -85,6 +87,8 @@ draft_social_posts:
     Also respect the character limits from the format directives: count characters of post_text (including hashtags if the platform convention is inline) and rewrite anything over the limit.
 
     OUTPUT DISCIPLINE (hard rule): your entire response is the JSON array and NOTHING else. No analysis, no plan, no per-post commentary, no text before the opening bracket or after the closing bracket. Draft silently; spend your output budget on the posts themselves.
+
+    {pinned_topics_directive}
   expected_output: |-
     A JSON array containing exactly {posts_per_batch} post objects, with no text before or after it:
     [
@@ -172,6 +176,8 @@ assemble_social_package:
     Generate a unique UUID for each package_id. Set created_at to current UTC ISO timestamp. Detect pillar from the theme: {pillar_list_spaced}.
 
     HARD STOP: This task NEVER publishes. Output is the batch JSON only.
+
+    {pinned_topics_directive}
   expected_output: |-
     A JSON object containing a batch of {posts_per_batch} Packages:
     {

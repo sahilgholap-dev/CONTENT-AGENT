@@ -9,7 +9,7 @@ from casinogurus_ai_content_engine___daily_5_topic_batch.tools.custom_tool impor
     BoundedExaSearchTool,
     BoundedScrapeWebsiteTool,
 )
-from casinogurus_ai_content_engine___daily_5_topic_batch.models import Batch
+from casinogurus_ai_content_engine___daily_5_topic_batch.models import Batch, TopicSuggestionBatch
 from casinogurus_ai_content_engine___daily_5_topic_batch import patches as _patches
 
 # Fixes CrewAI's max-iteration fallback so it doesn't send an assistant-terminated
@@ -438,9 +438,51 @@ class VideoScriptCrew:
         )
 
 
+@CrewBase
+class SuggestTopicsCrew:
+    """Discovery-only crew (run kind: suggest). One agent, one task from
+    config/tasks_suggest.yaml: propose a shortlist of topics for one
+    client+format. No drafting/compliance/SEO stages — a round costs a
+    single web-searching agent."""
+
+    tasks_config = "config/tasks_suggest.yaml"
+
+    @agent
+    def casino_content_topic_discovery_specialist(self) -> Agent:
+        # Bounded Exa search keeps context under Haiku's 200K window.
+        return _make_agent(
+            self.agents_config["casino_content_topic_discovery_specialist"],
+            [BoundedExaSearchTool()],
+            _haiku_llm(),
+        )
+
+    @task
+    def suggest_topics(self) -> Task:
+        return Task(
+            config=self.tasks_config["suggest_topics"],
+            markdown=False,
+            # Coerce into valid JSON via CrewAI's tool-calling path, exactly
+            # like Batch for the content crews.
+            output_pydantic=TopicSuggestionBatch,
+        )
+
+    @crew
+    def crew(self) -> Crew:
+        return Crew(
+            agents=self.agents,
+            tasks=self.tasks,
+            process=Process.sequential,
+            verbose=False,
+            chat_llm=_haiku_llm(),
+            task_callback=_log_task_progress,
+        )
+
+
 # task_variant -> crew class. main.py selects the crew per run.
 CREW_BY_VARIANT = {
     "default": CasinogurusAiContentEngineDaily5TopicBatchCrew,
     "social_post": SocialPostCrew,
     "video_script": VideoScriptCrew,
+    # Not a format task_variant: selected by main.py when run.kind == 'suggest'.
+    "suggest": SuggestTopicsCrew,
 }
