@@ -147,3 +147,74 @@ def test_suggestion_items_parses_raw_json_list():
 def test_suggestion_items_malformed_returns_empty():
     assert _suggestion_items(SimpleNamespace(pydantic=None, raw="not json {")) == []
     assert _suggestion_items(SimpleNamespace(pydantic=None, raw=json.dumps({"x": 1}))) == []
+
+
+import pytest
+from fastapi import HTTPException
+
+from casinogurus_ai_content_engine___daily_5_topic_batch.app import (
+    _validate_suggestion_selection,
+)
+
+
+def _rows():
+    return [
+        {"id": "s1", "client_id": "frugaa", "content_type": "short_form",
+         "format": "linkedin_post", "status": "suggested", "topic": "T1"},
+        {"id": "s2", "client_id": "frugaa", "content_type": "short_form",
+         "format": "linkedin_post", "status": "suggested", "topic": "T2"},
+        {"id": "s3", "client_id": "frugaa", "content_type": "long_form",
+         "format": "blog", "status": "suggested", "topic": "T3"},
+        {"id": "s4", "client_id": "frugaa", "content_type": "short_form",
+         "format": "linkedin_post", "status": "generated", "topic": "T4"},
+    ]
+
+
+# ------------------------ _validate_suggestion_selection ------------------- #
+
+def test_selection_happy_path_preserves_order():
+    ct, fmt, topics = _validate_suggestion_selection(_rows(), ["s2", "s1"], "frugaa", 5)
+    assert (ct, fmt) == ("short_form", "linkedin_post")
+    assert topics == ["T2", "T1"]
+
+
+def test_selection_empty_is_422():
+    with pytest.raises(HTTPException) as e:
+        _validate_suggestion_selection(_rows(), [], "frugaa", 5)
+    assert e.value.status_code == 422
+
+
+def test_selection_unknown_id_is_422():
+    with pytest.raises(HTTPException) as e:
+        _validate_suggestion_selection(_rows(), ["nope"], "frugaa", 5)
+    assert e.value.status_code == 422
+
+
+def test_selection_wrong_client_is_422():
+    with pytest.raises(HTTPException) as e:
+        _validate_suggestion_selection(_rows(), ["s1"], "gemmere", 5)
+    assert e.value.status_code == 422
+
+
+def test_selection_mixed_formats_is_422():
+    with pytest.raises(HTTPException) as e:
+        _validate_suggestion_selection(_rows(), ["s1", "s3"], "frugaa", 5)
+    assert e.value.status_code == 422
+
+
+def test_selection_already_used_is_422():
+    with pytest.raises(HTTPException) as e:
+        _validate_suggestion_selection(_rows(), ["s4"], "frugaa", 5)
+    assert e.value.status_code == 422
+
+
+def test_selection_over_cap_is_422():
+    with pytest.raises(HTTPException) as e:
+        _validate_suggestion_selection(_rows(), ["s1", "s2"], "frugaa", 1)
+    assert e.value.status_code == 422
+
+
+def test_selection_duplicate_ids_is_422():
+    with pytest.raises(HTTPException) as e:
+        _validate_suggestion_selection(_rows(), ["s1", "s1"], "frugaa", 5)
+    assert e.value.status_code == 422

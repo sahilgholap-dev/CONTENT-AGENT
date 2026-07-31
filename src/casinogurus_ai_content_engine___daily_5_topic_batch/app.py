@@ -71,7 +71,7 @@ from casinogurus_ai_content_engine___daily_5_topic_batch.db import (
     connection,
     init_schema,
 )
-from casinogurus_ai_content_engine___daily_5_topic_batch import storage
+from casinogurus_ai_content_engine___daily_5_topic_batch import registry, storage
 from casinogurus_ai_content_engine___daily_5_topic_batch.profile import ClientProfile
 from casinogurus_ai_content_engine___daily_5_topic_batch.registry import AVAILABLE_TASK_VARIANTS
 from casinogurus_ai_content_engine___daily_5_topic_batch.storage import get_image
@@ -129,6 +129,32 @@ class PortalRunRequest(BaseModel):
     content_type: str = "long_form"
     format: str = "blog"
     topic: str | None = None
+
+
+class SuggestTopicsRequest(BaseModel):
+    client_id: str = "casinogurus"
+    content_type: str = "long_form"
+    format: str = "blog"
+    # Optional taste hint steering the round ("what kind of topics do you
+    # have in mind"); validated like a topic (length + no brace tokens).
+    hint: str | None = None
+
+
+class PortalSuggestTopicsRequest(BaseModel):
+    """Portal twin: client_id comes from the JWT, never the body."""
+
+    content_type: str = "long_form"
+    format: str = "blog"
+    hint: str | None = None
+
+
+class GenerateFromSuggestionsRequest(BaseModel):
+    client_id: str = "casinogurus"
+    suggestion_ids: list[str]
+
+
+class PortalGenerateFromSuggestionsRequest(BaseModel):
+    suggestion_ids: list[str]
 
 
 class ProposalAccept(BaseModel):
@@ -847,6 +873,34 @@ def portal_run_agent(
     return _start_agent_run(cid, body.content_type, body.format, body.topic)
 
 
+@portal.post("/suggest-topics")
+def portal_suggest_topics(
+    body: PortalSuggestTopicsRequest,
+    user: dict = Depends(require_client),
+    client_id: str | None = Query(default=None),
+):
+    cid = _portal_cid(user, client_id)
+    return _start_agent_run(cid, body.content_type, body.format, body.hint, kind="suggest")
+
+
+@portal.get("/topic-suggestions")
+def portal_topic_suggestions(
+    format: str = Query(...),
+    user: dict = Depends(require_client),
+    client_id: str | None = Query(default=None),
+):
+    return jsonable(storage.list_topic_suggestions(_portal_cid(user, client_id), format))
+
+
+@portal.post("/generate-from-suggestions")
+def portal_generate_from_suggestions(
+    body: PortalGenerateFromSuggestionsRequest,
+    user: dict = Depends(require_client),
+    client_id: str | None = Query(default=None),
+):
+    return _generate_from_suggestions(_portal_cid(user, client_id), body.suggestion_ids)
+
+
 @portal.get("/run-progress")
 def portal_run_progress(
     user: dict = Depends(require_client), client_id: str | None = Query(default=None)
@@ -915,11 +969,65 @@ def _tee_output(process, log_file):
         log_file.close()
 
 
-def _start_agent_run(client_id: str, content_type: str, format_id: str, raw_topic: str | None) -> dict:
+def _validate_suggestion_selection(
+    rows: list[dict], suggestion_ids: list[str], client_id: str, cap: int
+) -> tuple[str, str, list[str]]:
+    """Validate a shortlist selection; returns (content_type, format,
+    ordered_topics) in the user's tick order. 422 on any violation, with a
+    message the modal can show verbatim."""
+    if not suggestion_ids:
+        raise HTTPException(status_code=422, detail="select at least one suggested topic")
+    if len(set(suggestion_ids)) != len(suggestion_ids):
+        raise HTTPException(status_code=422, detail="duplicate suggestion ids in selection")
+    by_id = {str(r["id"]): r for r in rows}
+    missing = [i for i in suggestion_ids if i not in by_id]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"unknown suggestion id(s): {missing}")
+    ordered = [by_id[i] for i in suggestion_ids]
+    if any(r["client_id"] != client_id for r in ordered):
+        raise HTTPException(status_code=422, detail="suggestion belongs to a different client")
+    if len({r["format"] for r in ordered}) > 1:
+        raise HTTPException(status_code=422, detail="all selected topics must share one format")
+    used = [str(r["id"]) for r in ordered if r["status"] != "suggested"]
+    if used:
+        raise HTTPException(
+            status_code=422, detail="some selected topics were already used — refresh the list"
+        )
+    if len(ordered) > cap:
+        raise HTTPException(
+            status_code=422, detail=f"this format allows at most {cap} topics per run"
+        )
+    return ordered[0]["content_type"], ordered[0]["format"], [r["topic"] for r in ordered]
+
+
+def _generate_from_suggestions(client_id: str, suggestion_ids: list[str]) -> dict:
+    """Shared launch path for both generate-from-suggestions surfaces."""
+    rows = storage.get_topic_suggestions_by_ids(suggestion_ids)
+    fmt = rows[0]["format"] if rows else ""
+    spec = storage.resolve_format_spec(fmt) if fmt else None
+    cap = registry.max_per_run(spec) if spec else 1
+    content_type, format_id, topics = _validate_suggestion_selection(
+        rows, suggestion_ids, client_id, cap
+    )
+    result = _start_agent_run(client_id, content_type, format_id, None, kind="generate", topics=topics)
+    storage.set_suggestions_status(suggestion_ids, "selected", generate_run_id=result["run_id"])
+    return result
+
+
+def _start_agent_run(
+    client_id: str,
+    content_type: str,
+    format_id: str,
+    raw_topic: str | None,
+    kind: str = "generate",
+    topics: list[str] | None = None,
+) -> dict:
     """Shared run-launch path for the admin endpoint and the client portal.
 
     All validation lives here so both surfaces behave identically; the only
-    difference is where client_id comes from (request body vs JWT)."""
+    difference is where client_id comes from (request body vs JWT).
+    kind='suggest' launches a discovery-only suggestion round (raw_topic is
+    the taste hint); topics pins a shortlist onto a generate run."""
     proc = _run_state["process"]
     if proc is not None and proc.poll() is None:
         raise HTTPException(status_code=409, detail="Agent is already running")
@@ -955,7 +1063,7 @@ def _start_agent_run(client_id: str, content_type: str, format_id: str, raw_topi
         if re.search(r"\{[A-Za-z_][A-Za-z0-9_\-]*\}", topic):
             raise HTTPException(status_code=422, detail="topic must not contain {placeholder}-style tokens")
 
-    run_row = storage.create_run(client_id, content_type, format_id, topic=topic)
+    run_row = storage.create_run(client_id, content_type, format_id, topic=topic, kind=kind, topics=topics)
 
     log_file = open(LOG_PATH, "w", encoding="utf-8")
     # First log line self-describes the run so the SSE terminal can label the
@@ -970,7 +1078,8 @@ def _start_agent_run(client_id: str, content_type: str, format_id: str, raw_topi
                 "content_type": spec.content_type,
                 "format": spec.id,
                 "topic": topic,
-                "stage_labels": list(spec.stage_labels),
+                "kind": kind,
+                "stage_labels": ["Topic Suggestions"] if kind == "suggest" else list(spec.stage_labels),
             }
         )
         + "\n"
@@ -1004,6 +1113,23 @@ def _start_agent_run(client_id: str, content_type: str, format_id: str, raw_topi
 def run_agent(body: RunAgentRequest | None = None):
     body = body or RunAgentRequest()
     return _start_agent_run(body.client_id, body.content_type, body.format, body.topic)
+
+
+@api.post("/suggest-topics")
+def suggest_topics(body: SuggestTopicsRequest):
+    """Start a discovery-only suggestion round (run kind: suggest)."""
+    return _start_agent_run(body.client_id, body.content_type, body.format, body.hint, kind="suggest")
+
+
+@api.get("/topic-suggestions")
+def topic_suggestions(client_id: str = Query(...), format: str = Query(...)):
+    """Available (status=suggested) topics for the client+format, newest first."""
+    return jsonable(storage.list_topic_suggestions(client_id, format))
+
+
+@api.post("/generate-from-suggestions")
+def generate_from_suggestions(body: GenerateFromSuggestionsRequest):
+    return _generate_from_suggestions(body.client_id, body.suggestion_ids)
 
 
 @api.get("/agent-logs")
