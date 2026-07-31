@@ -60,9 +60,11 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ValidationError
 
 from casinogurus_ai_content_engine___daily_5_topic_batch.auth import (
+    allowed_client_ids,
     require_admin,
     require_client,
     require_user,
+    resolve_portal_scope,
 )
 from casinogurus_ai_content_engine___daily_5_topic_batch.db import (
     _PROJECT_ROOT,
@@ -678,17 +680,9 @@ portal = APIRouter(prefix="/api/portal", dependencies=[Depends(require_client)])
 
 
 def _portal_cid(user: dict, client_id: str | None = None) -> str:
-    """The effective client scope: token's client_id, or (admins only) the
-    explicit ?client_id= param."""
-    cid = user.get("portal_client_id")
-    if cid:
-        return cid  # client login: token wins, any param is ignored
-    if client_id:
-        return client_id  # admin browsing on a client's behalf
-    raise HTTPException(
-        status_code=422,
-        detail="client_id query param is required when an admin calls portal endpoints",
-    )
+    """The effective client scope: validated against the JWT's client list
+    for client logins, or the explicit ?client_id= param for admins."""
+    return resolve_portal_scope(user.get("portal_client_ids"), client_id)
 
 
 def _batch_client_id(batch_id: int) -> str | None:
@@ -723,20 +717,26 @@ def _own_package_or_404(pid: str, cid: str) -> None:
 
 @portal.get("/me")
 def portal_me(user: dict = Depends(require_client), client_id: str | None = Query(default=None)):
-    cid = _portal_cid(user, client_id)
-    client = storage.get_client(cid)
-    if not client:
+    allowed = user.get("portal_client_ids")
+    if allowed is None:
+        # Admin browsing a specific client's portal view.
+        allowed = [_portal_cid(user, client_id)]
+    clients = []
+    for cid in allowed:
+        c = storage.get_client(cid)
+        if c:
+            clients.append(
+                {
+                    "id": c["id"],
+                    "display_name": c["display_name"],
+                    "site_domain": c["site_domain"],
+                    "status": c["status"],
+                }
+            )
+    if not clients:
         raise HTTPException(status_code=404, detail="client not found")
     # Deliberately NOT the profile: it contains internal prompt engineering.
-    return jsonable(
-        {
-            "id": client["id"],
-            "display_name": client["display_name"],
-            "site_domain": client["site_domain"],
-            "status": client["status"],
-            "email": user.get("email"),
-        }
-    )
+    return jsonable({"email": user.get("email"), "clients": clients})
 
 
 @portal.get("/batches")

@@ -132,8 +132,9 @@ def require_user(
 # Roles live in Supabase ``app_metadata`` -- settable ONLY server-side (via the
 # Admin API / service_role key), and embedded in every JWT, so neither the
 # user nor the frontend can forge them:
-#     app_metadata: {"role": "admin"}                              # internal team
-#     app_metadata: {"role": "client", "client_id": "casinogurus"} # portal login
+#     app_metadata: {"role": "admin"}                                   # internal team
+#     app_metadata: {"role": "client", "client_ids": ["casinogurus"]}   # portal login
+#     app_metadata: {"role": "client", "client_id": "casinogurus"}      # legacy portal login
 # --------------------------------------------------------------------------- #
 
 def portal_role(payload: dict) -> str | None:
@@ -201,27 +202,28 @@ def require_admin(user: dict = Depends(require_user)) -> dict:
 def require_client(user: dict = Depends(require_user)) -> dict:
     """FastAPI dependency for the client portal.
 
-    Admits role == 'client' (scoped to their own client_id) and also admins
-    (who may browse any client's portal view). Returns the claims with a
-    normalised ``portal_client_id`` key: the token's client_id for clients,
-    or None for admins (portal endpoints must then take it from the request).
+    Admits role == 'client' (scoped to their assigned client list) and also
+    admins (who may browse any client's portal view). Returns the claims
+    with a normalised ``portal_client_ids`` key: the token's allowed client
+    ids for clients, or None for admins (portal endpoints must then take the
+    client from the request).
     """
     role = portal_role(user)
     if role == "admin":
         user = dict(user)
-        user["portal_client_id"] = None
+        user["portal_client_ids"] = None
         return user
     if role != "client":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Portal access required.",
         )
-    client_id = (user.get("app_metadata") or {}).get("client_id")
-    if not client_id:
+    ids = allowed_client_ids(user.get("app_metadata") or {})
+    if not ids:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This login is not linked to a client. Contact your administrator.",
         )
     user = dict(user)
-    user["portal_client_id"] = client_id
+    user["portal_client_ids"] = ids
     return user
