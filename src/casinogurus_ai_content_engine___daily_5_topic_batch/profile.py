@@ -251,6 +251,56 @@ def _topic_directive(topic: str | None) -> str:
     )
 
 
+def _pinned_topics_directive(topics: list[str] | None) -> str:
+    """Render the pinned-shortlist block for generate runs launched from a
+    suggestion shortlist. Empty string when no topics are pinned, so all
+    other runs' prompts stay byte-identical (same pattern as
+    _topic_directive)."""
+    topics = [t.strip() for t in (topics or []) if t and t.strip()]
+    if not topics:
+        return ""
+    n = len(topics)
+    numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(topics))
+    return (
+        f"\n\nPINNED TOPIC LIST (mandatory — {n} topics chosen by the editorial team):\n"
+        f"{numbered}\n"
+        "These rules OVERRIDE any theme-based instructions in this task:\n"
+        f"- This batch covers EXACTLY the {n} topics above, in this order: "
+        "one piece of content per topic.\n"
+        "- Do NOT run topic discovery, do NOT substitute, merge or drop topics, "
+        "and do NOT invent additional ones.\n"
+        "- Each pinned topic is that piece's angle AND its final topic string: "
+        "wherever a field asks for the topic (or a 'Theme — Angle' composite), "
+        "use the pinned topic text verbatim instead.\n"
+        "- Research and grounding must cover EVERY pinned topic individually; "
+        "a fact store entry may serve one or several topics.\n"
+        "- You may search the web only to sharpen keywords, facts and angles "
+        "for these topics, never to replace them."
+    )
+
+
+def suggestion_directive(hint: str | None, avoid: list[str]) -> str:
+    """Render the round-specific block for suggest runs: the user's taste
+    hint (if any) plus the already-covered avoid-list. Empty when neither
+    exists. Injected as the {suggestion_directive} input."""
+    parts = []
+    hint = (hint or "").strip()
+    if hint:
+        parts.append(
+            "USER TASTE HINT (mandatory steer): the editorial team asked for "
+            f'topics like: "{hint}". Weight every suggestion toward this '
+            "request while staying inside the client's lane rules."
+        )
+    avoid = [t.strip() for t in (avoid or []) if t and t.strip()]
+    if avoid:
+        listing = "\n".join(f"- {t}" for t in avoid)
+        parts.append(
+            "ALREADY COVERED OR SUGGESTED (do NOT repeat or lightly reword "
+            "any of these):\n" + listing
+        )
+    return "\n\n".join(parts)
+
+
 def build_inputs(
     client_name: str,
     client_site: str,
@@ -258,6 +308,7 @@ def build_inputs(
     format_spec: FormatSpec,
     run_context: dict | None = None,
     topic: str | None = None,
+    topics: list[str] | None = None,
 ) -> dict:
     """Assemble the complete CrewAI kickoff inputs dict.
 
@@ -267,6 +318,7 @@ def build_inputs(
     change.
     """
     pillars = profile.pillar_taxonomy
+    n_pinned = len([t for t in (topics or []) if t and t.strip()])
     inputs: dict[str, Any] = {
         "client_name": client_name,
         "client_site": client_site,
@@ -274,6 +326,12 @@ def build_inputs(
         "client_directives": _directives_block(profile),
         # Empty in discover mode; a mandatory-topic block in user-topic mode.
         "topic_directive": _topic_directive(topic),
+        # Empty unless a shortlist pinned this run's topics.
+        "pinned_topics_directive": _pinned_topics_directive(topics),
+        # Non-empty only for suggest runs (main.py passes it via run_context,
+        # which build_inputs merges LAST — do not reorder).
+        "suggestion_directive": "",
+        "suggestion_count": 10,
         # Pipeline text blocks.
         "compliance_rules": profile.compliance_rules,
         "topic_discovery_playbook": profile.topic_discovery_playbook,
@@ -296,8 +354,8 @@ def build_inputs(
         "format": format_spec.id,
         "format_label": format_spec.label,
         "format_directives": _format_directives(format_spec),
-        "posts_per_batch": (format_spec.pipeline or {}).get("posts_per_batch", 5),
-        "scripts_per_batch": (format_spec.pipeline or {}).get("scripts_per_batch", 2),
+        "posts_per_batch": n_pinned or (format_spec.pipeline or {}).get("posts_per_batch", 5),
+        "scripts_per_batch": n_pinned or (format_spec.pipeline or {}).get("scripts_per_batch", 2),
     }
     inputs.update(profile.personas)
     inputs.update(profile.lexicon)
