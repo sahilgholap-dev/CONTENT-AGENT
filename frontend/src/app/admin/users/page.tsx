@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { createClient } from "@/lib/supabase/client";
 
 /** Admin: portal login management. Creating a client login generates a
  *  temporary password shown ONCE — copy it and share it with the client. */
@@ -17,7 +18,14 @@ export default function UsersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"client" | "admin">("client");
-  const [clientId, setClientId] = useState<string>("");
+  const [clientIds, setClientIds] = useState<string[]>([]);
+  const [editing, setEditing] = useState<{
+    id: string;
+    email: string;
+    role: "client" | "admin";
+    client_ids: string[];
+  } | null>(null);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
 
   // Last generated credential (shown once)
   const [credential, setCredential] = useState<{ email: string; password: string } | null>(null);
@@ -41,6 +49,15 @@ export default function UsersPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setMyUserId(data.user?.id ?? null));
+  }, []);
+
+  const toggleClientId = (id: string, list: string[], set: (v: string[]) => void) =>
+    set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+
   const call = async (path: string, body?: Record<string, any>) => {
     setError(null);
     const res = await apiFetch(path, {
@@ -61,12 +78,38 @@ export default function UsersPage() {
       const data = await call("/api/admin/users", {
         email,
         role,
-        client_id: role === "client" ? clientId : null,
+        client_ids: role === "client" ? clientIds : [],
       });
       setCredential({ email: data.user.email, password: data.temp_password });
       setCopied(false);
       setEmail("");
+      setClientIds([]);
       setShowCreate(false);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setBusy("edit");
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/admin/users/${editing.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: editing.role,
+          client_ids: editing.role === "client" ? editing.client_ids : [],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(String(data.detail || `Request failed (${res.status})`));
+      setEditing(null);
       load();
     } catch (e: any) {
       setError(e.message);
@@ -177,28 +220,88 @@ export default function UsersPage() {
               </div>
               {role === "client" && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-400">Client</label>
-                  <select
-                    required
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none focus:border-blue-500 transition-colors"
-                  >
-                    <option value="" disabled>Select client…</option>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Clients (one or more)</label>
+                  <div className="rounded-lg border border-gray-700 bg-gray-800 p-2.5 space-y-1.5 max-h-40 overflow-y-auto">
                     {clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.display_name}</option>
+                      <label key={c.id} className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={clientIds.includes(c.id)}
+                          onChange={() => toggleClientId(c.id, clientIds, setClientIds)}
+                          className="accent-blue-500"
+                        />
+                        {c.display_name}
+                      </label>
                     ))}
-                  </select>
+                  </div>
                 </div>
               )}
             </div>
             <button
               type="submit"
-              disabled={busy === "create"}
+              disabled={busy === "create" || (role === "client" && clientIds.length === 0)}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-all disabled:opacity-60"
             >
               {busy === "create" ? "Creating…" : "Create login & generate password"}
             </button>
+          </form>
+        )}
+
+        {editing && (
+          <form onSubmit={saveEdit} className="mb-6 rounded-xl border border-blue-500/30 bg-gray-900/60 p-5 space-y-4">
+            <div className="text-sm font-semibold text-gray-200">
+              Edit {editing.email}
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="float-right text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Role</label>
+                <select
+                  value={editing.role}
+                  onChange={(e) => setEditing({ ...editing, role: e.target.value as "client" | "admin" })}
+                  className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none focus:border-blue-500 transition-colors"
+                >
+                  <option value="client">Client (portal)</option>
+                  <option value="admin">Admin (internal team)</option>
+                </select>
+              </div>
+              {editing.role === "client" && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Clients (one or more)</label>
+                  <div className="rounded-lg border border-gray-700 bg-gray-800 p-2.5 space-y-1.5 max-h-40 overflow-y-auto">
+                    {clients.map((c) => (
+                      <label key={c.id} className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editing.client_ids.includes(c.id)}
+                          onChange={() =>
+                            toggleClientId(c.id, editing.client_ids, (v) => setEditing({ ...editing, client_ids: v }))
+                          }
+                          className="accent-blue-500"
+                        />
+                        {c.display_name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={busy === "edit" || (editing.role === "client" && editing.client_ids.length === 0)}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-all disabled:opacity-60"
+            >
+              {busy === "edit" ? "Saving…" : "Save changes"}
+            </button>
+            <p className="text-[11px] text-gray-500">
+              Changes reach the client's portal on their next page load (their session refreshes automatically).
+            </p>
           </form>
         )}
 
@@ -234,7 +337,7 @@ export default function UsersPage() {
                         {u.role ?? "no role"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-400">{u.client_id ?? "—"}</td>
+                    <td className="px-4 py-3 text-gray-400">{(u.client_ids ?? []).join(", ") || "—"}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
                       {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "never"}
                     </td>
@@ -244,6 +347,21 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                      <button
+                        onClick={() =>
+                          setEditing({
+                            id: u.id,
+                            email: u.email,
+                            role: u.role === "admin" ? "admin" : "client",
+                            client_ids: u.client_ids ?? [],
+                          })
+                        }
+                        disabled={busy !== null || u.id === myUserId}
+                        title={u.id === myUserId ? "You cannot edit your own account" : undefined}
+                        className="text-xs text-gray-400 hover:text-blue-300 underline underline-offset-2 disabled:opacity-50"
+                      >
+                        Edit
+                      </button>
                       <button
                         onClick={() => resetPassword(u)}
                         disabled={busy !== null}
