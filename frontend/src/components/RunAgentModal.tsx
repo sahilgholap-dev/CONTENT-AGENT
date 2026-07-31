@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { apiFetch } from "@/lib/api";
+import TopicSuggestPanel from "@/components/TopicSuggestPanel";
 
 /** Client + content-type + format selection before launching a run.
  *  `formats` is the /api/formats registry (content types with nested formats).
@@ -21,13 +22,15 @@ export default function RunAgentModal({
   const [clientId, setClientId] = useState<string>(() => defaultClientId ?? activeClients[0]?.id ?? "");
   const [contentType, setContentType] = useState<string>(() => formats[0]?.id ?? "");
   const [formatId, setFormatId] = useState<string>(() => formats[0]?.formats?.[0]?.id ?? "");
-  const [topicMode, setTopicMode] = useState<"discover" | "user">("discover");
+  const [topicMode, setTopicMode] = useState<"discover" | "suggest" | "user">("discover");
   const [topic, setTopic] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const currentType = formats.find((t) => t.id === contentType);
   const typeFormats = currentType?.formats ?? [];
+  const currentFormat = typeFormats.find((f: any) => f.id === formatId);
+  const maxPerRun = Number(currentFormat?.max_per_run ?? 1);
 
   const handleRun = async () => {
     if (!clientId) {
@@ -132,7 +135,7 @@ export default function RunAgentModal({
 
           <div>
             <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Topic Source</label>
-            <div className="flex gap-4 text-sm text-gray-300 mb-2">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-300 mb-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
@@ -141,7 +144,17 @@ export default function RunAgentModal({
                   onChange={() => setTopicMode("discover")}
                   className="accent-blue-500"
                 />
-                Discover automatically
+                Discover automatically &amp; generate
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="topic-mode"
+                  checked={topicMode === "suggest"}
+                  onChange={() => setTopicMode("suggest")}
+                  className="accent-blue-500"
+                />
+                Suggest me topics
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -154,6 +167,23 @@ export default function RunAgentModal({
                 I have a topic
               </label>
             </div>
+            {topicMode === "suggest" && (
+              <TopicSuggestPanel
+                clientId={clientId}
+                contentType={contentType}
+                formatId={formatId}
+                maxPerRun={maxPerRun}
+                endpoints={{
+                  suggest: "/api/suggest-topics",
+                  list: `/api/topic-suggestions?client_id=${encodeURIComponent(clientId)}`,
+                  generate: "/api/generate-from-suggestions",
+                }}
+                onStarted={() => {
+                  onClose();
+                  onStarted();
+                }}
+              />
+            )}
             {topicMode === "user" && (
               <>
                 <textarea
@@ -183,13 +213,15 @@ export default function RunAgentModal({
             >
               Cancel
             </button>
-            <button
-              onClick={handleRun}
-              disabled={submitting || !clientId || !formatId || (topicMode === "user" && !topic.trim())}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
-            >
-              {submitting ? "Starting…" : "▶ Run Agent"}
-            </button>
+            {topicMode !== "suggest" && (
+              <button
+                onClick={handleRun}
+                disabled={submitting || !clientId || !formatId || (topicMode === "user" && !topic.trim())}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
+              >
+                {submitting ? "Starting…" : "▶ Run Agent"}
+              </button>
+            )}
           </div>
         </div>
       </div>

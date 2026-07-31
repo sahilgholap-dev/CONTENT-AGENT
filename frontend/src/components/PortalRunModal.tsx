@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { apiFetch } from "@/lib/api";
+import TopicSuggestPanel from "@/components/TopicSuggestPanel";
 
 /** Portal: content-type + format + topic selection before launching a run.
  *  No client picker — the backend scopes the run to the JWT's client_id. */
@@ -16,13 +17,15 @@ export default function PortalRunModal({
 }) {
   const [contentType, setContentType] = useState<string>(() => formats[0]?.id ?? "");
   const [formatId, setFormatId] = useState<string>(() => formats[0]?.formats?.[0]?.id ?? "");
-  const [topicMode, setTopicMode] = useState<"discover" | "user">("discover");
+  const [topicMode, setTopicMode] = useState<"discover" | "suggest" | "user">("discover");
   const [topic, setTopic] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const currentType = formats.find((t) => t.id === contentType);
   const typeFormats = currentType?.formats ?? [];
+  const currentFormat = typeFormats.find((f: any) => f.id === formatId);
+  const maxPerRun = Number(currentFormat?.max_per_run ?? 1);
 
   const handleRun = async () => {
     const userTopic = topicMode === "user" ? topic.trim() : "";
@@ -110,7 +113,7 @@ export default function PortalRunModal({
 
           <div>
             <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Topic Source</label>
-            <div className="flex gap-4 text-sm text-gray-300 mb-2">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-300 mb-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
@@ -119,7 +122,17 @@ export default function PortalRunModal({
                   onChange={() => setTopicMode("discover")}
                   className="accent-blue-500"
                 />
-                Discover automatically
+                Discover automatically &amp; generate
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="portal-topic-mode"
+                  checked={topicMode === "suggest"}
+                  onChange={() => setTopicMode("suggest")}
+                  className="accent-blue-500"
+                />
+                Suggest me topics
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -132,6 +145,23 @@ export default function PortalRunModal({
                 I have a topic
               </label>
             </div>
+            {topicMode === "suggest" && (
+              <TopicSuggestPanel
+                clientId={null}
+                contentType={contentType}
+                formatId={formatId}
+                maxPerRun={maxPerRun}
+                endpoints={{
+                  suggest: "/api/portal/suggest-topics",
+                  list: "/api/portal/topic-suggestions",
+                  generate: "/api/portal/generate-from-suggestions",
+                }}
+                onStarted={() => {
+                  onClose();
+                  onStarted();
+                }}
+              />
+            )}
             {topicMode === "user" && (
               <>
                 <textarea
@@ -161,13 +191,15 @@ export default function PortalRunModal({
             >
               Cancel
             </button>
-            <button
-              onClick={handleRun}
-              disabled={submitting || !formatId || (topicMode === "user" && !topic.trim())}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
-            >
-              {submitting ? "Starting…" : "▶ Generate"}
-            </button>
+            {topicMode !== "suggest" && (
+              <button
+                onClick={handleRun}
+                disabled={submitting || !formatId || (topicMode === "user" && !topic.trim())}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
+              >
+                {submitting ? "Starting…" : "▶ Generate"}
+              </button>
+            )}
           </div>
         </div>
       </div>
