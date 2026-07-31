@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BatchViewer from "@/components/BatchViewer";
 import PortalRunModal from "@/components/PortalRunModal";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, setPortalClientId } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
 const ACTIVE_STATUSES = new Set(["queued", "running", "started"]);
@@ -15,7 +15,8 @@ const ACTIVE_STATUSES = new Set(["queued", "running", "started"]);
  *  launch runs for their own business and review the drafts. */
 export default function PortalDashboard() {
   const router = useRouter();
-  const [me, setMe] = useState<Record<string, any> | null>(null);
+  const [me, setMe] = useState<{ email: string; clients: any[] } | null>(null);
+  const [activeClientId, setActiveClientId] = useState<string | null>(null);
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,11 +27,10 @@ export default function PortalDashboard() {
   const [runNotice, setRunNotice] = useState<string | null>(null);
   const wasRunning = useRef(false);
 
+  const activeClient = me?.clients.find((c) => c.id === activeClientId) ?? null;
+
   const load = useCallback(() => {
-    apiFetch("/api/portal/me")
-      .then((res) => res.json())
-      .then((data) => data?.id && setMe(data))
-      .catch(() => {});
+    if (!activeClientId) return;
     apiFetch("/api/portal/batches")
       .then((res) => res.json())
       .then((data) => {
@@ -41,6 +41,31 @@ export default function PortalDashboard() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }, [activeClientId]);
+
+  // Boot: refresh the session once (so admin assignment edits apply on the
+  // next reload, not at token expiry), then load the businesses this login
+  // owns and restore the last-selected one.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth
+      .refreshSession()
+      .catch(() => {})
+      .then(() =>
+        apiFetch("/api/portal/me")
+          .then((res) => res.json())
+          .then((data) => {
+            if (!Array.isArray(data?.clients) || data.clients.length === 0) return;
+            setMe(data);
+            const stored = localStorage.getItem(`portal-active-client:${data.email ?? ""}`);
+            const cid = data.clients.some((c: any) => c.id === stored)
+              ? (stored as string)
+              : data.clients[0].id;
+            setPortalClientId(cid);
+            setActiveClientId(cid);
+          })
+          .catch(() => {})
+      );
   }, []);
 
   useEffect(() => {
@@ -54,6 +79,7 @@ export default function PortalDashboard() {
   // Poll run status: while a run is active, check every 10s; when it leaves
   // the active set, refresh the batch list so the new content appears.
   const checkRuns = useCallback(() => {
+    if (!activeClientId) return;
     apiFetch("/api/portal/runs")
       .then((res) => res.json())
       .then((runs) => {
@@ -74,13 +100,27 @@ export default function PortalDashboard() {
         }
       })
       .catch(() => {});
-  }, [load]);
+  }, [load, activeClientId]);
 
   useEffect(() => {
     checkRuns();
     const timer = setInterval(checkRuns, 10_000);
     return () => clearInterval(timer);
   }, [checkRuns]);
+
+  const switchClient = (cid: string) => {
+    if (cid === activeClientId) return;
+    setPortalClientId(cid);
+    if (me?.email) localStorage.setItem(`portal-active-client:${me.email}`, cid);
+    setActiveClientId(cid);
+    setBatches([]);
+    setSelectedBatchId(null);
+    setLoading(true);
+    setActiveRun(null);
+    setProgress(null);
+    setRunNotice(null);
+    wasRunning.current = false;
+  };
 
   // While a run is active, poll stage progress (server-side parsed, scoped to
   // this client's run) every 5s to drive the progress bar.
@@ -118,10 +158,24 @@ export default function PortalDashboard() {
       {/* Left: batch list */}
       <div className="w-full md:w-80 bg-gray-900/50 backdrop-blur-md border-b md:border-b-0 md:border-r border-gray-800 flex flex-col max-h-[45vh] md:max-h-none md:h-full shrink-0">
         <div className="p-6 border-b border-gray-800">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-            {me?.display_name ?? "Content Portal"}
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">{me?.site_domain ?? ""}</p>
+          {me && me.clients.length > 1 ? (
+            <select
+              value={activeClientId ?? ""}
+              onChange={(e) => switchClient(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-sm font-semibold rounded-lg p-2 outline-none focus:border-blue-500 transition-colors"
+            >
+              {me.clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.display_name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              {activeClient?.display_name ?? "Content Portal"}
+            </h1>
+          )}
+          <p className="text-xs text-gray-500 mt-1">{activeClient?.site_domain ?? ""}</p>
           <div className="flex justify-between items-center mt-3">
             <p className="text-xs text-gray-400 uppercase tracking-wider">Your Content</p>
             <div className="flex items-center gap-2">
