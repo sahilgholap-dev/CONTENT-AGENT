@@ -140,6 +140,54 @@ def portal_role(payload: dict) -> str | None:
     return ((payload.get("app_metadata") or {}).get("role")) or None
 
 
+def allowed_client_ids(app_metadata: dict) -> list[str]:
+    """Client ids this login may act for, from either claim shape.
+
+    New shape: ``client_ids`` list. Legacy single ``client_id`` is honoured
+    only when the list is absent or empty, so a stale legacy key left behind
+    by a metadata merge can never widen access.
+    """
+    raw = app_metadata.get("client_ids")
+    ids: list[str] = []
+    if isinstance(raw, (list, tuple)):
+        seen: set[str] = set()
+        for x in raw:
+            cid = str(x).strip() if x is not None else ""
+            if cid and cid not in seen:
+                seen.add(cid)
+                ids.append(cid)
+    if not ids:
+        legacy = app_metadata.get("client_id")
+        if legacy:
+            ids = [str(legacy)]
+    return ids
+
+
+def resolve_portal_scope(allowed: list[str] | None, requested: str | None) -> str:
+    """The effective client scope for a portal request.
+
+    ``allowed`` is None for admins (unrestricted, but they must name a
+    client) and a non-empty list for client logins (the JWT's client_ids).
+    """
+    if allowed is None:
+        if requested:
+            return requested
+        raise HTTPException(
+            status_code=422,
+            detail="client_id query param is required when an admin calls portal endpoints",
+        )
+    if requested:
+        if requested in allowed:
+            return requested
+        raise HTTPException(status_code=403, detail="You do not have access to this client.")
+    if len(allowed) == 1:
+        return allowed[0]
+    raise HTTPException(
+        status_code=422,
+        detail="client_id query param is required for logins with multiple clients",
+    )
+
+
 def require_admin(user: dict = Depends(require_user)) -> dict:
     """FastAPI dependency: valid token AND app_metadata.role == 'admin'."""
     if portal_role(user) != "admin":
