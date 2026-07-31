@@ -506,8 +506,19 @@ def insert_profile_version(client_id: str, profile: dict, created_by: str | None
 # Runs (the job record handed to the crew subprocess via --run-id)
 # ---------------------------------------------------------------------------
 
-def create_run(client_id: str, content_type: str, format: str, topic: str | None = None) -> dict:
-    """Insert a queued run pinned to the client's current profile version."""
+def create_run(
+    client_id: str,
+    content_type: str,
+    format: str,
+    topic: str | None = None,
+    kind: str = "generate",
+    topics: list[str] | None = None,
+) -> dict:
+    """Insert a queued run pinned to the client's current profile version.
+
+    kind='suggest' runs the discovery-only suggestion crew (topic = taste
+    hint). topics is the pinned topic list for shortlist-launched generate
+    runs (one piece of content per topic)."""
     with connection() as conn:
         prof = conn.execute(
             "SELECT COALESCE(MAX(version), 0) AS v FROM client_profiles WHERE client_id = %s",
@@ -518,10 +529,11 @@ def create_run(client_id: str, content_type: str, format: str, topic: str | None
             raise ValueError(f"client '{client_id}' has no profile version to run against")
         run_id = str(uuid.uuid4())
         row = conn.execute(
-            """INSERT INTO runs (id, client_id, profile_version, content_type, format, topic)
-               VALUES (%s, %s, %s, %s, %s, %s)
+            """INSERT INTO runs (id, client_id, profile_version, content_type, format, topic, kind, topics)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING *""",
-            (run_id, client_id, version, content_type, format, topic),
+            (run_id, client_id, version, content_type, format, topic, kind,
+             Jsonb(list(topics)) if topics else None),
         ).fetchone()
         return dict(row)
 
@@ -555,6 +567,115 @@ def list_runs(client_id: str | None = None, limit: int = 50) -> list[dict]:
                 "SELECT * FROM runs ORDER BY created_at DESC LIMIT %s", (limit,)
             ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Topic suggestions (suggest -> shortlist -> generate)
+# ---------------------------------------------------------------------------
+
+def _sanitize_topic(text: str) -> str:
+    """Suggested topics are agent-produced and get interpolated into prompts
+    later; a brace token would be substituted (or crash) at kickoff."""
+    return (text or "").strip().replace("{", "(").replace("}", ")")
+
+
+def save_topic_suggestions(run_row: dict, items: list[dict]) -> int:
+    """Insert one topic_suggestions row per suggested topic from a suggest
+    run. Skips items with an empty topic. Returns rows inserted."""
+    inserted = 0
+    with connection() as conn:
+        for it in items:
+            topic = _sanitize_topic(it.get("topic") or "")
+            if not topic:
+                continue
+            conn.execute(
+                """INSERT INTO topic_suggestions
+                   (id, client_id, content_type, format, topic, pillar,
+                    primary_keyword, search_intent, rationale, hint, suggest_run_id)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (str(uuid.uuid4()), run_row["client_id"], run_row["content_type"],
+                 run_row["format"], topic, it.get("pillar"), it.get("primary_keyword"),
+                 it.get("search_intent"), it.get("rationale"), run_row.get("topic"),
+                 str(run_row["id"])),
+            )
+            inserted += 1
+    return inserted
+
+
+def list_topic_suggestions(
+    client_id: str, format: str, status: str = "suggested", limit: int = 50
+) -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM topic_suggestions
+               WHERE client_id = %s AND format = %s AND status = %s
+               ORDER BY created_at DESC LIMIT %s""",
+            (client_id, format, status, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_topic_suggestions_by_ids(ids: list[str]) -> list[dict]:
+    if not ids:
+        return []
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM topic_suggestions WHERE id = ANY(%s)", (list(ids),)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def set_suggestions_status(ids: list[str], status: str, generate_run_id: str | None = None) -> None:
+    if not ids:
+        return
+    with connection() as conn:
+        conn.execute(
+            "UPDATE topic_suggestions SET status = %s, generate_run_id = %s WHERE id = ANY(%s)",
+            (status, generate_run_id, list(ids)),
+        )
+
+
+def revert_selected_suggestions(generate_run_id: str) -> None:
+    """A failed shortlist run releases its topics for retry."""
+    with connection() as conn:
+        conn.execute(
+            """UPDATE topic_suggestions SET status = 'suggested', generate_run_id = NULL
+               WHERE generate_run_id = %s AND status = 'selected'""",
+            (generate_run_id,),
+        )
+
+
+def mark_generated_suggestions(generate_run_id: str) -> None:
+    with connection() as conn:
+        conn.execute(
+            """UPDATE topic_suggestions SET status = 'generated'
+               WHERE generate_run_id = %s AND status = 'selected'""",
+            (generate_run_id,),
+        )
+
+
+def recent_suggestion_topics(client_id: str, format: str, limit: int = 50) -> list[str]:
+    """Avoid-list input for the next suggestion round (any status)."""
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT topic FROM topic_suggestions
+               WHERE client_id = %s AND format = %s
+               ORDER BY created_at DESC LIMIT %s""",
+            (client_id, format, limit),
+        ).fetchall()
+        return [r["topic"] for r in rows]
+
+
+def recent_package_topics(client_id: str, limit: int = 100) -> list[str]:
+    """Recently produced content topics for this client (all formats)."""
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT p.topic FROM packages p
+               WHERE p.client_id = %s AND p.topic IS NOT NULL AND p.topic <> ''
+               ORDER BY p.created_at DESC LIMIT %s""",
+            (client_id, limit),
+        ).fetchall()
+        return [r["topic"] for r in rows]
 
 
 # ---------------------------------------------------------------------------

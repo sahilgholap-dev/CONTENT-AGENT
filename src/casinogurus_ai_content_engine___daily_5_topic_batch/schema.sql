@@ -134,6 +134,34 @@ CREATE INDEX IF NOT EXISTS idx_runs_client ON runs(client_id, created_at DESC);
 -- exact topic instead of discovering one (rendered via {topic_directive}).
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS topic TEXT;
 
+-- Suggest-vs-generate runs. kind='suggest' executes the discovery-only crew
+-- and saves rows to topic_suggestions instead of a batch. For suggest runs
+-- the topic column carries the optional user taste hint. topics is the
+-- pinned topic list for generate runs launched from a suggestion shortlist.
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'generate';
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS topics JSONB;
+
+-- One row per suggested topic. status: suggested -> selected -> generated
+-- (reverted to suggested when the linked generate run fails).
+CREATE TABLE IF NOT EXISTS topic_suggestions (
+    id              UUID PRIMARY KEY,
+    client_id       TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    content_type    TEXT NOT NULL,
+    format          TEXT NOT NULL,
+    topic           TEXT NOT NULL,
+    pillar          TEXT,
+    primary_keyword TEXT,
+    search_intent   TEXT,
+    rationale       TEXT,
+    hint            TEXT,
+    suggest_run_id  UUID,
+    status          TEXT NOT NULL DEFAULT 'suggested',
+    generate_run_id UUID,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_suggestions_client_fmt
+    ON topic_suggestions(client_id, format, status, created_at DESC);
+
 -- Append-only reviewer feedback events (shortlisted | approved | rejected).
 -- The learning loop distils from this log. Latest event per package = current status.
 CREATE TABLE IF NOT EXISTS package_reviews (
