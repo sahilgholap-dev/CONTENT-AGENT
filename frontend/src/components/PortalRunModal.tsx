@@ -67,7 +67,7 @@ export default function PortalRunModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
-      <div className="w-full max-w-md bg-gray-950 border border-gray-800 rounded-xl overflow-hidden shadow-2xl p-8">
+      <div className="w-full max-w-md bg-gray-950 border border-gray-800 rounded-xl shadow-2xl p-8 max-h-[calc(100vh-3rem)] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-gray-200 tracking-wider">Generate Content</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-xl">
