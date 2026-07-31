@@ -997,7 +997,10 @@ def delete_format(format_id: str) -> None:
 
 def serialisable_registry(enabled_only: bool = True) -> dict:
     """Content types with their (optionally enabled-only) formats nested, for
-    cascading selectors. ``pipeline`` params stay backend-internal."""
+    cascading selectors. ``pipeline`` params stay backend-internal (only the
+    derived max_per_run cap is exposed for the shortlist UI)."""
+    from casinogurus_ai_content_engine___daily_5_topic_batch import registry
+
     cts = list_content_types()
     formats = list_formats(enabled_only=enabled_only)
     by_ct: dict[str, list] = {}
@@ -1009,6 +1012,7 @@ def serialisable_registry(enabled_only: bool = True) -> dict:
                 "description": f["description"],
                 "enabled": f["enabled"],
                 "stage_labels": list(f.get("stage_labels") or []),
+                "max_per_run": registry.max_per_run(registry.spec_from_row(f)),
             }
         )
     out = []

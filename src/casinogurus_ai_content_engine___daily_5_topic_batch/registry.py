@@ -206,3 +206,11 @@ def get_format(format_id: str) -> FormatSpec:
     """Offline/code fallback lookup (used only when the DB is unreachable).
     The live path is storage.resolve_format_spec / storage.get_format_row."""
     return DEFAULT_FORMATS[format_id]
+
+
+def max_per_run(spec: FormatSpec) -> int:
+    """How many pieces of content one run of this format may produce — the
+    shortlist selection cap. Multi-piece variants declare posts_per_batch /
+    scripts_per_batch in their pipeline params; everything else is 1."""
+    pipe = spec.pipeline or {}
+    return int(pipe.get("posts_per_batch") or pipe.get("scripts_per_batch") or 1)
