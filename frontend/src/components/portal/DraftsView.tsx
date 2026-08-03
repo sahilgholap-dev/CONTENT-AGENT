@@ -9,7 +9,7 @@ import PieceReviewPane from "@/components/portal/PieceReviewPane";
 import { usePortal } from "@/components/portal/PortalShell";
 import { fmtMeta, timeAgo } from "@/components/portal/pieceMeta";
 
-const FILTERS = ["All", "Blog", "Posts", "Videos", "Reels"];
+const FILTERS = ["All", "Autopilot", "Blog", "Posts", "Videos", "Reels"];
 
 /** Drafts: two-pane review queue. Left = draft cards (drafted+shortlisted),
  *  right = the selected piece with Reject/Shortlist/Approve. Bulk mode
@@ -69,8 +69,14 @@ export default function DraftsView({ initialId }: { initialId?: string }) {
     };
   }, [selectedId]);
 
-  const visible = pieces.filter((p) => filter === "All" || fmtMeta(p.format).group === filter);
-  const autopilotCount = 0; // Autopilot ships in a later phase
+  const visible = pieces.filter((p) =>
+    filter === "All"
+      ? true
+      : filter === "Autopilot"
+        ? p.origin === "autopilot"
+        : fmtMeta(p.format).group === filter
+  );
+  const autopilotCount = pieces.filter((p) => p.origin === "autopilot").length;
 
   const handleStateChange = (id: string, newState: string) => {
     if (newState === "shortlisted") {
@@ -112,7 +118,9 @@ export default function DraftsView({ initialId }: { initialId?: string }) {
         subtitle={
           loading
             ? "Loading your pieces…"
-            : `${pieces.length} piece${pieces.length === 1 ? "" : "s"} waiting for your review`
+            : `${pieces.length} piece${pieces.length === 1 ? "" : "s"} waiting for your review${
+                autopilotCount > 0 ? ` · ${autopilotCount} from Autopilot` : ""
+              }`
         }
       >
         <button
@@ -228,6 +236,11 @@ export default function DraftsView({ initialId }: { initialId?: string }) {
                         <span className="rounded bg-cs-gray-soft px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider">
                           {meta.label}
                         </span>
+                        {p.origin === "autopilot" && (
+                          <span className="rounded bg-cs-emerald-soft px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                            ⟳ Autopilot
+                          </span>
+                        )}
                         <span>{timeAgo(p.created_at || p.ingested_at)}</span>
                       </div>
                     </div>

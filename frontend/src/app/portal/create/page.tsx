@@ -86,6 +86,9 @@ export default function CreateWizard() {
   const [reviewPiece, setReviewPiece] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Set when the engine was busy (e.g. Autopilot mid-piece): the wizard
+  // retries automatically instead of erroring out.
+  const [waitingRun, setWaitingRun] = useState<"fromTopic" | "typed" | null>(null);
 
   const reset = () => {
     setStep("type");
@@ -207,11 +210,14 @@ export default function CreateWizard() {
       }
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.run_id) {
+        setWaitingRun(null);
         setRunId(String(data.run_id));
         setRunTopic(topicLabel);
         setStep("progress");
       } else if (res.status === 409) {
-        setError("The engine is busy with another piece right now — try again in a few minutes.");
+        // Engine busy (often Autopilot finishing a piece) — wait politely
+        // and retry; humans always get the next free slot.
+        setWaitingRun(kind);
       } else {
         setError(String(data.detail || data.error || `Request failed (${res.status})`));
       }
@@ -220,6 +226,14 @@ export default function CreateWizard() {
     }
     setSubmitting(false);
   };
+
+  // Auto-retry while waiting for the engine (every 30s until it takes).
+  useEffect(() => {
+    if (!waitingRun) return;
+    const timer = setInterval(() => startRun(waitingRun), 30_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingRun]);
 
   // Progress polling: stage progress + run completion → review.
   useEffect(() => {
@@ -313,6 +327,21 @@ export default function CreateWizard() {
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-cs-danger-soft px-4 py-3 text-[13px] text-cs-danger">
             {error}
+          </div>
+        )}
+
+        {waitingRun && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-indigo-200 bg-cs-accent-soft px-4 py-3 text-[13px] text-indigo-900">
+            <span className="inline-block animate-spin">◌</span>
+            The engine is finishing another piece — yours will start automatically in a few minutes.
+            You can keep this page open.
+            <button
+              onClick={() => setWaitingRun(null)}
+              className="ml-auto text-indigo-400 hover:text-indigo-700"
+              title="Stop waiting"
+            >
+              ✕
+            </button>
           </div>
         )}
 

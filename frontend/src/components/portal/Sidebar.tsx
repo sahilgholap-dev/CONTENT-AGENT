@@ -1,12 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { usePortal } from "@/components/portal/PortalShell";
 
 const NAV = [
   { href: "/portal/create", icon: "＋", label: "Create" },
+  { href: "/portal/autopilot", icon: "⟳", label: "Autopilot" },
   { href: "/portal/drafts", icon: "✎", label: "Drafts" },
   { href: "/portal/approved", icon: "✓", label: "Approved" },
 ];
@@ -18,6 +21,27 @@ export default function PortalSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { me, activeClientId, activeClient, switchClient } = usePortal();
+  // 'on' | 'paused' | 'off' | null (loading/unknown) for the indicator.
+  const [autopilotState, setAutopilotState] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeClientId) return;
+    let cancelled = false;
+    setAutopilotState(null);
+    apiFetch("/api/portal/autopilot/config")
+      .then((res) => res.json())
+      .then((cfg) => {
+        if (cancelled || !cfg?.content_types) return;
+        const anyOn = Object.values(cfg.content_types).some(
+          (v: any) => v?.enabled && (v?.frequency_per_week ?? 0) > 0
+        );
+        setAutopilotState(cfg.paused ? "paused" : anyOn ? "on" : "off");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeClientId, pathname]); // pathname: refresh after edits on /portal/autopilot
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -36,6 +60,19 @@ export default function PortalSidebar() {
           Content Studio
         </div>
       </div>
+
+      {autopilotState === "on" && (
+        <div className="mx-3 mt-2 flex items-center gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[11.5px] text-emerald-300">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          Autopilot: on
+        </div>
+      )}
+      {autopilotState === "paused" && (
+        <div className="mx-3 mt-2 flex items-center gap-2 rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          Autopilot: paused
+        </div>
+      )}
 
       {me && me.clients.length > 1 ? (
         <div className="mx-3 mt-3">
