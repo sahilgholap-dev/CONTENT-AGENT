@@ -91,3 +91,74 @@ def test_validate_timezone():
     assert validate_timezone("Asia/Kolkata")
     assert validate_timezone("America/New_York")
     assert not validate_timezone("Mars/Olympus_Mons")
+
+
+# ------------------------------ tick decisions ----------------------------- #
+
+from datetime import timedelta
+
+import casinogurus_ai_content_engine___daily_5_topic_batch.storage as storage_mod
+from casinogurus_ai_content_engine___daily_5_topic_batch.autopilot import tick
+
+NOW = datetime(2026, 8, 10, 1, 0, tzinfo=timezone.utc)
+
+
+def _stub_storage(monkeypatch, *, due=(), unreviewed=0):
+    calls = {"updates": [], "selected": []}
+    monkeypatch.setattr(storage_mod, "generating_queue_items", lambda: [])
+    monkeypatch.setattr(storage_mod, "list_enabled_autopilot_configs", lambda: [])
+    monkeypatch.setattr(storage_mod, "due_queue_items", lambda limit=20: list(due))
+    monkeypatch.setattr(storage_mod, "count_unreviewed_autopilot_drafts", lambda cid: unreviewed)
+    monkeypatch.setattr(
+        storage_mod, "update_queue_item", lambda qid, **f: calls["updates"].append((qid, f))
+    )
+    monkeypatch.setattr(
+        storage_mod,
+        "set_suggestions_status",
+        lambda ids, st, generate_run_id=None: calls["selected"].append((list(ids), st)),
+    )
+    monkeypatch.setattr(storage_mod, "get_run", lambda rid: None)
+    return calls
+
+
+def _item(eligible_delta_hours: float) -> dict:
+    return {
+        "id": "q1",
+        "client_id": "frugaa",
+        "content_type": "short_form",
+        "format": "linkedin_post",
+        "topic": "T1",
+        "suggestion_id": "s1",
+        "eligible_from": NOW - timedelta(hours=eligible_delta_hours),
+    }
+
+
+def test_tick_busy_engine_launches_nothing(monkeypatch):
+    calls = _stub_storage(monkeypatch, due=[_item(1)])
+    action = tick(lambda: False, None, None, now_utc=NOW)
+    assert action == "busy"
+    assert calls["updates"] == []
+
+
+def test_tick_marks_missed_after_catch_up_window(monkeypatch):
+    calls = _stub_storage(monkeypatch, due=[_item(25)])
+    action = tick(lambda: True, None, lambda item: {"run_id": "r1"}, now_utc=NOW)
+    assert action == "idle"
+    assert calls["updates"] == [("q1", {"state": "missed", "note": "missed its night and the 24h catch-up window"})]
+
+
+def test_tick_guardrail_skips_backlogged_client(monkeypatch):
+    calls = _stub_storage(monkeypatch, due=[_item(1)], unreviewed=10)
+    action = tick(lambda: True, None, lambda item: {"run_id": "r1"}, now_utc=NOW)
+    assert action == "idle"
+    assert calls["updates"] == [("q1", {"note": "waiting: too many unreviewed autopilot drafts"})]
+
+
+def test_tick_launches_eligible_item(monkeypatch):
+    calls = _stub_storage(monkeypatch, due=[_item(1)])
+    launched = []
+    action = tick(lambda: True, None, lambda item: launched.append(item) or {"run_id": "r9"}, now_utc=NOW)
+    assert action == "generate:q1"
+    assert launched[0]["topic"] == "T1"
+    assert ("q1", {"state": "generating", "generate_run_id": "r9", "note": None}) in calls["updates"]
+    assert calls["selected"] == [(["s1"], "selected")]

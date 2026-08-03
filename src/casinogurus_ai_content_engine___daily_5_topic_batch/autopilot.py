@@ -121,3 +121,115 @@ def local_midnight_utc(night: date, tz: str) -> datetime:
 def today_local(tz: str, now_utc: datetime | None = None) -> date:
     now = now_utc or datetime.now(timezone.utc)
     return now.astimezone(ZoneInfo(tz)).date()
+
+
+# --------------------------------------------------------------------------- #
+# Planner + executor (composed with storage; the app's lifespan runs tick()
+# every ~60s and injects engine_idle/launch callables so this module never
+# imports app.py)
+# --------------------------------------------------------------------------- #
+
+def plan_client(cfg: dict, now_utc: datetime | None = None) -> dict[str, int]:
+    """Ensure queue rows exist for the client's coming week (one per enabled
+    format per spread night), drawing topics oldest-first from the client's
+    unused suggestion pool. Returns per-format shortage counts — slots that
+    could not be filled because the pool ran dry."""
+    from casinogurus_ai_content_engine___daily_5_topic_batch import storage
+
+    client_id = cfg["client_id"]
+    tz = cfg.get("timezone") or DEFAULT_TIMEZONE
+    today = today_local(tz, now_utc)
+    shortages: dict[str, int] = {}
+
+    for fmt, entry in (cfg.get("content_types") or {}).items():
+        if fmt not in AUTOPILOT_CAPS or not (entry or {}).get("enabled"):
+            continue
+        freq = int((entry or {}).get("frequency_per_week", 0) or 0)
+        if freq <= 0:
+            continue
+        nights = upcoming_nights(freq, today)
+        taken = storage.queue_nights_taken(client_id, fmt, nights)
+        open_nights = [n for n in nights if n not in taken]
+        if not open_nights:
+            continue
+        pool = storage.unused_suggestions(client_id, fmt, limit=len(open_nights))
+        for night, sug in zip(open_nights, pool):
+            storage.insert_queue_item(
+                client_id,
+                FORMAT_CONTENT_TYPE[fmt],
+                fmt,
+                sug["topic"],
+                str(sug["id"]),
+                night,
+                local_midnight_utc(night, tz),
+            )
+        if len(pool) < len(open_nights):
+            shortages[fmt] = len(open_nights) - len(pool)
+    return shortages
+
+
+def tick(engine_idle, launch_suggest, launch_generate, now_utc: datetime | None = None) -> str:
+    """One scheduler pass. Returns a short action string (for logs/tests):
+    'busy' | 'idle' | 'refill:<client>:<format>' | 'generate:<queue_id>'.
+
+    Order matters: reap finished work, plan everyone's week, then — only if
+    the engine is idle (humans always come first) — launch at most ONE run:
+    a pool refill if any planner came up short, else the oldest eligible
+    queue item across all clients (cross-client fairness)."""
+    from casinogurus_ai_content_engine___daily_5_topic_batch import storage
+
+    now = now_utc or datetime.now(timezone.utc)
+
+    # 1. Reap: settle items whose generate run finished.
+    for item in storage.generating_queue_items():
+        run = storage.get_run(str(item["generate_run_id"])) if item.get("generate_run_id") else None
+        if run is None:
+            storage.update_queue_item(str(item["id"]), state="failed", note="run row missing")
+        elif run["status"] == "succeeded":
+            storage.update_queue_item(str(item["id"]), state="done")
+        elif run["status"] in ("failed", "cancelled"):
+            storage.update_queue_item(
+                str(item["id"]), state="failed", note=(run.get("error") or "run failed")[:300]
+            )
+
+    # 2. Plan every enabled, non-paused business; collect pool shortages.
+    shortages: list[tuple[str, str]] = []
+    for cfg in storage.list_enabled_autopilot_configs():
+        for fmt, missing in plan_client(cfg, now).items():
+            if missing > 0:
+                shortages.append((cfg["client_id"], fmt))
+
+    # 3. Launching anything requires an idle engine — manual runs always win.
+    if not engine_idle():
+        return "busy"
+
+    # 4. Refills first: they unblock the next planning pass.
+    if shortages:
+        client_id, fmt = shortages[0]
+        launch_suggest(client_id, FORMAT_CONTENT_TYPE[fmt], fmt)
+        return f"refill:{client_id}:{fmt}"
+
+    # 5. Oldest eligible item across clients.
+    for item in storage.due_queue_items():
+        if item["eligible_from"] < now - timedelta(hours=CATCH_UP_HOURS):
+            storage.update_queue_item(
+                str(item["id"]), state="missed",
+                note="missed its night and the 24h catch-up window",
+            )
+            continue
+        if storage.count_unreviewed_autopilot_drafts(item["client_id"]) >= UNREVIEWED_DRAFTS_LIMIT:
+            storage.update_queue_item(
+                str(item["id"]), note="waiting: too many unreviewed autopilot drafts"
+            )
+            continue
+        result = launch_generate(item)
+        storage.update_queue_item(
+            str(item["id"]), state="generating", generate_run_id=result["run_id"], note=None
+        )
+        if item.get("suggestion_id"):
+            storage.set_suggestions_status(
+                [str(item["suggestion_id"])], "selected", generate_run_id=result["run_id"]
+            )
+        return f"generate:{item['id']}"
+
+    return "idle"

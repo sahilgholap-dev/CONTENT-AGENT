@@ -513,6 +513,7 @@ def create_run(
     topic: str | None = None,
     kind: str = "generate",
     topics: list[str] | None = None,
+    origin: str = "manual",
 ) -> dict:
     """Insert a queued run pinned to the client's current profile version.
 
@@ -529,11 +530,11 @@ def create_run(
             raise ValueError(f"client '{client_id}' has no profile version to run against")
         run_id = str(uuid.uuid4())
         row = conn.execute(
-            """INSERT INTO runs (id, client_id, profile_version, content_type, format, topic, kind, topics)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """INSERT INTO runs (id, client_id, profile_version, content_type, format, topic, kind, topics, origin)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING *""",
             (run_id, client_id, version, content_type, format, topic, kind,
-             Jsonb(list(topics)) if topics else None),
+             Jsonb(list(topics)) if topics else None, origin),
         ).fetchone()
         return dict(row)
 
@@ -708,6 +709,28 @@ def unused_suggestions(client_id: str, format: str, limit: int = 10) -> list[dic
         return [dict(r) for r in rows]
 
 
+def queue_nights_taken(client_id: str, format: str, nights: list) -> set:
+    """Nights (of the given candidates) that already have a queue row —
+    regardless of state, so skipped nights are not re-planned."""
+    if not nights:
+        return set()
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT night_of FROM autopilot_queue
+               WHERE client_id = %s AND format = %s AND night_of = ANY(%s)""",
+            (client_id, format, list(nights)),
+        ).fetchall()
+        return {r["night_of"] for r in rows}
+
+
+def generating_queue_items() -> list[dict]:
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM autopilot_queue WHERE state = 'generating'"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def due_queue_items(limit: int = 20) -> list[dict]:
     """Eligible items across ALL clients, oldest first (cross-client
     fairness), excluding paused businesses."""
@@ -756,9 +779,11 @@ def list_client_pieces(client_id: str, limit: int = 300) -> list[dict]:
         rows = conn.execute(
             """SELECT p.package_id, p.topic, p.pillar, p.created_at, p.batch_id,
                       p.review_status, b.content_type, b.format, b.ingested_at,
+                      COALESCE(rn.origin, 'manual') AS origin,
                       r.action AS review_action
                FROM packages p
                JOIN batches b ON b.id = p.batch_id
+               LEFT JOIN runs rn ON rn.id = b.run_id
                LEFT JOIN LATERAL (
                    SELECT action FROM package_reviews
                    WHERE package_id = p.package_id
@@ -785,8 +810,11 @@ def get_client_piece(client_id: str, package_id: str) -> dict | None:
         row = conn.execute(
             """SELECT p.package_id, p.topic, p.pillar, p.primary_keyword,
                       p.created_at, p.batch_id, p.review_status, p.draft_json,
-                      b.content_type, b.format, b.ingested_at
-               FROM packages p JOIN batches b ON b.id = p.batch_id
+                      b.content_type, b.format, b.ingested_at,
+                      COALESCE(rn.origin, 'manual') AS origin
+               FROM packages p
+               JOIN batches b ON b.id = p.batch_id
+               LEFT JOIN runs rn ON rn.id = b.run_id
                WHERE p.package_id = %s AND p.client_id = %s""",
             (package_id, client_id),
         ).fetchone()

@@ -51,6 +51,8 @@ import subprocess
 import sys
 import threading
 import zipfile
+from datetime import datetime
+from datetime import timezone as dt_timezone
 from contextlib import asynccontextmanager
 from typing import Literal
 
@@ -71,7 +73,7 @@ from casinogurus_ai_content_engine___daily_5_topic_batch.db import (
     connection,
     init_schema,
 )
-from casinogurus_ai_content_engine___daily_5_topic_batch import registry, storage
+from casinogurus_ai_content_engine___daily_5_topic_batch import autopilot, registry, storage
 from casinogurus_ai_content_engine___daily_5_topic_batch.profile import ClientProfile
 from casinogurus_ai_content_engine___daily_5_topic_batch.registry import AVAILABLE_TASK_VARIANTS
 from casinogurus_ai_content_engine___daily_5_topic_batch.storage import get_image
@@ -146,6 +148,15 @@ class PortalSuggestTopicsRequest(BaseModel):
     content_type: str = "long_form"
     format: str = "blog"
     hint: str | None = None
+
+
+class AutopilotConfigUpdate(BaseModel):
+    """PUT payload; None fields keep their current value. Caps and timezone
+    are validated server-side — never trust the client's slider."""
+
+    paused: bool | None = None
+    timezone: str | None = None
+    content_types: dict | None = None
 
 
 class GenerateFromSuggestionsRequest(BaseModel):
@@ -918,6 +929,66 @@ def portal_generate_from_suggestions(
     return _generate_from_suggestions(_portal_cid(user, client_id), body.suggestion_ids)
 
 
+@portal.get("/autopilot/config")
+def portal_autopilot_config(
+    user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    return jsonable(_autopilot_config_payload(_portal_cid(user, client_id)))
+
+
+@portal.put("/autopilot/config")
+def portal_autopilot_config_update(
+    body: AutopilotConfigUpdate,
+    user: dict = Depends(require_client),
+    client_id: str | None = Query(default=None),
+):
+    return jsonable(_update_autopilot_config(_portal_cid(user, client_id), body))
+
+
+@portal.post("/autopilot/pause")
+def portal_autopilot_pause(
+    user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    cid = _portal_cid(user, client_id)
+    return jsonable(_update_autopilot_config(cid, AutopilotConfigUpdate(paused=True)))
+
+
+@portal.post("/autopilot/resume")
+def portal_autopilot_resume(
+    user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    cid = _portal_cid(user, client_id)
+    return jsonable(_update_autopilot_config(cid, AutopilotConfigUpdate(paused=False)))
+
+
+@portal.get("/autopilot/queue")
+def portal_autopilot_queue(
+    user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    return jsonable(storage.list_autopilot_queue(_portal_cid(user, client_id)))
+
+
+@portal.post("/autopilot/queue/{queue_id}/approve")
+def portal_autopilot_queue_approve(
+    queue_id: str, user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    return jsonable(_queue_approve(_portal_cid(user, client_id), queue_id))
+
+
+@portal.post("/autopilot/queue/{queue_id}/swap")
+def portal_autopilot_queue_swap(
+    queue_id: str, user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    return jsonable(_queue_swap(_portal_cid(user, client_id), queue_id))
+
+
+@portal.post("/autopilot/queue/{queue_id}/skip")
+def portal_autopilot_queue_skip(
+    queue_id: str, user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    return jsonable(_queue_skip(_portal_cid(user, client_id), queue_id))
+
+
 @portal.get("/run-progress")
 def portal_run_progress(
     user: dict = Depends(require_client), client_id: str | None = Query(default=None)
@@ -1038,6 +1109,7 @@ def _start_agent_run(
     raw_topic: str | None,
     kind: str = "generate",
     topics: list[str] | None = None,
+    origin: str = "manual",
 ) -> dict:
     """Shared run-launch path for the admin endpoint and the client portal.
 
@@ -1080,7 +1152,7 @@ def _start_agent_run(
         if re.search(r"\{[A-Za-z_][A-Za-z0-9_\-]*\}", topic):
             raise HTTPException(status_code=422, detail="topic must not contain {placeholder}-style tokens")
 
-    run_row = storage.create_run(client_id, content_type, format_id, topic=topic, kind=kind, topics=topics)
+    run_row = storage.create_run(client_id, content_type, format_id, topic=topic, kind=kind, topics=topics, origin=origin)
 
     # With a pinned topic (user-provided or shortlist) the first pipeline task
     # STRUCTURES the given topic instead of discovering one — label the
@@ -1156,6 +1228,122 @@ def generate_from_suggestions(body: GenerateFromSuggestionsRequest):
     return _generate_from_suggestions(body.client_id, body.suggestion_ids)
 
 
+# --- Autopilot (shared handlers; admin routes here, portal twins below) ---- #
+
+def _autopilot_config_payload(client_id: str) -> dict:
+    cfg = storage.get_autopilot_config(client_id) or {}
+    return {
+        "paused": bool(cfg.get("paused", False)),
+        "timezone": cfg.get("timezone") or autopilot.DEFAULT_TIMEZONE,
+        "content_types": autopilot.normalize_config(cfg.get("content_types")),
+        "caps": autopilot.AUTOPILOT_CAPS,
+    }
+
+
+def _update_autopilot_config(client_id: str, body: AutopilotConfigUpdate) -> dict:
+    if not storage.get_client(client_id):
+        raise HTTPException(status_code=404, detail=f"client '{client_id}' not found")
+    if body.timezone is not None and not autopilot.validate_timezone(body.timezone):
+        raise HTTPException(status_code=400, detail=f"unknown timezone '{body.timezone}'")
+    normalized = None
+    if body.content_types is not None:
+        problems = autopilot.validate_config(body.content_types)
+        if problems:
+            raise HTTPException(status_code=400, detail="; ".join(problems))
+        normalized = autopilot.normalize_config(body.content_types)
+    storage.upsert_autopilot_config(
+        client_id, paused=body.paused, timezone=body.timezone, content_types=normalized
+    )
+    return _autopilot_config_payload(client_id)
+
+
+def _queue_item_or_404(client_id: str, queue_id: str) -> dict:
+    item = storage.get_queue_item(client_id, queue_id)
+    if not item:
+        raise HTTPException(status_code=404, detail=f"queue item '{queue_id}' not found")
+    return item
+
+
+def _vetoable_or_422(item: dict) -> None:
+    """Veto actions are allowed only while the item is upcoming."""
+    if item["state"] not in ("pending", "approved"):
+        raise HTTPException(status_code=422, detail="this topic is no longer actionable")
+    if item["veto_expires_at"] <= datetime.now(dt_timezone.utc):
+        raise HTTPException(status_code=422, detail="the veto window for this topic has closed")
+
+
+def _queue_approve(client_id: str, queue_id: str) -> dict:
+    item = _queue_item_or_404(client_id, queue_id)
+    _vetoable_or_422(item)
+    storage.update_queue_item(queue_id, state="approved")
+    return {**item, "state": "approved"}
+
+
+def _queue_skip(client_id: str, queue_id: str) -> dict:
+    item = _queue_item_or_404(client_id, queue_id)
+    _vetoable_or_422(item)
+    storage.update_queue_item(queue_id, state="skipped")
+    return {**item, "state": "skipped"}
+
+
+def _queue_swap(client_id: str, queue_id: str) -> dict:
+    item = _queue_item_or_404(client_id, queue_id)
+    _vetoable_or_422(item)
+    if int(item.get("swap_count") or 0) >= 1:
+        raise HTTPException(status_code=422, detail="this topic was already swapped once — approve or skip it")
+    pool = storage.unused_suggestions(client_id, item["format"], limit=1)
+    if not pool:
+        raise HTTPException(
+            status_code=422,
+            detail="no alternative topics available — generate topic ideas for this format first",
+        )
+    alt = pool[0]
+    storage.update_queue_item(
+        queue_id, topic=alt["topic"], suggestion_id=str(alt["id"]), swap_count=1
+    )
+    return {**item, "topic": alt["topic"], "suggestion_id": str(alt["id"]), "swap_count": 1}
+
+
+@api.get("/autopilot/config")
+def autopilot_config(client_id: str = Query(...)):
+    return jsonable(_autopilot_config_payload(client_id))
+
+
+@api.put("/autopilot/config")
+def autopilot_config_update(body: AutopilotConfigUpdate, client_id: str = Query(...)):
+    return jsonable(_update_autopilot_config(client_id, body))
+
+
+@api.post("/autopilot/pause")
+def autopilot_pause(client_id: str = Query(...)):
+    return jsonable(_update_autopilot_config(client_id, AutopilotConfigUpdate(paused=True)))
+
+
+@api.post("/autopilot/resume")
+def autopilot_resume(client_id: str = Query(...)):
+    return jsonable(_update_autopilot_config(client_id, AutopilotConfigUpdate(paused=False)))
+
+
+@api.get("/autopilot/queue")
+def autopilot_queue(client_id: str = Query(...)):
+    return jsonable(storage.list_autopilot_queue(client_id))
+
+
+@api.post("/autopilot/queue/{queue_id}/approve")
+def autopilot_queue_approve(queue_id: str, client_id: str = Query(...)):
+    return jsonable(_queue_approve(client_id, queue_id))
+
+
+@api.post("/autopilot/queue/{queue_id}/swap")
+def autopilot_queue_swap(queue_id: str, client_id: str = Query(...)):
+    return jsonable(_queue_swap(client_id, queue_id))
+
+
+@api.post("/autopilot/queue/{queue_id}/skip")
+def autopilot_queue_skip(queue_id: str, client_id: str = Query(...)):
+    return jsonable(_queue_skip(client_id, queue_id))
+
+
 @api.get("/agent-logs")
 async def agent_logs():
     async def event_stream():
@@ -1221,7 +1409,46 @@ async def lifespan(app: FastAPI):
             storage.insert_profile_version(record.client_id, record.profile.model_dump(), created_by="lifespan-seed")
     except Exception as e:  # seeding must never block serving
         print(f"[startup] WARNING: could not seed default client profile: {e}")
+
+    # Autopilot scheduler: an in-process loop ticking ~60s. All state is in
+    # Postgres so restarts resume cleanly; the tick only launches work when
+    # the engine is idle, so manual runs always come first. Kill-switch:
+    # AUTOPILOT_DISABLED=1 (local dev / tests).
+    ap_task = None
+    if os.environ.get("AUTOPILOT_DISABLED", "").strip().lower() not in ("1", "true", "yes"):
+
+        def _engine_idle() -> bool:
+            proc = _run_state["process"]
+            return proc is None or proc.poll() is not None
+
+        def _launch_suggest(client_id: str, content_type: str, fmt: str) -> dict:
+            return _start_agent_run(client_id, content_type, fmt, None, kind="suggest", origin="autopilot")
+
+        def _launch_generate(item: dict) -> dict:
+            return _start_agent_run(
+                item["client_id"], item["content_type"], item["format"], None,
+                kind="generate", topics=[item["topic"]], origin="autopilot",
+            )
+
+        async def _autopilot_loop():
+            while True:
+                try:
+                    action = await asyncio.to_thread(
+                        autopilot.tick, _engine_idle, _launch_suggest, _launch_generate
+                    )
+                    if action not in ("idle", "busy"):
+                        print(f"[autopilot] {action}", flush=True)
+                except Exception as e:
+                    print(f"[autopilot] tick error: {e}", flush=True)
+                await asyncio.sleep(60)
+
+        ap_task = asyncio.create_task(_autopilot_loop())
+        print("[startup] autopilot scheduler running (AUTOPILOT_DISABLED=1 to turn off)")
+
     yield
+
+    if ap_task:
+        ap_task.cancel()
 
 
 def _cors_origins() -> list[str]:
