@@ -29,8 +29,8 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const STATE_CHIP: Record<string, { label: string; cls: string }> = {
-  pending: { label: "Awaiting your OK", cls: "bg-cs-gray-soft text-cs-muted" },
-  approved: { label: "Approved", cls: "bg-cs-emerald-soft text-emerald-700" },
+  pending: { label: "Scheduled", cls: "bg-cs-accent-soft text-cs-accent-deep" },
+  approved: { label: "Scheduled", cls: "bg-cs-accent-soft text-cs-accent-deep" },
   skipped: { label: "Skipped", cls: "bg-cs-gray-soft text-cs-light" },
   generating: { label: "Writing…", cls: "bg-cs-accent-soft text-cs-accent-deep animate-pulse" },
   done: { label: "✓ In Drafts", cls: "bg-cs-emerald-soft text-emerald-700" },
@@ -73,7 +73,6 @@ export default function AutopilotPage() {
   const [cfg, setCfg] = useState<any | null>(null);
   const [queue, setQueue] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [setup, setSetup] = useState<Setup | null>(null);
   const [addingFor, setAddingFor] = useState<string | null>(null);
   const [addText, setAddText] = useState("");
@@ -292,22 +291,6 @@ export default function AutopilotPage() {
     }
   };
 
-  const queueAction = async (id: string, action: "approve" | "swap" | "skip") => {
-    setBusyId(id);
-    setError(null);
-    try {
-      const res = await apiFetch(`/api/portal/autopilot/queue/${encodeURIComponent(id)}/${action}`, {
-        method: "POST",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) setError(String(data.detail || `Request failed (${res.status})`));
-      await load();
-    } catch (e: any) {
-      setError("Failed to reach server: " + e.message);
-    }
-    setBusyId(null);
-  };
-
   const paused = !!cfg?.paused;
   // Per-night execution order for the est-time column (this business's view).
   const nightOrder: Record<string, number> = {};
@@ -346,8 +329,8 @@ export default function AutopilotPage() {
           <span>ⓘ</span>
           <div>
             Autopilot writes drafts into your Drafts folder <b>overnight (from 12:00 AM)</b> — nothing is
-            posted anywhere; you review and approve every piece. Planned topics appear below in advance,
-            so you can swap or skip anything until its midnight.
+            posted anywhere; you review and approve every piece in Drafts. Your topic schedule appears
+            below: what gets written, and the morning it'll be ready.
           </div>
         </div>
 
@@ -559,8 +542,7 @@ export default function AutopilotPage() {
                             <div className="mb-4 rounded-lg border border-cs-border bg-[#FAFBFC] px-3.5 py-3 text-[13px] text-cs-muted">
                               Hands-off mode: on each scheduled night the agent researches, picks the best topic for
                               your business voice, and writes it — exactly like “Discover automatically &amp; generate”.
-                              You won't see topics in advance (you can still skip a night), and everything still lands
-                              in Drafts for your approval.
+                              You won't see topics in advance; everything lands in Drafts for your approval.
                             </div>
                           )}
 
@@ -654,18 +636,17 @@ export default function AutopilotPage() {
                       )}
 
                       <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-cs-muted">
-                        Planned pieces · swap or skip anything until its midnight
+                        Upcoming pieces · what the agent will write and when it's ready
                       </div>
                       {items.length === 0 ? (
                         <div className="rounded-lg border border-cs-border bg-[#FAFBFC] px-3.5 py-2.5 text-[12.5px] text-cs-muted">
                           {entry.topic_source === "manual"
-                            ? "Waiting for topics — add some above and slots fill within a minute."
-                            : "Planning the coming week — topics appear here within a few minutes (the agent may research fresh ideas first)."}
+                            ? "Waiting for topics — add some above and the schedule fills within a minute."
+                            : "Planning the coming week — the schedule appears here within a few minutes (the agent may research fresh ideas first)."}
                         </div>
                       ) : (
                         items.map((q, i) => {
                           const chip = STATE_CHIP[q.state] ?? STATE_CHIP.pending;
-                          const actionable = (q.state === "pending" || q.state === "approved");
                           return (
                             <div key={q.id} className="mb-1.5 flex items-center gap-3 rounded-lg border border-cs-border bg-[#FAFBFC] px-3.5 py-2.5">
                               <div className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-cs-gray-soft text-[11px] font-bold text-cs-muted">
@@ -677,33 +658,12 @@ export default function AutopilotPage() {
                               <span className={`shrink-0 rounded px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide ${chip.cls}`}>
                                 {chip.label}
                               </span>
-                              <div className="shrink-0 text-[11.5px] text-cs-muted">
-                                {nightLabel(q.night_of)}
+                              <div className="shrink-0 text-right text-[11.5px] text-cs-muted">
+                                <div>Ready {nightLabel(q.night_of)} morning</div>
                                 {nightOrder[q.id] !== undefined && (
-                                  <span className="ml-1 text-cs-light">{estTime(nightOrder[q.id])}</span>
+                                  <div className="text-cs-light">writes {estTime(nightOrder[q.id])}</div>
                                 )}
                               </div>
-                              {actionable && (
-                                <div className="flex shrink-0 gap-1">
-                                  {q.state !== "approved" && !q.discover && (
-                                    <button onClick={() => queueAction(q.id, "approve")} disabled={busyId === q.id}
-                                      className="rounded border border-emerald-300 bg-white px-2.5 py-1 text-[11.5px] text-emerald-700 hover:bg-cs-emerald-soft disabled:opacity-50">
-                                      Approve
-                                    </button>
-                                  )}
-                                  {!q.discover && (
-                                    <button onClick={() => queueAction(q.id, "swap")} disabled={busyId === q.id || (q.swap_count ?? 0) >= 1}
-                                      title={(q.swap_count ?? 0) >= 1 ? "Already swapped once" : "Swap for another topic"}
-                                      className="rounded border border-cs-border-strong bg-white px-2.5 py-1 text-[11.5px] text-cs-muted hover:text-cs-text disabled:opacity-50">
-                                      Swap
-                                    </button>
-                                  )}
-                                  <button onClick={() => queueAction(q.id, "skip")} disabled={busyId === q.id}
-                                    className="rounded border border-red-200 bg-white px-2.5 py-1 text-[11.5px] text-cs-danger hover:bg-cs-danger-soft disabled:opacity-50">
-                                    Skip
-                                  </button>
-                                </div>
-                              )}
                               {q.note && <div className="shrink-0 text-[11px] text-cs-light" title={q.note}>ⓘ</div>}
                             </div>
                           );
