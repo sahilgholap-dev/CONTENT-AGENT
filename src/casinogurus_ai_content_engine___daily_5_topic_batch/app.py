@@ -854,6 +854,23 @@ def portal_feedback(
     return jsonable(row)
 
 
+@portal.get("/pieces")
+def portal_pieces(user: dict = Depends(require_client), client_id: str | None = Query(default=None)):
+    """Flat piece list (one per package, newest first) for the Content
+    Studio Drafts/Approved views. state: drafted|shortlisted|approved|rejected."""
+    return jsonable(storage.list_client_pieces(_portal_cid(user, client_id)))
+
+
+@portal.get("/pieces/{pid}")
+def portal_piece(
+    pid: str, user: dict = Depends(require_client), client_id: str | None = Query(default=None)
+):
+    piece = storage.get_client_piece(_portal_cid(user, client_id), pid)
+    if piece is None:
+        raise HTTPException(status_code=404, detail=f"piece '{pid}' not found")
+    return jsonable(piece)
+
+
 @portal.get("/formats")
 def portal_formats():
     """Enabled content-type/format catalog for the portal run modal (same

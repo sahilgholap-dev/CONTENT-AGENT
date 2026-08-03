@@ -570,6 +570,74 @@ def list_runs(client_id: str | None = None, limit: int = 50) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Portal pieces (client-facing read model: one piece = one package; state is
+# the latest package_reviews event, 'drafted' when none exists)
+# ---------------------------------------------------------------------------
+
+_PIECE_STATES = {"approved": "approved", "rejected": "rejected", "shortlisted": "shortlisted"}
+
+
+def list_client_pieces(client_id: str, limit: int = 300) -> list[dict]:
+    """Flat, newest-first piece list for the portal Drafts/Approved views.
+    Read-only assembly over existing tables — no schema change."""
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT p.package_id, p.topic, p.pillar, p.created_at, p.batch_id,
+                      p.review_status, b.content_type, b.format, b.ingested_at,
+                      r.action AS review_action
+               FROM packages p
+               JOIN batches b ON b.id = p.batch_id
+               LEFT JOIN LATERAL (
+                   SELECT action FROM package_reviews
+                   WHERE package_id = p.package_id
+                   ORDER BY created_at DESC, id DESC LIMIT 1
+               ) r ON true
+               WHERE p.client_id = %s
+               ORDER BY b.ingested_at DESC, p.created_at DESC
+               LIMIT %s""",
+            (client_id, limit),
+        ).fetchall()
+    out = []
+    for row in rows:
+        d = dict(row)
+        d["state"] = _PIECE_STATES.get(d.pop("review_action", None), "drafted")
+        out.append(d)
+    return out
+
+
+def get_client_piece(client_id: str, package_id: str) -> dict | None:
+    """Single piece payload for the portal review pane: the package's draft
+    plus its latest feedback event and flag count. Client-scoped (a foreign
+    package_id 404s upstream exactly like a missing one)."""
+    with connection() as conn:
+        row = conn.execute(
+            """SELECT p.package_id, p.topic, p.pillar, p.primary_keyword,
+                      p.created_at, p.batch_id, p.review_status, p.draft_json,
+                      b.content_type, b.format, b.ingested_at
+               FROM packages p JOIN batches b ON b.id = p.batch_id
+               WHERE p.package_id = %s AND p.client_id = %s""",
+            (package_id, client_id),
+        ).fetchone()
+        if not row:
+            return None
+        piece = dict(row)
+        piece["draft"] = piece.pop("draft_json") or {}
+        fb = conn.execute(
+            """SELECT action AS status, feedback AS notes, created_at
+               FROM package_reviews WHERE package_id = %s
+               ORDER BY created_at DESC, id DESC LIMIT 1""",
+            (package_id,),
+        ).fetchone()
+        piece["feedback"] = dict(fb) if fb else None
+        piece["state"] = _PIECE_STATES.get(fb["status"] if fb else None, "drafted")
+        piece["verification_flags_count"] = conn.execute(
+            "SELECT COUNT(*) AS n FROM verification_flags WHERE package_id = %s",
+            (package_id,),
+        ).fetchone()["n"]
+    return piece
+
+
+# ---------------------------------------------------------------------------
 # Topic suggestions (suggest -> shortlist -> generate)
 # ---------------------------------------------------------------------------
 
