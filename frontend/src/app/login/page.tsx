@@ -27,46 +27,52 @@ export default function LoginPage() {
     router.refresh();
   };
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 p-6">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-1 text-center text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-          Content Engine
-        </h1>
-        <p className="mb-8 text-center text-xs uppercase tracking-wider text-gray-500">
-          Sign in to continue
-        </p>
+  const inputClass =
+    "block w-full rounded-md border border-cs-border-strong bg-white p-2.5 text-[13.5px] text-cs-text outline-none transition-colors focus:border-cs-accent focus:ring-[3px] focus:ring-cs-accent-soft";
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900/50 p-6 shadow-xl backdrop-blur-md"
-        >
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center p-10 text-sm"
+      style={{
+        background: "linear-gradient(135deg, #1A1B2E 0%, #312E81 100%)",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif',
+      }}
+    >
+      <div className="w-full max-w-[400px] rounded-[14px] bg-white p-10 text-cs-text shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
+        <div className="mb-7 text-center">
+          <div className="text-[11px] font-bold tracking-[2px] text-cs-accent">NEXUS</div>
+          <div className="mt-1 text-[22px] font-bold tracking-[-0.4px]">Content Studio</div>
+          <div className="mt-1.5 text-[13px] text-cs-muted">Sign in to your workspace</div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">Email</label>
+            <label className="mb-1.5 block text-[13px] font-medium">Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none transition-colors focus:border-blue-500 focus:ring-blue-500"
+              className={inputClass}
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">Password</label>
+            <label className="mb-1.5 block text-[13px] font-medium">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none transition-colors focus:border-blue-500 focus:ring-blue-500"
+              className={inputClass}
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-sm text-red-400">
+            <div className="rounded-md border border-cs-danger/30 bg-cs-danger-soft p-2.5 text-[13px] text-cs-danger">
               {error}
             </div>
           )}
@@ -74,11 +80,15 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg border border-blue-400/20 bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-500 active:scale-95 disabled:opacity-60"
+            className="w-full rounded-md border border-cs-accent bg-cs-accent px-4 py-2.5 text-[13.5px] font-medium text-white transition-colors hover:bg-cs-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
+
+        <div className="mt-7 border-t border-cs-border pt-4 text-center text-[11.5px] text-cs-light">
+          New workspace? Get in touch with your MasterTech onboarder.
+        </div>
       </div>
     </div>
   );
