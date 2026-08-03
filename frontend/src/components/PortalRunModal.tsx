@@ -22,10 +22,17 @@ export default function PortalRunModal({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const currentType = formats.find((t) => t.id === contentType);
-  const typeFormats = currentType?.formats ?? [];
-  const currentFormat = typeFormats.find((f: any) => f.id === formatId);
+  // Flat format selection: the user picks the format directly; its parent
+  // content type rides along silently (the backend still needs it).
+  const allFormats = formats.flatMap((t) => t.formats ?? []);
+  const currentFormat = allFormats.find((f: any) => f.id === formatId);
   const maxPerRun = Number(currentFormat?.max_per_run ?? 1);
+
+  const selectFormat = (fid: string) => {
+    const parent = formats.find((t) => (t.formats ?? []).some((f: any) => f.id === fid));
+    setFormatId(fid);
+    setContentType(parent?.id ?? "");
+  };
 
   const handleRun = async () => {
     const userTopic = topicMode === "user" ? topic.trim() : "";
@@ -77,37 +84,20 @@ export default function PortalRunModal({
 
         <div className="space-y-5">
           <div>
-            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Content Type</label>
-            <select
-              className={selectClass}
-              value={contentType}
-              onChange={(e) => {
-                const t = formats.find((x) => x.id === e.target.value);
-                setContentType(e.target.value);
-                setFormatId(t?.formats?.[0]?.id ?? "");
-              }}
-            >
+            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Content</label>
+            <select className={selectClass} value={formatId} onChange={(e) => selectFormat(e.target.value)}>
               {formats.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
+                <optgroup key={t.id} label={t.label}>
+                  {(t.formats ?? []).map((f: any) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Format</label>
-            <select className={selectClass} value={formatId} onChange={(e) => setFormatId(e.target.value)}>
-              {typeFormats.map((f: any) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-            {typeFormats.find((f: any) => f.id === formatId)?.description && (
-              <p className="text-xs text-gray-500 mt-2">
-                {typeFormats.find((f: any) => f.id === formatId).description}
-              </p>
+            {currentFormat?.description && (
+              <p className="text-xs text-gray-500 mt-2">{currentFormat.description}</p>
             )}
           </div>
 
