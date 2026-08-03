@@ -338,6 +338,7 @@ export default function AutopilotPage() {
   };
 
   const paused = !!cfg?.paused;
+  const anyEnabled = Object.values(cfg?.content_types ?? {}).some((v: any) => v?.enabled);
   // Per-night execution order for the est-time column (this business's view).
   const nightOrder: Record<string, number> = {};
   {
@@ -356,7 +357,7 @@ export default function AutopilotPage() {
   return (
     <>
       <PageHeader title="Autopilot" subtitle="Set a rhythm — we draft overnight, you review in the morning">
-        {cfg && (
+        {cfg && (paused || anyEnabled) && (
           <button
             onClick={() => put({ paused: !paused })}
             className={`${btn} ${
