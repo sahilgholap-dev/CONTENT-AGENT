@@ -140,6 +140,22 @@ def upcoming_nights(freq: int, today_local: date, horizon_days: int = 7) -> list
     ]
 
 
+def project_nights(freq: int, after: date, count: int, horizon_days: int = 180) -> list[date]:
+    """The next `count` spread nights strictly after `after` — used to show
+    clients when their waiting (not-yet-scheduled) topics will be written."""
+    weekdays = set(nights_for_frequency(freq))
+    out: list[date] = []
+    if not weekdays or count <= 0:
+        return out
+    for i in range(1, horizon_days + 1):
+        d = after + timedelta(days=i)
+        if d.weekday() in weekdays:
+            out.append(d)
+            if len(out) >= count:
+                break
+    return out
+
+
 def local_midnight_utc(night: date, tz: str) -> datetime:
     """The UTC instant at which `night` begins in the client's timezone —
     the moment a queue item becomes eligible and its veto window closes."""

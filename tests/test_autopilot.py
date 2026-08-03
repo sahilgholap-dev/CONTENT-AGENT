@@ -89,6 +89,14 @@ def test_upcoming_nights_zero_freq_empty():
     assert upcoming_nights(0, date(2026, 8, 3)) == []
 
 
+def test_project_nights_continues_the_spread():
+    from casinogurus_ai_content_engine___daily_5_topic_batch.autopilot import project_nights
+
+    # freq 1 = Mondays; after Mon Aug 10 the next two are Aug 17 and Aug 24.
+    assert project_nights(1, date(2026, 8, 10), 2) == [date(2026, 8, 17), date(2026, 8, 24)]
+    assert project_nights(0, date(2026, 8, 10), 3) == []
+
+
 # ------------------------------ timezone math ------------------------------ #
 
 def test_local_midnight_utc_kolkata():

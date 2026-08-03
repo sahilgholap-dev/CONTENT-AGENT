@@ -72,6 +72,7 @@ export default function AutopilotPage() {
   const { activeClientId } = usePortal();
   const [cfg, setCfg] = useState<any | null>(null);
   const [queue, setQueue] = useState<any[]>([]);
+  const [projected, setProjected] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [setup, setSetup] = useState<Setup | null>(null);
   const [addingFor, setAddingFor] = useState<string | null>(null);
@@ -86,9 +87,10 @@ export default function AutopilotPage() {
         apiFetch("/api/portal/autopilot/queue"),
       ]);
       const cfgData = await cfgRes.json().catch(() => null);
-      const qData = await qRes.json().catch(() => []);
+      const qData = await qRes.json().catch(() => ({}));
       if (cfgData?.content_types) setCfg(cfgData);
-      setQueue(Array.isArray(qData) ? qData : []);
+      setQueue(Array.isArray(qData?.items) ? qData.items : []);
+      setProjected(Array.isArray(qData?.projected) ? qData.projected : []);
     } catch {
       /* transient */
     }
@@ -97,6 +99,7 @@ export default function AutopilotPage() {
   useEffect(() => {
     setCfg(null);
     setQueue([]);
+    setProjected([]);
     setSetup(null);
     load();
   }, [load]);
@@ -354,6 +357,7 @@ export default function AutopilotPage() {
               const entry = cfg.content_types[card.format] ?? { enabled: false, frequency_per_week: 0, topic_source: "pool" };
               const cap = cfg.caps?.[card.format] ?? 1;
               const items = queue.filter((q) => q.format === card.format);
+              const waiting = projected.filter((p) => p.format === card.format);
               const inSetup = setup?.format === card.format;
               const on = entry.enabled && !paused;
 
@@ -638,36 +642,56 @@ export default function AutopilotPage() {
                       <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-cs-muted">
                         Upcoming pieces · what the agent will write and when it's ready
                       </div>
-                      {items.length === 0 ? (
+                      {items.length === 0 && waiting.length === 0 ? (
                         <div className="rounded-lg border border-cs-border bg-[#FAFBFC] px-3.5 py-2.5 text-[12.5px] text-cs-muted">
                           {entry.topic_source === "manual"
                             ? "Waiting for topics — add some above and the schedule fills within a minute."
                             : "Planning the coming week — the schedule appears here within a few minutes (the agent may research fresh ideas first)."}
                         </div>
                       ) : (
-                        items.map((q, i) => {
-                          const chip = STATE_CHIP[q.state] ?? STATE_CHIP.pending;
-                          return (
-                            <div key={q.id} className="mb-1.5 flex items-center gap-3 rounded-lg border border-cs-border bg-[#FAFBFC] px-3.5 py-2.5">
+                        <>
+                          {items.map((q, i) => {
+                            const chip = STATE_CHIP[q.state] ?? STATE_CHIP.pending;
+                            return (
+                              <div key={q.id} className="mb-1.5 flex items-center gap-3 rounded-lg border border-cs-border bg-[#FAFBFC] px-3.5 py-2.5">
+                                <div className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-cs-gray-soft text-[11px] font-bold text-cs-muted">
+                                  {i + 1}
+                                </div>
+                                <div className={`min-w-0 flex-1 text-[13.5px] ${q.discover ? "italic text-cs-muted" : "font-medium"}`}>
+                                  {q.topic}
+                                </div>
+                                <span className={`shrink-0 rounded px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide ${chip.cls}`}>
+                                  {chip.label}
+                                </span>
+                                <div className="shrink-0 text-right text-[11.5px] text-cs-muted">
+                                  <div>Ready {nightLabel(q.night_of)} morning</div>
+                                  {nightOrder[q.id] !== undefined && (
+                                    <div className="text-cs-light">writes {estTime(nightOrder[q.id])}</div>
+                                  )}
+                                </div>
+                                {q.note && <div className="shrink-0 text-[11px] text-cs-light" title={q.note}>ⓘ</div>}
+                              </div>
+                            );
+                          })}
+                          {waiting.map((p, i) => (
+                            <div
+                              key={`proj-${p.suggestion_id}`}
+                              className="mb-1.5 flex items-center gap-3 rounded-lg border border-dashed border-cs-border-strong bg-white px-3.5 py-2.5"
+                            >
                               <div className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-cs-gray-soft text-[11px] font-bold text-cs-muted">
-                                {i + 1}
+                                {items.length + i + 1}
                               </div>
-                              <div className={`min-w-0 flex-1 text-[13.5px] ${q.discover ? "italic text-cs-muted" : "font-medium"}`}>
-                                {q.topic}
-                              </div>
-                              <span className={`shrink-0 rounded px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide ${chip.cls}`}>
-                                {chip.label}
+                              <div className="min-w-0 flex-1 text-[13.5px] font-medium">{p.topic}</div>
+                              <span className="shrink-0 rounded bg-cs-gray-soft px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-cs-muted">
+                                Up next
                               </span>
                               <div className="shrink-0 text-right text-[11.5px] text-cs-muted">
-                                <div>Ready {nightLabel(q.night_of)} morning</div>
-                                {nightOrder[q.id] !== undefined && (
-                                  <div className="text-cs-light">writes {estTime(nightOrder[q.id])}</div>
-                                )}
+                                <div>Ready {nightLabel(p.night_of)} morning</div>
+                                <div className="text-cs-light">writes ≈ 12:00 AM</div>
                               </div>
-                              {q.note && <div className="shrink-0 text-[11px] text-cs-light" title={q.note}>ⓘ</div>}
                             </div>
-                          );
-                        })
+                          ))}
+                        </>
                       )}
                     </div>
                   )}

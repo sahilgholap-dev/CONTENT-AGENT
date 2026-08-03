@@ -981,7 +981,7 @@ def portal_autopilot_resume(
 def portal_autopilot_queue(
     user: dict = Depends(require_client), client_id: str | None = Query(default=None)
 ):
-    return jsonable(storage.list_autopilot_queue(_portal_cid(user, client_id)))
+    return jsonable(_autopilot_queue_payload(_portal_cid(user, client_id)))
 
 
 @portal.post("/autopilot/queue/{queue_id}/approve")
@@ -1400,9 +1400,41 @@ def autopilot_resume(client_id: str = Query(...)):
     return jsonable(_update_autopilot_config(client_id, AutopilotConfigUpdate(paused=False)))
 
 
+def _autopilot_queue_payload(client_id: str) -> dict:
+    """Scheduled queue rows PLUS a projection of waiting picked topics onto
+    their future spread nights — so the client sees every selected topic
+    with the date it will be written, not just the planner's 7-day horizon."""
+    items = storage.list_autopilot_queue(client_id)
+    cfg = storage.get_autopilot_config(client_id) or {}
+    tz = cfg.get("timezone") or autopilot.DEFAULT_TIMEZONE
+    cts = autopilot.normalize_config(cfg.get("content_types"))
+    projected: list[dict] = []
+    for fmt, entry in cts.items():
+        if not entry["enabled"] or entry["frequency_per_week"] <= 0 or entry["topic_source"] == "auto":
+            continue
+        waiting = [s for s in storage.unused_suggestions(client_id, fmt, limit=50) if s.get("picked")]
+        if not waiting:
+            continue
+        active_nights = [
+            i["night_of"] for i in items
+            if i["format"] == fmt and i["state"] in ("pending", "approved", "generating")
+        ]
+        start_after = max(active_nights) if active_nights else autopilot.today_local(tz)
+        nights = autopilot.project_nights(entry["frequency_per_week"], start_after, len(waiting))
+        for s, night in zip(waiting, nights):
+            projected.append({
+                "format": fmt,
+                "content_type": autopilot.FORMAT_CONTENT_TYPE[fmt],
+                "topic": s["topic"],
+                "night_of": night,
+                "suggestion_id": str(s["id"]),
+            })
+    return {"items": items, "projected": projected}
+
+
 @api.get("/autopilot/queue")
 def autopilot_queue(client_id: str = Query(...)):
-    return jsonable(storage.list_autopilot_queue(client_id))
+    return jsonable(_autopilot_queue_payload(client_id))
 
 
 @api.post("/autopilot/queue/{queue_id}/approve")
