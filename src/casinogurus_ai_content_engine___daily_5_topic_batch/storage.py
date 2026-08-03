@@ -703,7 +703,7 @@ def unused_suggestions(client_id: str, format: str, limit: int = 10) -> list[dic
                      WHERE q.suggestion_id = s.id
                        AND q.state IN ('pending', 'approved', 'generating')
                  )
-               ORDER BY s.picked DESC, s.created_at ASC
+               ORDER BY s.picked DESC, s.created_at ASC, s.id ASC
                LIMIT %s""",
             (client_id, format, limit),
         ).fetchall()
