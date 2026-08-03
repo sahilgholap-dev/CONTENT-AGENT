@@ -1065,6 +1065,13 @@ def _start_agent_run(
 
     run_row = storage.create_run(client_id, content_type, format_id, topic=topic, kind=kind, topics=topics)
 
+    # With a pinned topic (user-provided or shortlist) the first pipeline task
+    # STRUCTURES the given topic instead of discovering one — label the
+    # terminal stage honestly so it doesn't look like discovery re-ran.
+    stage_labels = ["Topic Suggestions"] if kind == "suggest" else list(spec.stage_labels)
+    if kind != "suggest" and (topic or topics) and stage_labels and stage_labels[0] == "Topic Discovery":
+        stage_labels[0] = "Structuring Selected Topic" + ("s" if topics and len(topics) > 1 else "")
+
     log_file = open(LOG_PATH, "w", encoding="utf-8")
     # First log line self-describes the run so the SSE terminal can label the
     # stages and header without another request (SSE replays from file start).
@@ -1079,7 +1086,7 @@ def _start_agent_run(
                 "format": spec.id,
                 "topic": topic,
                 "kind": kind,
-                "stage_labels": ["Topic Suggestions"] if kind == "suggest" else list(spec.stage_labels),
+                "stage_labels": stage_labels,
             }
         )
         + "\n"

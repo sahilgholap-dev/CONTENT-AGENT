@@ -417,10 +417,21 @@ function DraftView({ draft, topic }: { draft: Record<string, any>; topic: string
   );
 }
 
+// Instruction items arrive as strings OR objects the model shaped ad hoc
+// ({check_id, instruction}, {dimension, improvement}, ...) — render the text,
+// never raw JSON.
+function instrText(x: any): string {
+  if (typeof x === 'string') return x;
+  const text = x?.instruction ?? x?.improvement ?? x?.dimension ?? x?.note ?? null;
+  if (text == null) return JSON.stringify(x);
+  const label = x?.check_id != null ? `Check ${x.check_id}: ` : x?.check_name ? `${x.check_name}: ` : "";
+  return label + String(text);
+}
+
 function renderInstr(ri: any) {
   if (ri == null) return null;
   if (typeof ri === 'string') return <p className="text-gray-300 text-sm">{ri}</p>;
-  if (Array.isArray(ri)) return <ul className="list-disc pl-5 text-gray-300 text-sm space-y-1">{ri.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</ul>;
+  if (Array.isArray(ri)) return <ul className="list-disc pl-5 text-gray-300 text-sm space-y-1">{ri.map((x, i) => <li key={i}>{instrText(x)}</li>)}</ul>;
   return (
     <div className="space-y-4">
       {Object.entries(ri).map(([k, v], idx) => {
@@ -429,7 +440,7 @@ function renderInstr(ri: any) {
             <div key={idx}>
               <strong className="text-gray-200 text-sm block mb-1">{k}</strong>
               <ul className="list-disc pl-5 text-gray-300 text-sm space-y-1">
-                {v.map((x: any, i: number) => <li key={i}>{typeof x === 'string' ? x : (x.improvement ?? x.dimension ?? JSON.stringify(x))}</li>)}
+                {v.map((x: any, i: number) => <li key={i}>{instrText(x)}</li>)}
               </ul>
             </div>
           );
@@ -443,7 +454,9 @@ function renderInstr(ri: any) {
 function ComplianceView({ data }: { data: Record<string, any> }) {
   if (!data) return null;
   const checks = asArray(data.checks);
-  const failCount = checks.filter(c => String(c.verdict || c.result).toUpperCase() === 'FAIL').length;
+  // Models drift on key names run-to-run (verdict/result/status, notes/finding)
+  // and old packages are stored verbatim — alias, never assume one shape.
+  const failCount = checks.filter(c => String(c.verdict || c.result || c.status).toUpperCase() === 'FAIL').length;
   
   const blockingFailures = asArray(data.blocking_failures);
   const simpleBlocking = blockingFailures.filter(b => typeof b === 'string' || (!b.violation && !b.remediation));
@@ -514,9 +527,10 @@ function ComplianceView({ data }: { data: Record<string, any> }) {
           <tbody>
             {checks.map((c: any, i: number) => {
               const name = c.check_name ?? c.item ?? c.check ?? c.check_item ?? c.name ?? c.dimension ?? "Unknown";
-              const verdict = c.verdict ?? c.result ?? "";
+              const verdict = c.verdict ?? c.result ?? c.status ?? "";
               const off = c.offending_text ?? c.offendingText ?? c.violation ?? c.details ?? "";
               const rem = c.remediation ?? c.note ?? c.fix ?? "";
+              const info = c.notes ?? c.finding ?? "";
               return (
                 <tr key={i} className="border-b border-gray-800/50">
                   <td className="px-4 py-4 font-medium text-gray-200">{name}</td>
@@ -525,7 +539,8 @@ function ComplianceView({ data }: { data: Record<string, any> }) {
                   <td className="px-4 py-4 text-gray-400">
                     {off && <div className="text-red-300 mb-1 italic">&ldquo;{off}&rdquo;</div>}
                     {rem && <div className="text-blue-300">→ {rem}</div>}
-                    {!off && !rem && "—"}
+                    {!off && !rem && info && <div>{info}</div>}
+                    {!off && !rem && !info && "—"}
                   </td>
                 </tr>
               );

@@ -189,13 +189,14 @@ compliance_gate_check:
         "topic": str,
         "compliance_scorecard": {
           "overall_verdict": "PASS"|"FAIL",
-          "checks": [...],
+          "checks": [{"check_name": str, "verdict": "PASS"|"FAIL", "severity": "High"|"Medium"|"Low"|null, "notes": str}],
           "blocking_failures": [],
-          "revision_instructions": []
+          "revision_instructions": [str]
         }
       },
-      
+
     ]
+    Every checks[] entry uses exactly the four keys shown (verdict, not status; notes, not finding). revision_instructions is an array of plain strings, not objects.
   agent: casino_content_compliance_mandate_checker
   async_execution: true
   context:
