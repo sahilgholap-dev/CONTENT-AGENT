@@ -155,6 +155,7 @@ export default function PortalRunModal({
                   suggest: "/api/portal/suggest-topics",
                   list: "/api/portal/topic-suggestions",
                   generate: "/api/portal/generate-from-suggestions",
+                  runs: "/api/portal/runs",
                 }}
                 onStarted={() => {
                   onClose();

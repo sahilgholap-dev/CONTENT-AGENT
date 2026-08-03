@@ -7,10 +7,13 @@ export type SuggestEndpoints = {
   suggest: string; // POST: start a suggestion round
   list: string; // GET: available suggestions (format=... appended here)
   generate: string; // POST: generate from selected suggestion ids
+  runs: string; // GET: run history (polled while a suggestion round runs)
 };
 
 /** Suggest-me-topics mode: list existing suggestions for the format, start a
  *  new round (optional taste hint), tick up to maxPerRun topics, generate.
+ *  Suggesting stays INSIDE the modal (button animates, list refreshes in
+ *  place when the round lands); only Generate hands off to the terminal.
  *  Admin passes clientId; the portal passes null (the JWT scopes it). */
 export default function TopicSuggestPanel({
   clientId,
@@ -32,7 +35,11 @@ export default function TopicSuggestPanel({
   const [hint, setHint] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // Non-null while a suggestion round is running server-side; drives the
+  // in-modal button animation + polling.
+  const [suggestRunId, setSuggestRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const suggesting = suggestRunId !== null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,6 +59,33 @@ export default function TopicSuggestPanel({
     load();
   }, [load]);
 
+  // Poll the run until the suggestion round lands, then refresh in place.
+  useEffect(() => {
+    if (!suggestRunId) return;
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      try {
+        const res = await apiFetch(endpoints.runs);
+        const runs = await res.json().catch(() => []);
+        const row = Array.isArray(runs) ? runs.find((r: any) => String(r.id) === suggestRunId) : null;
+        if (cancelled || !row) return;
+        if (row.status === "succeeded") {
+          setSuggestRunId(null);
+          load();
+        } else if (row.status === "failed" || row.status === "cancelled") {
+          setSuggestRunId(null);
+          setError(String(row.error || "The topic suggestion run failed — try again."));
+        }
+      } catch {
+        /* transient poll failure: keep polling */
+      }
+    }, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [suggestRunId, endpoints.runs, load]);
+
   const toggle = (id: string) => {
     setSelected((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
@@ -62,15 +96,48 @@ export default function TopicSuggestPanel({
   };
 
   const post = async (path: string, body: any) => {
+    const res = await apiFetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  };
+
+  // Suggesting stays in the modal: animate the button, poll, refresh in place.
+  const startSuggest = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await apiFetch(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const { res, data } = await post(endpoints.suggest, {
+        ...(clientId ? { client_id: clientId } : {}),
+        content_type: contentType,
+        format: formatId,
+        hint: hint.trim() || null,
       });
-      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.run_id) {
+        setSuggestRunId(String(data.run_id));
+      } else if (res.status === 409) {
+        setError("The content engine is busy with another run right now — try again once it finishes.");
+      } else {
+        setError(String(data.detail || data.error || `Request failed (${res.status})`));
+      }
+    } catch (e: any) {
+      setError("Failed to reach server: " + e.message);
+    }
+    setSubmitting(false);
+  };
+
+  // Generating hands off to the run terminal, same as the automatic flow.
+  const startGenerate = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { res, data } = await post(endpoints.generate, {
+        ...(clientId ? { client_id: clientId } : {}),
+        suggestion_ids: selected,
+      });
       if (res.ok || res.status === 409) {
         onStarted();
         return;
@@ -82,20 +149,6 @@ export default function TopicSuggestPanel({
     }
     setSubmitting(false);
   };
-
-  const startSuggest = () =>
-    post(endpoints.suggest, {
-      ...(clientId ? { client_id: clientId } : {}),
-      content_type: contentType,
-      format: formatId,
-      hint: hint.trim() || null,
-    });
-
-  const startGenerate = () =>
-    post(endpoints.generate, {
-      ...(clientId ? { client_id: clientId } : {}),
-      suggestion_ids: selected,
-    });
 
   const inputClass =
     "w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none transition-colors";
@@ -113,11 +166,22 @@ export default function TopicSuggestPanel({
         />
         <button
           onClick={startSuggest}
-          disabled={submitting}
-          className="mt-2 w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-200 text-sm font-semibold rounded-lg border border-gray-700 transition-colors"
+          disabled={submitting || suggesting}
+          className={`mt-2 w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:cursor-not-allowed text-gray-200 text-sm font-semibold rounded-lg border transition-colors ${
+            suggesting ? "border-blue-500/50 animate-pulse" : "border-gray-700 disabled:opacity-50"
+          }`}
         >
-          {suggestions.length > 0 ? "✦ Generate more topics" : "✦ Suggest topics"}
-          <span className="text-gray-500 font-normal"> (~2–4 min)</span>
+          {suggesting ? (
+            <>
+              <span className="inline-block animate-spin mr-2">◌</span>
+              Researching topics… you can keep this window open
+            </>
+          ) : (
+            <>
+              {suggestions.length > 0 ? "✦ Generate more topics" : "✦ Suggest topics"}
+              <span className="text-gray-500 font-normal"> (~2–4 min)</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -125,7 +189,9 @@ export default function TopicSuggestPanel({
         <p className="text-sm text-gray-500">Loading suggestions…</p>
       ) : suggestions.length === 0 ? (
         <p className="text-sm text-gray-500">
-          No suggestions yet for this format — click “Suggest topics” to get 10 researched ideas.
+          {suggesting
+            ? "The agent is researching 10 topic ideas — they'll appear right here in a couple of minutes."
+            : "No suggestions yet for this format — click “Suggest topics” to get 10 researched ideas."}
         </p>
       ) : (
         <>
@@ -165,7 +231,7 @@ export default function TopicSuggestPanel({
           </div>
           <button
             onClick={startGenerate}
-            disabled={submitting || selected.length === 0}
+            disabled={submitting || suggesting || selected.length === 0}
             className="w-full px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
           >
             {submitting ? "Starting…" : `▶ Generate content (${selected.length})`}

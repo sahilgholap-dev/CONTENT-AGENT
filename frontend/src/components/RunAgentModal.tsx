@@ -177,6 +177,7 @@ export default function RunAgentModal({
                   suggest: "/api/suggest-topics",
                   list: `/api/topic-suggestions?client_id=${encodeURIComponent(clientId)}`,
                   generate: "/api/generate-from-suggestions",
+                  runs: `/api/runs?client_id=${encodeURIComponent(clientId)}`,
                 }}
                 onStarted={() => {
                   onClose();
