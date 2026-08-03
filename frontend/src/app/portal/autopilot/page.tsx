@@ -57,13 +57,55 @@ type Setup = {
   step: 1 | 2;
   freq: number;
   source: "pool" | "manual" | "auto" | null;
-  manualText: string;
+  manualTopics: string[];
   selected: string[];
   pool: any[];
   poolLoading: boolean;
   researchRunId: string | null;
   saving: boolean;
 };
+
+/** One text field per topic + an add button (manual "I have topics" mode). */
+function TopicFieldList({
+  topics,
+  onChange,
+}: {
+  topics: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {topics.map((t, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="w-5 text-right text-[11px] font-bold text-cs-light">{i + 1}.</span>
+          <input
+            value={t}
+            maxLength={300}
+            onChange={(e) => onChange(topics.map((x, j) => (j === i ? e.target.value : x)))}
+            placeholder={i === 0 ? "e.g. 5 gift ideas for new parents under $40" : "Another topic…"}
+            className="flex-1 rounded-md border border-cs-border-strong bg-white px-3 py-2 text-[13px] outline-none focus:border-cs-accent focus:ring-[3px] focus:ring-cs-accent-soft"
+          />
+          {topics.length > 1 && (
+            <button
+              onClick={() => onChange(topics.filter((_, j) => j !== i))}
+              className="rounded px-1.5 py-1 text-cs-light hover:text-cs-danger"
+              title="Remove this topic"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        onClick={() => onChange([...topics, ""])}
+        disabled={topics.length >= 20}
+        className="rounded-md border border-dashed border-cs-border-strong bg-white px-3 py-1.5 text-[12.5px] font-medium text-cs-muted hover:border-cs-accent hover:text-cs-accent disabled:opacity-50"
+      >
+        ＋ Add topic
+      </button>
+    </div>
+  );
+}
 
 /** Autopilot: per-business overnight drafting. Enabling a content type walks
  *  a two-step setup: frequency → topic source (pick from the suggestion
@@ -76,7 +118,7 @@ export default function AutopilotPage() {
   const [error, setError] = useState<string | null>(null);
   const [setup, setSetup] = useState<Setup | null>(null);
   const [addingFor, setAddingFor] = useState<string | null>(null);
-  const [addText, setAddText] = useState("");
+  const [addRows, setAddRows] = useState<string[]>([""]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -157,7 +199,7 @@ export default function AutopilotPage() {
       step: 1,
       freq: Math.max(1, entry?.frequency_per_week || 1),
       source: null,
-      manualText: "",
+      manualTopics: [""],
       selected: [],
       pool: [],
       poolLoading: false,
@@ -234,9 +276,9 @@ export default function AutopilotPage() {
     setSetup({ ...setup, saving: true });
     try {
       if (setup.source === "manual") {
-        const topics = setup.manualText.split("\n").map((t) => t.trim()).filter(Boolean);
+        const topics = setup.manualTopics.map((t) => t.trim()).filter(Boolean);
         if (topics.length === 0) {
-          setError("Enter at least one topic (one per line).");
+          setError("Enter at least one topic.");
           setSetup({ ...setup, saving: false });
           return;
         }
@@ -277,7 +319,7 @@ export default function AutopilotPage() {
   };
 
   const addTopics = async (card: (typeof CARDS)[number]) => {
-    const topics = addText.split("\n").map((t) => t.trim()).filter(Boolean);
+    const topics = addRows.map((t) => t.trim()).filter(Boolean);
     if (topics.length === 0) return;
     const res = await apiFetch("/api/portal/autopilot/topics", {
       method: "POST",
@@ -285,7 +327,7 @@ export default function AutopilotPage() {
       body: JSON.stringify({ content_type: card.content_type, format: card.format, topics }),
     });
     if (res.ok) {
-      setAddText("");
+      setAddRows([""]);
       setAddingFor(null);
       load();
     } else {
@@ -528,15 +570,12 @@ export default function AutopilotPage() {
 
                           {setup.source === "manual" && (
                             <div className="mb-4">
-                              <textarea
-                                value={setup.manualText}
-                                onChange={(e) => setSetup({ ...setup, manualText: e.target.value })}
-                                rows={6}
-                                placeholder={"One topic per line, e.g.\n5 gift ideas for new parents under $40\nHow to plan a wedding registry on a budget\nBack-to-school shopping mistakes to avoid\nBest time to buy winter clothes\nDorm room essentials that are actually worth it"}
-                                className="w-full rounded-md border border-cs-border-strong bg-white px-3 py-2.5 text-[13px] outline-none focus:border-cs-accent focus:ring-[3px] focus:ring-cs-accent-soft"
+                              <TopicFieldList
+                                topics={setup.manualTopics}
+                                onChange={(next) => setSetup({ ...setup, manualTopics: next })}
                               />
-                              <div className="mt-1 text-[11.5px] text-cs-muted">
-                                {setup.manualText.split("\n").filter((t) => t.trim()).length} topic(s) · used in order,
+                              <div className="mt-2 text-[11.5px] text-cs-muted">
+                                {setup.manualTopics.filter((t) => t.trim()).length} topic(s) · used in order,
                                 one per scheduled slot. Add more anytime.
                               </div>
                             </div>
@@ -559,7 +598,7 @@ export default function AutopilotPage() {
                                 disabled={
                                   !setup.source ||
                                   setup.saving ||
-                                  (setup.source === "manual" && setup.manualText.split("\n").filter((t) => t.trim()).length === 0)
+                                  (setup.source === "manual" && setup.manualTopics.every((t) => !t.trim()))
                                 }
                                 className={btnPrimary}
                               >
@@ -614,7 +653,7 @@ export default function AutopilotPage() {
                             </button>
                             {entry.topic_source !== "auto" && (
                               <button
-                                onClick={() => { setAddingFor(addingFor === card.format ? null : card.format); setAddText(""); }}
+                                onClick={() => { setAddingFor(addingFor === card.format ? null : card.format); setAddRows([""]); }}
                                 className="text-cs-accent underline underline-offset-2 hover:text-cs-accent-hover"
                               >
                                 {addingFor === card.format ? "Close" : "Add topics"}
@@ -626,15 +665,15 @@ export default function AutopilotPage() {
 
                       {addingFor === card.format && (
                         <div className="mb-4 rounded-lg border border-cs-border bg-[#FAFBFC] p-3">
-                          <textarea
-                            value={addText}
-                            onChange={(e) => setAddText(e.target.value)}
-                            rows={3}
-                            placeholder="One topic per line — added to this format's queue pool."
-                            className="w-full rounded-md border border-cs-border-strong bg-white px-3 py-2 text-[13px] outline-none focus:border-cs-accent"
-                          />
+                          <TopicFieldList topics={addRows} onChange={setAddRows} />
                           <div className="mt-2 flex justify-end">
-                            <button onClick={() => addTopics(card)} className={btnPrimary}>Add topics</button>
+                            <button
+                              onClick={() => addTopics(card)}
+                              disabled={addRows.every((t) => !t.trim())}
+                              className={btnPrimary}
+                            >
+                              Save {addRows.filter((t) => t.trim()).length || ""} topic{addRows.filter((t) => t.trim()).length === 1 ? "" : "s"}
+                            </button>
                           </div>
                         </div>
                       )}
