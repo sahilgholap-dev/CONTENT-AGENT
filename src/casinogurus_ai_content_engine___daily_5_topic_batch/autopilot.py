@@ -43,6 +43,18 @@ NIGHT_SPREAD: dict[int, tuple[int, ...]] = {
     5: (0, 1, 2, 3, 4),
 }
 
+# How each format sources its topics:
+#   pool   - draw from the client's topic_suggestions (picked ones first);
+#            research a fresh round when the pool runs dry
+#   manual - only topics the client typed in (added to the pool as picked);
+#            never auto-research — nights stay open until they add more
+#   auto   - fully automatic: the agent discovers a fresh topic on the night
+#            (classic discover-and-generate), no veto topic shown
+TOPIC_SOURCES = ("pool", "manual", "auto")
+
+# Queue-row topic label for auto (discover) slots.
+AUTO_TOPIC_LABEL = "Fresh topic — the agent decides on the night"
+
 # Generation guardrail: skip a client's autopilot runs while this many of
 # their autopilot drafts sit unreviewed in Drafts.
 UNREVIEWED_DRAFTS_LIMIT = 10
@@ -60,15 +72,18 @@ def validate_timezone(tz: str) -> bool:
 
 
 def normalize_config(content_types: dict | None) -> dict:
-    """Fill every known format with {enabled, frequency_per_week} defaults;
-    unknown keys are dropped (the API 400s on them before we get here)."""
+    """Fill every known format with {enabled, frequency_per_week,
+    topic_source} defaults; unknown keys are dropped (the API 400s on them
+    before we get here)."""
     src = content_types or {}
     out: dict[str, dict] = {}
     for fmt in AUTOPILOT_CAPS:
         entry = src.get(fmt) or {}
+        source = entry.get("topic_source") or "pool"
         out[fmt] = {
             "enabled": bool(entry.get("enabled", False)),
             "frequency_per_week": int(entry.get("frequency_per_week", 0) or 0),
+            "topic_source": source if source in TOPIC_SOURCES else "pool",
         }
     return out
 
@@ -92,6 +107,9 @@ def validate_config(content_types: dict | None) -> list[str]:
             continue
         if freq < 0 or freq > cap:
             problems.append(f"{fmt}: frequency_per_week must be 0..{cap}")
+        source = entry.get("topic_source")
+        if source is not None and source not in TOPIC_SOURCES:
+            problems.append(f"{fmt}: topic_source must be one of {'/'.join(TOPIC_SOURCES)}")
     return problems
 
 
@@ -147,11 +165,25 @@ def plan_client(cfg: dict, now_utc: datetime | None = None) -> dict[str, int]:
         freq = int((entry or {}).get("frequency_per_week", 0) or 0)
         if freq <= 0:
             continue
+        source = (entry or {}).get("topic_source") or "pool"
         nights = upcoming_nights(freq, today)
         taken = storage.queue_nights_taken(client_id, fmt, nights)
         open_nights = [n for n in nights if n not in taken]
         if not open_nights:
             continue
+
+        if source == "auto":
+            # Fully automatic: the slot exists (schedule, pause, guardrail
+            # and Skip all apply) but the agent discovers the topic on the
+            # night — nothing to veto in advance.
+            for night in open_nights:
+                storage.insert_queue_item(
+                    client_id, FORMAT_CONTENT_TYPE[fmt], fmt,
+                    AUTO_TOPIC_LABEL, None, night, local_midnight_utc(night, tz),
+                    discover=True,
+                )
+            continue
+
         pool = storage.unused_suggestions(client_id, fmt, limit=len(open_nights))
         for night, sug in zip(open_nights, pool):
             storage.insert_queue_item(
@@ -163,7 +195,9 @@ def plan_client(cfg: dict, now_utc: datetime | None = None) -> dict[str, int]:
                 night,
                 local_midnight_utc(night, tz),
             )
-        if len(pool) < len(open_nights):
+        # Only pool mode auto-researches when short; manual mode waits for
+        # the client to add more of their own topics.
+        if source == "pool" and len(pool) < len(open_nights):
             shortages[fmt] = len(open_nights) - len(pool)
     return shortages
 

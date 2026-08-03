@@ -88,7 +88,7 @@ export default function CreateWizard() {
   const [submitting, setSubmitting] = useState(false);
   // Set when the engine was busy (e.g. Autopilot mid-piece): the wizard
   // retries automatically instead of erroring out.
-  const [waitingRun, setWaitingRun] = useState<"fromTopic" | "typed" | null>(null);
+  const [waitingRun, setWaitingRun] = useState<"fromTopic" | "typed" | "auto" | null>(null);
 
   const reset = () => {
     setStep("type");
@@ -181,7 +181,7 @@ export default function CreateWizard() {
     setSubmitting(false);
   };
 
-  const startRun = async (kind: "fromTopic" | "typed") => {
+  const startRun = async (kind: "fromTopic" | "typed" | "auto") => {
     if (!tile) return;
     setSubmitting(true);
     setError(null);
@@ -195,6 +195,17 @@ export default function CreateWizard() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ suggestion_ids: [selectedTopicId] }),
+        });
+      } else if (kind === "auto") {
+        topicLabel = "The agent is picking the best topic for you…";
+        res = await apiFetch("/api/portal/run-agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content_type: tile.content_type,
+            format: tile.format,
+            topic: null,
+          }),
         });
       } else {
         topicLabel = typedTopic.trim();
@@ -269,7 +280,7 @@ export default function CreateWizard() {
         } else if (row?.status === "failed") {
           if (!cancelled) {
             setError("This piece didn't complete — our team has been notified. Please try again.");
-            setStep(selectedTopicId ? "topicList" : "typeTopic");
+            setStep(selectedTopicId ? "topicList" : "topicSource");
             setRunId(null);
           }
         }
@@ -381,8 +392,8 @@ export default function CreateWizard() {
             <h2 className="mb-1.5 text-[22px] font-bold tracking-[-0.4px]">
               Do you already have a topic, or should we suggest some?
             </h2>
-            <p className="mb-5 text-cs-muted">Pick either — takes about the same time.</p>
-            <div className="grid grid-cols-2 gap-3">
+            <p className="mb-5 text-cs-muted">Pick any — takes about the same time.</p>
+            <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => setStep("topicList")}
                 className="rounded-[10px] border-[1.5px] border-cs-border bg-white p-6 text-left transition-all hover:border-cs-accent hover:shadow-cs-md"
@@ -406,6 +417,22 @@ export default function CreateWizard() {
                 <div className="mb-1 text-[14.5px] font-semibold">I have a topic in mind</div>
                 <div className="text-[12.5px] leading-[1.45] text-cs-muted">
                   Type your topic in a sentence or two and we get straight to writing.
+                </div>
+              </button>
+              <button
+                onClick={() => startRun("auto")}
+                disabled={submitting}
+                className="rounded-[10px] border-[1.5px] border-cs-border bg-white p-6 text-left transition-all hover:border-cs-accent hover:shadow-cs-md disabled:opacity-60"
+              >
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-cs-accent-soft text-lg">
+                  ✦
+                </div>
+                <div className="mb-1 text-[14.5px] font-semibold">
+                  {submitting ? "Starting…" : "Surprise me"}
+                </div>
+                <div className="text-[12.5px] leading-[1.45] text-cs-muted">
+                  The agent discovers the best topic for your business voice and writes it — zero input,
+                  straight to a draft.
                 </div>
               </button>
             </div>

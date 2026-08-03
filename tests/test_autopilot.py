@@ -44,8 +44,18 @@ def test_negative_and_non_int_rejected():
 def test_normalize_fills_all_known_formats():
     cfg = normalize_config({"blog": {"enabled": True, "frequency_per_week": 1}})
     assert set(cfg) == set(AUTOPILOT_CAPS)
-    assert cfg["blog"] == {"enabled": True, "frequency_per_week": 1}
-    assert cfg["youtube_short"] == {"enabled": False, "frequency_per_week": 0}
+    assert cfg["blog"] == {"enabled": True, "frequency_per_week": 1, "topic_source": "pool"}
+    assert cfg["youtube_short"] == {"enabled": False, "frequency_per_week": 0, "topic_source": "pool"}
+
+
+def test_topic_source_normalized_and_validated():
+    cfg = normalize_config({"blog": {"enabled": True, "topic_source": "auto"}})
+    assert cfg["blog"]["topic_source"] == "auto"
+    cfg = normalize_config({"blog": {"topic_source": "bogus"}})
+    assert cfg["blog"]["topic_source"] == "pool"
+    problems = validate_config({"blog": {"frequency_per_week": 1, "topic_source": "bogus"}})
+    assert any("topic_source" in p for p in problems)
+    assert validate_config({"blog": {"frequency_per_week": 1, "topic_source": "manual"}}) == []
 
 
 # ------------------------------ night spreading ---------------------------- #

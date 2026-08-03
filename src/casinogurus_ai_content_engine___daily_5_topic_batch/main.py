@@ -142,6 +142,13 @@ def _resolve_run(run_id: str | None) -> tuple[dict | None, dict, str]:
         if topics and variant == "default":
             topic, topics = topics[0], None
 
+        # Autopilot slots are ONE piece each. A discover-mode autopilot run
+        # (no pinned topic) would otherwise inherit the social/video default
+        # of a multi-post batch.
+        if run_row.get("origin") == "autopilot" and run_row.get("kind") == "generate" and not topics:
+            run_context["posts_per_batch"] = 1
+            run_context["scripts_per_batch"] = 1
+
         if run_row.get("kind") == "suggest":
             variant = "suggest"
             avoid = storage.recent_suggestion_topics(

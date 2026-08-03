@@ -175,6 +175,12 @@ CREATE INDEX IF NOT EXISTS idx_apqueue_client ON autopilot_queue(client_id, nigh
 -- Who initiated a run: manual (API/user) or the autopilot scheduler.
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'manual';
 
+-- Autopilot topic sourcing: picked marks pool topics the client selected for
+-- automation (planner uses them first); discover marks queue slots where the
+-- agent finds a fresh topic on the night (fully-automatic mode).
+ALTER TABLE topic_suggestions ADD COLUMN IF NOT EXISTS picked BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE autopilot_queue ADD COLUMN IF NOT EXISTS discover BOOLEAN NOT NULL DEFAULT false;
+
 -- One row per suggested topic. status: suggested -> selected -> generated
 -- (reverted to suggested when the linked generate run fails).
 CREATE TABLE IF NOT EXISTS topic_suggestions (

@@ -637,18 +637,19 @@ def insert_queue_item(
     suggestion_id: str | None,
     night_of,
     eligible_from,
+    discover: bool = False,
 ) -> dict | None:
     """One planned piece; None when that format/night slot already exists."""
     with connection() as conn:
         row = conn.execute(
             """INSERT INTO autopilot_queue
                (id, client_id, content_type, format, suggestion_id, topic,
-                night_of, eligible_from, veto_expires_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                night_of, eligible_from, veto_expires_at, discover)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                ON CONFLICT (client_id, format, night_of) DO NOTHING
                RETURNING *""",
             (str(uuid.uuid4()), client_id, content_type, format, suggestion_id,
-             topic, night_of, eligible_from, eligible_from),
+             topic, night_of, eligible_from, eligible_from, discover),
         ).fetchone()
         return dict(row) if row else None
 
@@ -702,11 +703,43 @@ def unused_suggestions(client_id: str, format: str, limit: int = 10) -> list[dic
                      WHERE q.suggestion_id = s.id
                        AND q.state IN ('pending', 'approved', 'generating')
                  )
-               ORDER BY s.created_at ASC
+               ORDER BY s.picked DESC, s.created_at ASC
                LIMIT %s""",
             (client_id, format, limit),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def add_manual_suggestions(client_id: str, content_type: str, format: str, topics: list[str]) -> int:
+    """Client-typed autopilot topics: they join the suggestion pool as
+    picked (used before anything else, oldest-first)."""
+    inserted = 0
+    with connection() as conn:
+        for topic in topics:
+            clean = _sanitize_topic(topic)
+            if not clean:
+                continue
+            conn.execute(
+                """INSERT INTO topic_suggestions
+                   (id, client_id, content_type, format, topic, rationale, picked)
+                   VALUES (%s, %s, %s, %s, %s, %s, true)""",
+                (str(uuid.uuid4()), client_id, content_type, format, clean,
+                 "You added this topic"),
+            )
+            inserted += 1
+    return inserted
+
+
+def pick_suggestions(client_id: str, suggestion_ids: list[str]) -> int:
+    """Mark pool topics as picked-for-automation (planner uses them first)."""
+    if not suggestion_ids:
+        return 0
+    with connection() as conn:
+        return conn.execute(
+            """UPDATE topic_suggestions SET picked = true
+               WHERE client_id = %s AND id = ANY(%s) AND status = 'suggested'""",
+            (client_id, list(suggestion_ids)),
+        ).rowcount
 
 
 def queue_nights_taken(client_id: str, format: str, nights: list) -> set:

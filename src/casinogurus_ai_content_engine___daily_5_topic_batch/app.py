@@ -159,6 +159,22 @@ class AutopilotConfigUpdate(BaseModel):
     content_types: dict | None = None
 
 
+class AutopilotTopicsAdd(BaseModel):
+    """'I have topics' mode: client-typed topics for the automation queue."""
+
+    client_id: str = "casinogurus"  # ignored on the portal twin (JWT scope)
+    content_type: str = "short_form"
+    format: str = "linkedin_post"
+    topics: list[str]
+
+
+class AutopilotPickRequest(BaseModel):
+    """'Suggest topics' mode: mark existing pool topics for automation."""
+
+    client_id: str = "casinogurus"  # ignored on the portal twin (JWT scope)
+    suggestion_ids: list[str]
+
+
 class GenerateFromSuggestionsRequest(BaseModel):
     client_id: str = "casinogurus"
     suggestion_ids: list[str]
@@ -989,6 +1005,24 @@ def portal_autopilot_queue_skip(
     return jsonable(_queue_skip(_portal_cid(user, client_id), queue_id))
 
 
+@portal.post("/autopilot/topics")
+def portal_autopilot_add_topics(
+    body: AutopilotTopicsAdd,
+    user: dict = Depends(require_client),
+    client_id: str | None = Query(default=None),
+):
+    return jsonable(_autopilot_add_topics(_portal_cid(user, client_id), body))
+
+
+@portal.post("/autopilot/topics/pick")
+def portal_autopilot_pick_topics(
+    body: AutopilotPickRequest,
+    user: dict = Depends(require_client),
+    client_id: str | None = Query(default=None),
+):
+    return jsonable(_autopilot_pick(_portal_cid(user, client_id), body.suggestion_ids))
+
+
 @portal.get("/run-progress")
 def portal_run_progress(
     user: dict = Depends(require_client), client_id: str | None = Query(default=None)
@@ -1289,9 +1323,38 @@ def _queue_skip(client_id: str, queue_id: str) -> dict:
     return {**item, "state": "skipped"}
 
 
+def _autopilot_add_topics(client_id: str, body: AutopilotTopicsAdd) -> dict:
+    if body.format not in autopilot.AUTOPILOT_CAPS:
+        raise HTTPException(status_code=400, detail=f"unknown format '{body.format}'")
+    topics = [t.strip() for t in (body.topics or []) if t and t.strip()]
+    if not topics:
+        raise HTTPException(status_code=422, detail="enter at least one topic")
+    if len(topics) > 20:
+        raise HTTPException(status_code=422, detail="at most 20 topics at a time")
+    for t in topics:
+        if len(t) > 300:
+            raise HTTPException(status_code=422, detail="each topic must be at most 300 characters")
+        if re.search(r"\{[A-Za-z_][A-Za-z0-9_\-]*\}", t):
+            raise HTTPException(status_code=422, detail="topics must not contain {placeholder}-style tokens")
+    n = storage.add_manual_suggestions(client_id, body.content_type, body.format, topics)
+    return {"added": n}
+
+
+def _autopilot_pick(client_id: str, suggestion_ids: list[str]) -> dict:
+    if not suggestion_ids:
+        raise HTTPException(status_code=422, detail="select at least one topic")
+    n = storage.pick_suggestions(client_id, suggestion_ids)
+    return {"picked": n}
+
+
 def _queue_swap(client_id: str, queue_id: str) -> dict:
     item = _queue_item_or_404(client_id, queue_id)
     _vetoable_or_422(item)
+    if item.get("discover"):
+        raise HTTPException(
+            status_code=422,
+            detail="the agent picks this topic on the night — skip the slot instead",
+        )
     if int(item.get("swap_count") or 0) >= 1:
         raise HTTPException(status_code=422, detail="this topic was already swapped once — approve or skip it")
     pool = storage.unused_suggestions(client_id, item["format"], limit=1)
@@ -1345,6 +1408,16 @@ def autopilot_queue_swap(queue_id: str, client_id: str = Query(...)):
 @api.post("/autopilot/queue/{queue_id}/skip")
 def autopilot_queue_skip(queue_id: str, client_id: str = Query(...)):
     return jsonable(_queue_skip(client_id, queue_id))
+
+
+@api.post("/autopilot/topics")
+def autopilot_add_topics(body: AutopilotTopicsAdd):
+    return jsonable(_autopilot_add_topics(body.client_id, body))
+
+
+@api.post("/autopilot/topics/pick")
+def autopilot_pick_topics(body: AutopilotPickRequest):
+    return jsonable(_autopilot_pick(body.client_id, body.suggestion_ids))
 
 
 @api.get("/agent-logs")
@@ -1428,9 +1501,12 @@ async def lifespan(app: FastAPI):
             return _start_agent_run(client_id, content_type, fmt, None, kind="suggest", origin="autopilot")
 
         def _launch_generate(item: dict) -> dict:
+            # discover slots run the classic find-a-topic-and-write flow; the
+            # rest pin the planned topic (exactly one piece either way).
+            topics = None if item.get("discover") else [item["topic"]]
             return _start_agent_run(
                 item["client_id"], item["content_type"], item["format"], None,
-                kind="generate", topics=[item["topic"]], origin="autopilot",
+                kind="generate", topics=topics, origin="autopilot",
             )
 
         async def _autopilot_loop():
