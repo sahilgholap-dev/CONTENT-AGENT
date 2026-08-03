@@ -570,6 +570,178 @@ def list_runs(client_id: str | None = None, limit: int = 50) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Autopilot (per-business overnight scheduling; see autopilot.py for the
+# pure planning logic and the spec reference)
+# ---------------------------------------------------------------------------
+
+def get_autopilot_config(client_id: str) -> dict | None:
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM autopilot_config WHERE client_id = %s", (client_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def upsert_autopilot_config(
+    client_id: str,
+    paused: bool | None = None,
+    timezone: str | None = None,
+    content_types: dict | None = None,
+) -> dict:
+    """Create-or-update; None fields keep their current (or default) value."""
+    with connection() as conn:
+        conn.execute(
+            """INSERT INTO autopilot_config (client_id) VALUES (%s)
+               ON CONFLICT (client_id) DO NOTHING""",
+            (client_id,),
+        )
+        sets, vals = ["updated_at = now()"], []
+        if paused is not None:
+            sets.append("paused = %s")
+            vals.append(paused)
+        if timezone is not None:
+            sets.append("timezone = %s")
+            vals.append(timezone)
+        if content_types is not None:
+            sets.append("content_types = %s")
+            vals.append(Jsonb(content_types))
+        row = conn.execute(
+            f"UPDATE autopilot_config SET {', '.join(sets)} WHERE client_id = %s RETURNING *",
+            (*vals, client_id),
+        ).fetchone()
+        return dict(row)
+
+
+def list_enabled_autopilot_configs() -> list[dict]:
+    """Non-paused configs with at least one enabled format (planner input)."""
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM autopilot_config WHERE paused = false"
+        ).fetchall()
+    out = []
+    for r in rows:
+        cfg = dict(r)
+        cts = cfg.get("content_types") or {}
+        if any((v or {}).get("enabled") and int((v or {}).get("frequency_per_week", 0) or 0) > 0
+               for v in cts.values()):
+            out.append(cfg)
+    return out
+
+
+def insert_queue_item(
+    client_id: str,
+    content_type: str,
+    format: str,
+    topic: str,
+    suggestion_id: str | None,
+    night_of,
+    eligible_from,
+) -> dict | None:
+    """One planned piece; None when that format/night slot already exists."""
+    with connection() as conn:
+        row = conn.execute(
+            """INSERT INTO autopilot_queue
+               (id, client_id, content_type, format, suggestion_id, topic,
+                night_of, eligible_from, veto_expires_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+               ON CONFLICT (client_id, format, night_of) DO NOTHING
+               RETURNING *""",
+            (str(uuid.uuid4()), client_id, content_type, format, suggestion_id,
+             topic, night_of, eligible_from, eligible_from),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def list_autopilot_queue(client_id: str, limit: int = 50) -> list[dict]:
+    """Upcoming + recent queue items for the Autopilot page (newest night
+    first within active states; done/missed kept briefly for context)."""
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM autopilot_queue
+               WHERE client_id = %s
+                 AND night_of >= CURRENT_DATE - INTERVAL '2 days'
+               ORDER BY night_of, format
+               LIMIT %s""",
+            (client_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_queue_item(client_id: str, queue_id: str) -> dict | None:
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM autopilot_queue WHERE id = %s AND client_id = %s",
+            (queue_id, client_id),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def update_queue_item(queue_id: str, **fields) -> None:
+    allowed = {"state", "topic", "suggestion_id", "swap_count", "generate_run_id", "note"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return
+    sets = ", ".join(f"{k} = %s" for k in updates)
+    with connection() as conn:
+        conn.execute(
+            f"UPDATE autopilot_queue SET {sets} WHERE id = %s",
+            (*updates.values(), queue_id),
+        )
+
+
+def unused_suggestions(client_id: str, format: str, limit: int = 10) -> list[dict]:
+    """Oldest suggested topics not already claimed by an active queue item —
+    the pool the planner (and Swap) draws from."""
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT s.* FROM topic_suggestions s
+               WHERE s.client_id = %s AND s.format = %s AND s.status = 'suggested'
+                 AND NOT EXISTS (
+                     SELECT 1 FROM autopilot_queue q
+                     WHERE q.suggestion_id = s.id
+                       AND q.state IN ('pending', 'approved', 'generating')
+                 )
+               ORDER BY s.created_at ASC
+               LIMIT %s""",
+            (client_id, format, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def due_queue_items(limit: int = 20) -> list[dict]:
+    """Eligible items across ALL clients, oldest first (cross-client
+    fairness), excluding paused businesses."""
+    with connection() as conn:
+        rows = conn.execute(
+            """SELECT q.* FROM autopilot_queue q
+               JOIN autopilot_config c ON c.client_id = q.client_id
+               WHERE q.state IN ('pending', 'approved')
+                 AND q.eligible_from <= now()
+                 AND c.paused = false
+               ORDER BY q.eligible_from ASC
+               LIMIT %s""",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def count_unreviewed_autopilot_drafts(client_id: str) -> int:
+    """Guardrail input: autopilot-born pieces still without any review event."""
+    with connection() as conn:
+        return conn.execute(
+            """SELECT COUNT(*) AS n
+               FROM packages p
+               JOIN batches b ON b.id = p.batch_id
+               JOIN runs r ON r.id = b.run_id
+               WHERE p.client_id = %s AND r.origin = 'autopilot'
+                 AND NOT EXISTS (
+                     SELECT 1 FROM package_reviews pr WHERE pr.package_id = p.package_id
+                 )""",
+            (client_id,),
+        ).fetchone()["n"]
+
+
+# ---------------------------------------------------------------------------
 # Portal pieces (client-facing read model: one piece = one package; state is
 # the latest package_reviews event, 'drafted' when none exists)
 # ---------------------------------------------------------------------------

@@ -141,6 +141,40 @@ ALTER TABLE runs ADD COLUMN IF NOT EXISTS topic TEXT;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'generate';
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS topics JSONB;
 
+-- Autopilot: per-business overnight scheduled drafting. Config is one row
+-- per client; queue is one planned piece per format per local night. All
+-- generation goes through the existing runs machinery (origin='autopilot').
+CREATE TABLE IF NOT EXISTS autopilot_config (
+    client_id     TEXT PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+    paused        BOOLEAN NOT NULL DEFAULT false,
+    timezone      TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+    content_types JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS autopilot_queue (
+    id              UUID PRIMARY KEY,
+    client_id       TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    content_type    TEXT NOT NULL,
+    format          TEXT NOT NULL,
+    suggestion_id   UUID,
+    topic           TEXT NOT NULL,
+    night_of        DATE NOT NULL,
+    eligible_from   TIMESTAMPTZ NOT NULL,
+    veto_expires_at TIMESTAMPTZ NOT NULL,
+    state           TEXT NOT NULL DEFAULT 'pending',
+    swap_count      INTEGER NOT NULL DEFAULT 0,
+    generate_run_id UUID,
+    note            TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (client_id, format, night_of)
+);
+CREATE INDEX IF NOT EXISTS idx_apqueue_due ON autopilot_queue(state, eligible_from);
+CREATE INDEX IF NOT EXISTS idx_apqueue_client ON autopilot_queue(client_id, night_of DESC);
+
+-- Who initiated a run: manual (API/user) or the autopilot scheduler.
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'manual';
+
 -- One row per suggested topic. status: suggested -> selected -> generated
 -- (reverted to suggested when the linked generate run fails).
 CREATE TABLE IF NOT EXISTS topic_suggestions (
