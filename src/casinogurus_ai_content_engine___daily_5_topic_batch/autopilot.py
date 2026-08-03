@@ -88,6 +88,16 @@ def normalize_config(content_types: dict | None) -> dict:
     return out
 
 
+def merge_content_types(current: dict | None, patch: dict | None) -> dict:
+    """PUT semantics: patch only the formats the caller sent; every format
+    the caller did NOT mention keeps its current value. A partial update
+    must never silently disable the rest."""
+    merged = dict(current or {})
+    for fmt, entry in (patch or {}).items():
+        merged[fmt] = entry
+    return normalize_config(merged)
+
+
 def validate_config(content_types: dict | None) -> list[str]:
     """Problems with a PUT config payload ([] = valid). Caps are enforced
     here — never trust the client's slider."""

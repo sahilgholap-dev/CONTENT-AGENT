@@ -48,6 +48,19 @@ def test_normalize_fills_all_known_formats():
     assert cfg["youtube_short"] == {"enabled": False, "frequency_per_week": 0, "topic_source": "pool"}
 
 
+def test_merge_content_types_is_a_per_format_patch():
+    from casinogurus_ai_content_engine___daily_5_topic_batch.autopilot import merge_content_types
+
+    current = normalize_config({
+        "linkedin_post": {"enabled": True, "frequency_per_week": 2, "topic_source": "pool"},
+    })
+    merged = merge_content_types(current, {"blog": {"enabled": True, "frequency_per_week": 1}})
+    # The patched format changes…
+    assert merged["blog"]["enabled"] is True
+    # …and the unmentioned format keeps its current settings (never silently disabled).
+    assert merged["linkedin_post"] == {"enabled": True, "frequency_per_week": 2, "topic_source": "pool"}
+
+
 def test_topic_source_normalized_and_validated():
     cfg = normalize_config({"blog": {"enabled": True, "topic_source": "auto"}})
     assert cfg["blog"]["topic_source"] == "auto"

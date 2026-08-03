@@ -1280,17 +1280,27 @@ def _update_autopilot_config(client_id: str, body: AutopilotConfigUpdate) -> dic
     if body.timezone is not None and not autopilot.validate_timezone(body.timezone):
         raise HTTPException(status_code=400, detail=f"unknown timezone '{body.timezone}'")
     normalized = None
+    newly_disabled: list[str] = []
     if body.content_types is not None:
         problems = autopilot.validate_config(body.content_types)
         if problems:
             raise HTTPException(status_code=400, detail="; ".join(problems))
-        normalized = autopilot.normalize_config(body.content_types)
+        # PUT is a per-format patch: formats the caller didn't mention keep
+        # their current settings (a partial update must never silently
+        # disable the rest).
+        current = autopilot.normalize_config(
+            (storage.get_autopilot_config(client_id) or {}).get("content_types")
+        )
+        normalized = autopilot.merge_content_types(current, body.content_types)
+        newly_disabled = [
+            f for f in autopilot.AUTOPILOT_CAPS
+            if current[f]["enabled"] and not normalized[f]["enabled"]
+        ]
     storage.upsert_autopilot_config(
         client_id, paused=body.paused, timezone=body.timezone, content_types=normalized
     )
-    if normalized is not None:
-        disabled = [f for f, e in normalized.items() if not e["enabled"]]
-        storage.skip_queue_for_formats(client_id, disabled)
+    if newly_disabled:
+        storage.clear_pending_queue_for_formats(client_id, newly_disabled)
     return _autopilot_config_payload(client_id)
 
 
