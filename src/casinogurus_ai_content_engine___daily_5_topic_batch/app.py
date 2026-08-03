@@ -1254,6 +1254,9 @@ def _update_autopilot_config(client_id: str, body: AutopilotConfigUpdate) -> dic
     storage.upsert_autopilot_config(
         client_id, paused=body.paused, timezone=body.timezone, content_types=normalized
     )
+    if normalized is not None:
+        disabled = [f for f, e in normalized.items() if not e["enabled"]]
+        storage.skip_queue_for_formats(client_id, disabled)
     return _autopilot_config_payload(client_id)
 
 

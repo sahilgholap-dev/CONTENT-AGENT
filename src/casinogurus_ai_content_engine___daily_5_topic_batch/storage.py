@@ -723,6 +723,21 @@ def queue_nights_taken(client_id: str, format: str, nights: list) -> set:
         return {r["night_of"] for r in rows}
 
 
+def skip_queue_for_formats(client_id: str, formats: list[str]) -> None:
+    """Disabling a format retires its upcoming planned items — otherwise
+    already-planned rows would still generate on their night."""
+    if not formats:
+        return
+    with connection() as conn:
+        conn.execute(
+            """UPDATE autopilot_queue
+               SET state = 'skipped', note = 'format turned off'
+               WHERE client_id = %s AND format = ANY(%s)
+                 AND state IN ('pending', 'approved')""",
+            (client_id, list(formats)),
+        )
+
+
 def generating_queue_items() -> list[dict]:
     with connection() as conn:
         rows = conn.execute(
