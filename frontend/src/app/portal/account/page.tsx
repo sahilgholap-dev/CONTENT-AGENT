@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import PageHeader from "@/components/portal/PageHeader";
 
 /** Portal account page: change password (clients arrive with an admin-issued
- *  temporary password and set their own here). */
+ *  temporary password and set their own here). Renders inside the Content
+ *  Studio shell. */
 export default function AccountPage() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState("");
@@ -44,48 +45,47 @@ export default function AccountPage() {
     setMessage("Password updated.");
   };
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 p-6">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-1 text-center text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-          Account
-        </h1>
-        <p className="mb-8 text-center text-xs text-gray-500">{email}</p>
+  const inputClass =
+    "block w-full rounded-md border border-cs-border-strong bg-white p-2.5 text-[13.5px] outline-none transition-colors focus:border-cs-accent focus:ring-[3px] focus:ring-cs-accent-soft";
 
+  return (
+    <>
+      <PageHeader title="Account" subtitle={email} />
+      <div className="max-w-[1200px] px-8 py-6 pb-20">
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-gray-800 bg-gray-900/50 p-6 shadow-xl backdrop-blur-md"
+          className="max-w-sm space-y-4 rounded-[10px] border border-cs-border bg-white p-6 shadow-cs"
         >
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">New password</label>
+            <label className="mb-1.5 block text-[13px] font-medium">New password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none transition-colors focus:border-blue-500 focus:ring-blue-500"
+              className={inputClass}
               placeholder="••••••••"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">Confirm new password</label>
+            <label className="mb-1.5 block text-[13px] font-medium">Confirm new password</label>
             <input
               type="password"
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none transition-colors focus:border-blue-500 focus:ring-blue-500"
+              className={inputClass}
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-sm text-red-400">
+            <div className="rounded-md border border-red-200 bg-cs-danger-soft p-2.5 text-[13px] text-cs-danger">
               {error}
             </div>
           )}
           {message && (
-            <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-2.5 text-sm text-green-400">
+            <div className="rounded-md border border-emerald-200 bg-cs-emerald-soft p-2.5 text-[13px] text-emerald-700">
               {message}
             </div>
           )}
@@ -93,18 +93,12 @@ export default function AccountPage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded-lg border border-blue-400/20 bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-500 active:scale-95 disabled:opacity-60"
+            className="w-full rounded-md border border-cs-accent bg-cs-accent px-4 py-2.5 text-[13.5px] font-medium text-white transition-colors hover:bg-cs-accent-hover disabled:opacity-50"
           >
             {saving ? "Saving…" : "Update password"}
           </button>
         </form>
-
-        <p className="mt-6 text-center">
-          <Link href="/portal" className="text-xs text-gray-400 hover:text-gray-200 transition-colors">
-            ← Back to your content
-          </Link>
-        </p>
       </div>
-    </div>
+    </>
   );
 }
