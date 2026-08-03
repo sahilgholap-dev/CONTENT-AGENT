@@ -78,21 +78,21 @@ export default function RunAgentModal({
   };
 
   const selectClass =
-    "w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none transition-colors";
+    "w-full bg-white border border-cs-border-strong text-cs-text text-sm rounded-lg focus:ring-cs-accent-soft focus:border-cs-accent block p-2.5 outline-none transition-colors";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
-      <div className="w-full max-w-md bg-gray-950 border border-gray-800 rounded-xl shadow-2xl p-8 max-h-[calc(100vh-3rem)] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-6">
+      <div className="w-full max-w-md bg-cs-page border border-cs-border rounded-xl shadow-2xl p-8 max-h-[calc(100vh-3rem)] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-gray-200 tracking-wider">Run Content Agent</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-xl">
+          <h2 className="text-lg font-bold text-cs-text tracking-wider">Run Content Agent</h2>
+          <button onClick={onClose} className="text-cs-muted hover:text-cs-text transition-colors text-xl">
             ✕
           </button>
         </div>
 
         <div className="space-y-5">
           <div>
-            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Client</label>
+            <label className="block text-xs text-cs-muted uppercase tracking-wider mb-2">Client</label>
             <select className={selectClass} value={clientId} onChange={(e) => setClientId(e.target.value)}>
               <option value="" disabled>
                 Select a client…
@@ -106,7 +106,7 @@ export default function RunAgentModal({
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Content</label>
+            <label className="block text-xs text-cs-muted uppercase tracking-wider mb-2">Content</label>
             <select className={selectClass} value={formatId} onChange={(e) => selectFormat(e.target.value)}>
               {formats.map((t) => (
                 <optgroup key={t.id} label={t.label}>
@@ -119,20 +119,20 @@ export default function RunAgentModal({
               ))}
             </select>
             {currentFormat?.description && (
-              <p className="text-xs text-gray-500 mt-2">{currentFormat.description}</p>
+              <p className="text-xs text-cs-muted mt-2">{currentFormat.description}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">Topic Source</label>
-            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-300 mb-2">
+            <label className="block text-xs text-cs-muted uppercase tracking-wider mb-2">Topic Source</label>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-cs-text mb-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
                   name="topic-mode"
                   checked={topicMode === "discover"}
                   onChange={() => setTopicMode("discover")}
-                  className="accent-blue-500"
+                  className="accent-cs-accent"
                 />
                 Discover automatically &amp; generate
               </label>
@@ -142,7 +142,7 @@ export default function RunAgentModal({
                   name="topic-mode"
                   checked={topicMode === "suggest"}
                   onChange={() => setTopicMode("suggest")}
-                  className="accent-blue-500"
+                  className="accent-cs-accent"
                 />
                 Suggest me topics
               </label>
@@ -152,7 +152,7 @@ export default function RunAgentModal({
                   name="topic-mode"
                   checked={topicMode === "user"}
                   onChange={() => setTopicMode("user")}
-                  className="accent-blue-500"
+                  className="accent-cs-accent"
                 />
                 I have a topic
               </label>
@@ -185,7 +185,7 @@ export default function RunAgentModal({
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                 />
-                <p className="text-xs text-gray-500 mt-1 flex justify-between">
+                <p className="text-xs text-cs-muted mt-1 flex justify-between">
                   <span>Your exact topic — the agent researches and writes on this, it won't substitute its own.</span>
                   <span className="font-mono">{topic.trim().length}/300</span>
                 </p>
@@ -194,13 +194,13 @@ export default function RunAgentModal({
           </div>
 
           {error && (
-            <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-sm">{error}</div>
+            <div className="p-3 bg-cs-danger-soft border border-red-200 rounded-lg text-cs-danger text-sm">{error}</div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+              className="px-4 py-2 text-sm text-cs-muted hover:text-cs-text transition-colors"
             >
               Cancel
             </button>
@@ -208,7 +208,7 @@ export default function RunAgentModal({
               <button
                 onClick={handleRun}
                 disabled={submitting || !clientId || !formatId || (topicMode === "user" && !topic.trim())}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
+                className="px-5 py-2 bg-cs-accent hover:bg-cs-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-cs-text text-sm font-semibold rounded-lg shadow-lg shadow-cs transition-all border border-cs-accent active:scale-95"
               >
                 {submitting ? "Starting…" : "▶ Run Agent"}
               </button>

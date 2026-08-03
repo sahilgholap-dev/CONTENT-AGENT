@@ -5,20 +5,20 @@ const ACTIONS: { id: "shortlisted" | "approved" | "rejected"; label: string; act
   {
     id: "shortlisted",
     label: "Shortlist",
-    active: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40",
-    idle: "bg-gray-800 text-gray-400 border-gray-700 hover:text-yellow-300 hover:border-yellow-500/40",
+    active: "bg-cs-amber-soft text-amber-700 border-amber-300",
+    idle: "bg-white text-cs-muted border-cs-border-strong hover:text-amber-700 hover:border-amber-300",
   },
   {
     id: "approved",
     label: "Approve",
-    active: "bg-green-500/20 text-green-300 border-green-500/40",
-    idle: "bg-gray-800 text-gray-400 border-gray-700 hover:text-green-300 hover:border-green-500/40",
+    active: "bg-cs-emerald-soft text-emerald-700 border-emerald-300",
+    idle: "bg-white text-cs-muted border-cs-border-strong hover:text-emerald-700 hover:border-emerald-300",
   },
   {
     id: "rejected",
     label: "Reject",
-    active: "bg-red-500/20 text-red-300 border-red-500/40",
-    idle: "bg-gray-800 text-gray-400 border-gray-700 hover:text-red-300 hover:border-red-500/40",
+    active: "bg-cs-danger-soft text-red-700 border-red-300",
+    idle: "bg-white text-cs-muted border-cs-border-strong hover:text-red-700 hover:border-red-300",
   },
 ];
 
@@ -68,9 +68,9 @@ export default function FeedbackBar({
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
+    <div className="bg-white border border-cs-border rounded-xl p-4 mb-6">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-xs text-gray-500 uppercase tracking-wider font-medium">Review</span>
+        <span className="text-xs text-cs-muted uppercase tracking-wider font-medium">Review</span>
         {ACTIONS.map((a) => (
           <button
             key={a.id}
@@ -88,12 +88,12 @@ export default function FeedbackBar({
         ))}
         <button
           onClick={() => setNotesOpen((v) => !v)}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors underline underline-offset-2"
+          className="text-xs text-cs-muted hover:text-cs-text transition-colors underline underline-offset-2"
         >
           {notesOpen ? "Hide notes" : "Add notes"}
         </button>
         {status && savedAt && (
-          <span className="text-[10px] text-gray-600 ml-auto">
+          <span className="text-[10px] text-cs-light ml-auto">
             last: {status} · {new Date(savedAt).toLocaleString()}
           </span>
         )}
@@ -105,11 +105,11 @@ export default function FeedbackBar({
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
             placeholder="Optional notes (what worked, what to change) — feeds the learning loop. Saved with your next Shortlist/Approve/Reject click."
-            className="w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none transition-colors"
+            className="w-full bg-white border border-cs-border-strong text-cs-text text-sm rounded-lg focus:ring-cs-accent-soft focus:border-cs-accent p-2.5 outline-none transition-colors"
           />
         </div>
       )}
-      {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
+      {error && <div className="mt-2 text-xs text-cs-danger">{error}</div>}
     </div>
   );
 }

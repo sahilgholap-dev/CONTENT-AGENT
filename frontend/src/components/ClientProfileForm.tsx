@@ -68,13 +68,13 @@ function TextArea({
 }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-300">{label}</label>
-      {help && <p className="text-xs text-gray-500 mt-0.5 mb-2">{help}</p>}
+      <label className="block text-sm font-semibold text-cs-text">{label}</label>
+      {help && <p className="text-xs text-cs-muted mt-0.5 mb-2">{help}</p>}
       <textarea
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none transition-colors font-mono"
+        className="w-full bg-white border border-cs-border-strong text-cs-text text-sm rounded-lg focus:ring-cs-accent-soft focus:border-cs-accent p-2.5 outline-none transition-colors font-mono"
       />
     </div>
   );
@@ -83,16 +83,16 @@ function TextArea({
 function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-gray-800 rounded-xl overflow-hidden">
+    <div className="border border-cs-border rounded-xl overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-900 text-left"
+        className="w-full flex items-center justify-between px-4 py-3 bg-white text-left"
       >
-        <span className="text-sm font-bold text-gray-300 uppercase tracking-wider">{title}</span>
-        <span className="text-gray-500">{open ? "▾" : "▸"}</span>
+        <span className="text-sm font-bold text-cs-text uppercase tracking-wider">{title}</span>
+        <span className="text-cs-muted">{open ? "▾" : "▸"}</span>
       </button>
-      {open && <div className="p-4 space-y-5 bg-gray-950">{children}</div>}
+      {open && <div className="p-4 space-y-5 bg-cs-page">{children}</div>}
     </div>
   );
 }
@@ -164,21 +164,21 @@ export default function ClientProfileForm({
   };
 
   const inputClass =
-    "w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none transition-colors";
+    "w-full bg-white border border-cs-border-strong text-cs-text text-sm rounded-lg focus:ring-cs-accent-soft focus:border-cs-accent p-2.5 outline-none transition-colors";
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-semibold text-gray-300 mb-2">Client Name</label>
+          <label className="block text-sm font-semibold text-cs-text mb-2">Client Name</label>
           <input className={inputClass} value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Acme Fintech" />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-gray-300 mb-2">Site Domain</label>
+          <label className="block text-sm font-semibold text-cs-text mb-2">Site Domain</label>
           <input className={inputClass} value={siteDomain} onChange={(e) => setSiteDomain(e.target.value)} placeholder="acme.com" />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-gray-300 mb-2">Status</label>
+          <label className="block text-sm font-semibold text-cs-text mb-2">Status</label>
           <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="active">active</option>
             <option value="paused">paused</option>
@@ -192,13 +192,13 @@ export default function ClientProfileForm({
           <TextArea key={f.key} label={f.label} help={f.help} value={profile[f.key]} onChange={(v) => setField(f.key, v)} rows={f.key === "voice" || f.key === "compliance_rules" ? 10 : 4} />
         ))}
         <div>
-          <label className="block text-sm font-semibold text-gray-300">Pillar Taxonomy</label>
-          <p className="text-xs text-gray-500 mt-0.5 mb-2">One pillar per line (content categories, e.g. reviews / guides).</p>
+          <label className="block text-sm font-semibold text-cs-text">Pillar Taxonomy</label>
+          <p className="text-xs text-cs-muted mt-0.5 mb-2">One pillar per line (content categories, e.g. reviews / guides).</p>
           <textarea
             value={(profile.pillar_taxonomy ?? []).join("\n")}
             onChange={(e) => setField("pillar_taxonomy", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))}
             rows={5}
-            className="w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none transition-colors font-mono"
+            className="w-full bg-white border border-cs-border-strong text-cs-text text-sm rounded-lg focus:ring-cs-accent-soft focus:border-cs-accent p-2.5 outline-none transition-colors font-mono"
           />
         </div>
       </Section>
@@ -216,13 +216,13 @@ export default function ClientProfileForm({
       </Section>
 
       <Section title="Lexicon (advanced)">
-        <p className="text-xs text-gray-500 -mb-2">
+        <p className="text-xs text-cs-muted -mb-2">
           Short domain fragments injected into otherwise-generic prompt sentences.
         </p>
         {LEXICON_FIELDS.map((f) => (
           <div key={f.key}>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">
-              {f.label} <span className="text-gray-600 font-normal">(e.g. “{f.example}”)</span>
+            <label className="block text-sm font-semibold text-cs-text mb-2">
+              {f.label} <span className="text-cs-light font-normal">(e.g. “{f.example}”)</span>
             </label>
             <input className={inputClass} value={profile.lexicon?.[f.key] ?? ""} onChange={(e) => setLexicon(f.key, e.target.value)} />
           </div>
@@ -231,19 +231,19 @@ export default function ClientProfileForm({
 
       {profile.learned_style ? (
         <Section title="Learned Style (from approvals)">
-          <p className="text-xs text-gray-500 -mb-2">Distilled from this client's approved content. Managed by the learning loop.</p>
+          <p className="text-xs text-cs-muted -mb-2">Distilled from this client's approved content. Managed by the learning loop.</p>
           <TextArea label="Learned Style Addendum" value={profile.learned_style} onChange={(v) => setField("learned_style", v)} rows={6} />
         </Section>
       ) : null}
 
-      {error && <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-sm whitespace-pre-wrap">{error}</div>}
-      {savedMsg && <div className="p-3 bg-green-900/20 border border-green-900/50 rounded-lg text-green-400 text-sm">{savedMsg}</div>}
+      {error && <div className="p-3 bg-cs-danger-soft border border-red-200 rounded-lg text-cs-danger text-sm whitespace-pre-wrap">{error}</div>}
+      {savedMsg && <div className="p-3 bg-green-900/20 border border-green-900/50 rounded-lg text-emerald-600 text-sm">{savedMsg}</div>}
 
       <div className="flex justify-end gap-3">
         <button
           onClick={handleSave}
           disabled={saving || !displayName.trim() || !siteDomain.trim()}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
+          className="px-6 py-2.5 bg-cs-accent hover:bg-cs-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-cs-text text-sm font-semibold rounded-lg shadow-lg shadow-cs transition-all border border-cs-accent active:scale-95"
         >
           {saving ? "Saving…" : isNew ? "Create Client" : "Save (new profile version)"}
         </button>

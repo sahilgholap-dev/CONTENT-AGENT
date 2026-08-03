@@ -28,12 +28,12 @@ function asTags(v: unknown): string[] {
 }
 
 const Pill = ({ children, type }: { children: React.ReactNode; type?: string }) => {
-  let colorClass = "bg-gray-800 text-gray-300";
+  let colorClass = "bg-white text-cs-text";
   const t = String(children || type).toUpperCase();
-  if (t === "PASS" || t === "VERIFIED" || t === "OK") colorClass = "bg-green-500/15 text-green-400";
-  if (t === "FAIL" || t === "REVIEW" || t === "REQUIRED" || t === "HIGH") colorClass = "bg-red-500/15 text-red-400";
-  if (t === "INFERRED" || t === "MEDIUM") colorClass = "bg-yellow-500/15 text-yellow-400";
-  if (t === "LOW") colorClass = "bg-blue-500/15 text-blue-400";
+  if (t === "PASS" || t === "VERIFIED" || t === "OK") colorClass = "bg-green-500/15 text-emerald-600";
+  if (t === "FAIL" || t === "REVIEW" || t === "REQUIRED" || t === "HIGH") colorClass = "bg-red-500/15 text-cs-danger";
+  if (t === "INFERRED" || t === "MEDIUM") colorClass = "bg-yellow-500/15 text-cs-amber";
+  if (t === "LOW") colorClass = "bg-cs-accent/15 text-cs-accent";
   
   return (
     <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${colorClass}`}>
@@ -79,7 +79,7 @@ export default function PackageViewer({
         return <MetaView pkg={pkg} />;
       case "raw":
         return (
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 overflow-auto text-xs text-gray-300 font-mono">
+          <div className="bg-white rounded-xl border border-cs-border p-4 overflow-auto text-xs text-cs-text font-mono">
             <pre>{JSON.stringify(pkg, null, 2)}</pre>
           </div>
         );
@@ -110,8 +110,8 @@ export default function PackageViewer({
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 isActive
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200 border border-gray-700"
+                  ? "bg-cs-accent text-cs-text shadow-lg shadow-cs"
+                  : "bg-white text-cs-muted hover:bg-cs-gray-soft hover:text-cs-text border border-cs-border-strong"
               }`}
             >
               {tab.label}
@@ -139,23 +139,23 @@ function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: 
   return (
     <div className="space-y-6">
       {/* Script header */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
-          <h2 className="text-xl font-bold text-white">{draft.title || topic || "Video Script"}</h2>
-          <span className="text-xs text-gray-500 font-mono">
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-cs-border">
+          <h2 className="text-xl font-bold text-cs-text">{draft.title || topic || "Video Script"}</h2>
+          <span className="text-xs text-cs-muted font-mono">
             {scenes.length} scenes · {fmtDur(totalSec)}
           </span>
         </div>
         {draft.hook && (
-          <div className="text-sm text-blue-300 font-semibold mb-3">
-            Hook: <span className="text-gray-200 font-normal">{draft.hook}</span>
+          <div className="text-sm text-cs-accent font-semibold mb-3">
+            Hook: <span className="text-cs-text font-normal">{draft.hook}</span>
           </div>
         )}
 
         {/* Scene-by-scene table */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+            <thead className="text-xs text-cs-muted uppercase bg-cs-gray-soft">
               <tr>
                 <th className="px-3 py-3 whitespace-nowrap">Scene</th>
                 <th className="px-3 py-3 whitespace-nowrap">Duration</th>
@@ -166,14 +166,14 @@ function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: 
             </thead>
             <tbody>
               {scenes.map((sc: any, i: number) => (
-                <tr key={i} className="border-b border-gray-800/50 align-top">
-                  <td className="px-3 py-3 text-gray-400 font-mono">{sc.scene_no ?? i + 1}</td>
-                  <td className="px-3 py-3 text-gray-400 font-mono whitespace-nowrap">
+                <tr key={i} className="border-b border-cs-border align-top">
+                  <td className="px-3 py-3 text-cs-muted font-mono">{sc.scene_no ?? i + 1}</td>
+                  <td className="px-3 py-3 text-cs-muted font-mono whitespace-nowrap">
                     {sc.duration_sec != null ? `${sc.duration_sec}s` : "—"}
                   </td>
-                  <td className="px-3 py-3 text-gray-100 whitespace-pre-wrap">{sc.voiceover}</td>
-                  <td className="px-3 py-3 text-blue-200">{sc.on_screen_text || "—"}</td>
-                  <td className="px-3 py-3 text-gray-400 italic">{sc.visual_direction || "—"}</td>
+                  <td className="px-3 py-3 text-cs-text whitespace-pre-wrap">{sc.voiceover}</td>
+                  <td className="px-3 py-3 text-cs-accent-deep">{sc.on_screen_text || "—"}</td>
+                  <td className="px-3 py-3 text-cs-muted italic">{sc.visual_direction || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -182,8 +182,8 @@ function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: 
 
         {draft.cta && (
           <div className="mt-4 text-sm">
-            <span className="text-gray-500 font-medium">CTA:</span>{" "}
-            <span className="text-gray-200">{draft.cta}</span>
+            <span className="text-cs-muted font-medium">CTA:</span>{" "}
+            <span className="text-cs-text">{draft.cta}</span>
           </div>
         )}
         {hashtags.length > 0 && (
@@ -191,7 +191,7 @@ function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: 
             {hashtags.map((h) => (
               <span
                 key={h}
-                className="inline-block bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded-md px-2 py-1 text-xs"
+                className="inline-block bg-cs-accent/10 text-cs-accent border border-cs-accent/20 rounded-md px-2 py-1 text-xs"
               >
                 {String(h).startsWith("#") ? h : `#${h}`}
               </span>
@@ -201,27 +201,27 @@ function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: 
       </div>
 
       {/* Metadata */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
         <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-6 text-sm">
-          <div className="text-gray-500 font-medium">Video Description</div>
-          <div className="text-gray-300">{draft.video_description || "—"}</div>
-          <div className="text-gray-500 font-medium">Category</div>
-          <div className="text-gray-300">{draft.category || "—"}</div>
-          <div className="text-gray-500 font-medium">Thumbnail Prompt</div>
-          <div className="text-gray-300">{draft.featured_image_prompt || "—"}</div>
-          <div className="text-gray-500 font-medium">Compliance Line</div>
-          <div className="text-gray-300">{draft.responsible_gambling_note || "—"}</div>
+          <div className="text-cs-muted font-medium">Video Description</div>
+          <div className="text-cs-text">{draft.video_description || "—"}</div>
+          <div className="text-cs-muted font-medium">Category</div>
+          <div className="text-cs-text">{draft.category || "—"}</div>
+          <div className="text-cs-muted font-medium">Thumbnail Prompt</div>
+          <div className="text-cs-text">{draft.featured_image_prompt || "—"}</div>
+          <div className="text-cs-muted font-medium">Compliance Line</div>
+          <div className="text-cs-text">{draft.responsible_gambling_note || "—"}</div>
         </div>
       </div>
 
       {vf.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Verification Flags</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Verification Flags</h3>
           <div className="space-y-3">
             {vf.map((f: any, i: number) => (
               <div key={i} className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm">
                 <strong className="block text-yellow-500 mb-1">{f.location_in_draft || ""}</strong>
-                <span className="text-gray-300">{f.flag || f}</span>
+                <span className="text-cs-text">{f.flag || f}</span>
               </div>
             ))}
           </div>
@@ -229,19 +229,19 @@ function VideoScriptView({ draft, topic }: { draft: Record<string, any>; topic: 
       )}
 
       {sn.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Source Notes</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Source Notes</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+              <thead className="text-xs text-cs-muted uppercase bg-cs-gray-soft">
                 <tr><th className="px-4 py-3">Claim</th><th className="px-4 py-3">Confidence</th><th className="px-4 py-3">Source</th></tr>
               </thead>
               <tbody>
                 {sn.map((s: any, i: number) => (
-                  <tr key={i} className="border-b border-gray-800/50">
-                    <td className="px-4 py-3 text-gray-200">{s.claim}</td>
+                  <tr key={i} className="border-b border-cs-border">
+                    <td className="px-4 py-3 text-cs-text">{s.claim}</td>
                     <td className="px-4 py-3"><Pill>{s.confidence}</Pill></td>
-                    <td className="px-4 py-3"><a href={s.source_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline break-all">{s.source_url}</a></td>
+                    <td className="px-4 py-3"><a href={s.source_url} target="_blank" rel="noreferrer" className="text-cs-accent hover:underline break-all">{s.source_url}</a></td>
                   </tr>
                 ))}
               </tbody>
@@ -262,47 +262,47 @@ function SocialPostView({ draft, topic }: { draft: Record<string, any>; topic: s
   return (
     <div className="space-y-6">
       {/* The post itself, styled like a social card */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-800">
-          <h2 className="text-xl font-bold text-white">{topic || "Social Post"}</h2>
-          <span className="text-xs text-gray-500 font-mono">{charCount} chars</span>
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-cs-border">
+          <h2 className="text-xl font-bold text-cs-text">{topic || "Social Post"}</h2>
+          <span className="text-xs text-cs-muted font-mono">{charCount} chars</span>
         </div>
         {draft.hook && (
-          <div className="text-sm text-blue-300 font-semibold mb-3">Hook: <span className="text-gray-200 font-normal">{draft.hook}</span></div>
+          <div className="text-sm text-cs-accent font-semibold mb-3">Hook: <span className="text-cs-text font-normal">{draft.hook}</span></div>
         )}
-        <div className="bg-gray-950 border border-gray-800 rounded-lg p-5 text-gray-100 text-sm whitespace-pre-wrap leading-relaxed">
+        <div className="bg-cs-page border border-cs-border rounded-lg p-5 text-cs-text text-sm whitespace-pre-wrap leading-relaxed">
           {draft.post_text}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {hashtags.map((h) => (
-            <span key={h} className="inline-block bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded-md px-2 py-1 text-xs">
+            <span key={h} className="inline-block bg-cs-accent/10 text-cs-accent border border-cs-accent/20 rounded-md px-2 py-1 text-xs">
               {String(h).startsWith("#") ? h : `#${h}`}
             </span>
           ))}
         </div>
         {draft.cta && (
-          <div className="mt-4 text-sm"><span className="text-gray-500 font-medium">CTA:</span> <span className="text-gray-200">{draft.cta}</span></div>
+          <div className="mt-4 text-sm"><span className="text-cs-muted font-medium">CTA:</span> <span className="text-cs-text">{draft.cta}</span></div>
         )}
       </div>
 
       {/* Metadata */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
         <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-6 text-sm">
-          <div className="text-gray-500 font-medium">Category</div><div className="text-gray-300">{draft.category || "—"}</div>
-          <div className="text-gray-500 font-medium">Excerpt</div><div className="text-gray-300">{draft.excerpt || "—"}</div>
-          <div className="text-gray-500 font-medium">Image Prompt</div><div className="text-gray-300">{draft.featured_image_prompt || "—"}</div>
-          <div className="text-gray-500 font-medium">Compliance Line</div><div className="text-gray-300">{draft.responsible_gambling_note || "—"}</div>
+          <div className="text-cs-muted font-medium">Category</div><div className="text-cs-text">{draft.category || "—"}</div>
+          <div className="text-cs-muted font-medium">Excerpt</div><div className="text-cs-text">{draft.excerpt || "—"}</div>
+          <div className="text-cs-muted font-medium">Image Prompt</div><div className="text-cs-text">{draft.featured_image_prompt || "—"}</div>
+          <div className="text-cs-muted font-medium">Compliance Line</div><div className="text-cs-text">{draft.responsible_gambling_note || "—"}</div>
         </div>
       </div>
 
       {vf.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Verification Flags</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Verification Flags</h3>
           <div className="space-y-3">
             {vf.map((f: any, i: number) => (
               <div key={i} className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm">
                 <strong className="block text-yellow-500 mb-1">{f.location_in_draft || ""}</strong>
-                <span className="text-gray-300">{f.flag || f}</span>
+                <span className="text-cs-text">{f.flag || f}</span>
               </div>
             ))}
           </div>
@@ -310,19 +310,19 @@ function SocialPostView({ draft, topic }: { draft: Record<string, any>; topic: s
       )}
 
       {sn.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Source Notes</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Source Notes</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+              <thead className="text-xs text-cs-muted uppercase bg-cs-gray-soft">
                 <tr><th className="px-4 py-3">Claim</th><th className="px-4 py-3">Confidence</th><th className="px-4 py-3">Source</th></tr>
               </thead>
               <tbody>
                 {sn.map((s: any, i: number) => (
-                  <tr key={i} className="border-b border-gray-800/50">
-                    <td className="px-4 py-3 text-gray-200">{s.claim}</td>
+                  <tr key={i} className="border-b border-cs-border">
+                    <td className="px-4 py-3 text-cs-text">{s.claim}</td>
                     <td className="px-4 py-3"><Pill>{s.confidence}</Pill></td>
-                    <td className="px-4 py-3"><a href={s.source_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline break-all">{s.source_url}</a></td>
+                    <td className="px-4 py-3"><a href={s.source_url} target="_blank" rel="noreferrer" className="text-cs-accent hover:underline break-all">{s.source_url}</a></td>
                   </tr>
                 ))}
               </tbody>
@@ -342,29 +342,29 @@ function DraftView({ draft, topic }: { draft: Record<string, any>; topic: string
   
   return (
     <div className="space-y-6">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-white mb-6 pb-4 border-b border-gray-800">
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+        <h2 className="text-xl font-bold text-cs-text mb-6 pb-4 border-b border-cs-border">
           {draft.seo_title || topic || "Draft"}
         </h2>
         <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-6 text-sm">
-          <div className="text-gray-500 font-medium">Slug</div><div className="text-gray-300">{draft.slug || "—"}</div>
-          <div className="text-gray-500 font-medium">Category</div><div className="text-gray-300">{draft.category || "—"}</div>
-          <div className="text-gray-500 font-medium">Meta Description</div><div className="text-gray-300">{draft.meta_description || "—"}</div>
-          <div className="text-gray-500 font-medium">Excerpt</div><div className="text-gray-300">{draft.excerpt || "—"}</div>
-          <div className="text-gray-500 font-medium">Tags</div>
-          <div className="text-gray-300">
+          <div className="text-cs-muted font-medium">Slug</div><div className="text-cs-text">{draft.slug || "—"}</div>
+          <div className="text-cs-muted font-medium">Category</div><div className="text-cs-text">{draft.category || "—"}</div>
+          <div className="text-cs-muted font-medium">Meta Description</div><div className="text-cs-text">{draft.meta_description || "—"}</div>
+          <div className="text-cs-muted font-medium">Excerpt</div><div className="text-cs-text">{draft.excerpt || "—"}</div>
+          <div className="text-cs-muted font-medium">Tags</div>
+          <div className="text-cs-text">
             {asTags(draft.tags).length > 0 
-              ? (draft.tags as string[]).map(t => <span key={t} className="inline-block bg-gray-800 border border-gray-700 rounded-md px-2 py-1 mr-2 text-xs">{t}</span>)
+              ? (draft.tags as string[]).map(t => <span key={t} className="inline-block bg-white border border-cs-border-strong rounded-md px-2 py-1 mr-2 text-xs">{t}</span>)
               : "—"}
           </div>
-          <div className="text-gray-500 font-medium">Featured Image Prompt</div><div className="text-gray-300">{draft.featured_image_prompt || "—"}</div>
-          <div className="text-gray-500 font-medium">Responsible Gambling</div><div className="text-gray-300">{draft.responsible_gambling_note || "—"}</div>
-          <div className="text-gray-500 font-medium">Internal Links</div>
-          <div className="text-gray-300">
+          <div className="text-cs-muted font-medium">Featured Image Prompt</div><div className="text-cs-text">{draft.featured_image_prompt || "—"}</div>
+          <div className="text-cs-muted font-medium">Responsible Gambling</div><div className="text-cs-text">{draft.responsible_gambling_note || "—"}</div>
+          <div className="text-cs-muted font-medium">Internal Links</div>
+          <div className="text-cs-text">
             {links.length > 0 ? (
               <div className="space-y-1">
                 {links.map((l: any, i: number) => (
-                  <a key={i} href={l.target_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline block truncate">{l.anchor}</a>
+                  <a key={i} href={l.target_url} target="_blank" rel="noreferrer" className="text-cs-accent hover:underline block truncate">{l.anchor}</a>
                 ))}
               </div>
             ) : "—"}
@@ -373,13 +373,13 @@ function DraftView({ draft, topic }: { draft: Record<string, any>; topic: string
       </div>
 
       {vf.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Verification Flags in Draft</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Verification Flags in Draft</h3>
           <div className="space-y-3">
             {vf.map((f: any, i: number) => (
               <div key={i} className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm">
                 <strong className="block text-yellow-500 mb-1">{f.location_in_draft || ""}</strong>
-                <span className="text-gray-300">{f.flag || f}</span>
+                <span className="text-cs-text">{f.flag || f}</span>
               </div>
             ))}
           </div>
@@ -387,25 +387,25 @@ function DraftView({ draft, topic }: { draft: Record<string, any>; topic: string
       )}
 
       {draft.body_html && (
-        <div className="bg-white text-gray-900 border border-gray-200 rounded-xl p-8 shadow-sm prose prose-blue max-w-none">
+        <div className="bg-white text-cs-text border border-cs-border rounded-xl p-8 shadow-sm prose prose-slate max-w-none">
           <div dangerouslySetInnerHTML={{ __html: draft.body_html }} />
         </div>
       )}
 
       {sn.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Source Notes</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Source Notes</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+              <thead className="text-xs text-cs-muted uppercase bg-cs-gray-soft">
                 <tr><th className="px-4 py-3">Claim</th><th className="px-4 py-3">Confidence</th><th className="px-4 py-3">Source</th></tr>
               </thead>
               <tbody>
                 {sn.map((s: any, i: number) => (
-                  <tr key={i} className="border-b border-gray-800/50">
-                    <td className="px-4 py-3 text-gray-200">{s.claim}</td>
+                  <tr key={i} className="border-b border-cs-border">
+                    <td className="px-4 py-3 text-cs-text">{s.claim}</td>
                     <td className="px-4 py-3"><Pill>{s.confidence}</Pill></td>
-                    <td className="px-4 py-3"><a href={s.source_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline break-all">{s.source_url}</a></td>
+                    <td className="px-4 py-3"><a href={s.source_url} target="_blank" rel="noreferrer" className="text-cs-accent hover:underline break-all">{s.source_url}</a></td>
                   </tr>
                 ))}
               </tbody>
@@ -430,22 +430,22 @@ function instrText(x: any): string {
 
 function renderInstr(ri: any) {
   if (ri == null) return null;
-  if (typeof ri === 'string') return <p className="text-gray-300 text-sm">{ri}</p>;
-  if (Array.isArray(ri)) return <ul className="list-disc pl-5 text-gray-300 text-sm space-y-1">{ri.map((x, i) => <li key={i}>{instrText(x)}</li>)}</ul>;
+  if (typeof ri === 'string') return <p className="text-cs-text text-sm">{ri}</p>;
+  if (Array.isArray(ri)) return <ul className="list-disc pl-5 text-cs-text text-sm space-y-1">{ri.map((x, i) => <li key={i}>{instrText(x)}</li>)}</ul>;
   return (
     <div className="space-y-4">
       {Object.entries(ri).map(([k, v], idx) => {
         if (Array.isArray(v)) {
           return (
             <div key={idx}>
-              <strong className="text-gray-200 text-sm block mb-1">{k}</strong>
-              <ul className="list-disc pl-5 text-gray-300 text-sm space-y-1">
+              <strong className="text-cs-text text-sm block mb-1">{k}</strong>
+              <ul className="list-disc pl-5 text-cs-text text-sm space-y-1">
                 {v.map((x: any, i: number) => <li key={i}>{instrText(x)}</li>)}
               </ul>
             </div>
           );
         }
-        return <p key={idx} className="text-gray-300 text-sm"><strong className="text-gray-200">{k}:</strong> {String(v)}</p>;
+        return <p key={idx} className="text-cs-text text-sm"><strong className="text-cs-text">{k}:</strong> {String(v)}</p>;
       })}
     </div>
   );
@@ -464,21 +464,21 @@ function ComplianceView({ data }: { data: Record<string, any> }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
         <div className="flex items-center space-x-3 mb-2">
-          <h2 className="text-xl font-bold text-white">Overall Verdict</h2>
+          <h2 className="text-xl font-bold text-cs-text">Overall Verdict</h2>
           <Pill>{data.overall_verdict}</Pill>
         </div>
         
         {simpleBlocking.length > 0 && (
-          <div className="text-sm text-gray-400 mt-2">
+          <div className="text-sm text-cs-muted mt-2">
             Blocking failures: {simpleBlocking.map((b, i) => {
               const label = typeof b === 'string' 
                 ? b 
                 : (b.check_name ?? b.item ?? b.check ?? b.name ?? JSON.stringify(b));
               const sev = (typeof b !== 'string' && b.severity) ? ` (${b.severity})` : '';
               return (
-                <span key={i} className="inline-block bg-gray-800 border border-gray-700 rounded-md px-2 py-0.5 mr-2 text-xs text-gray-300 mb-1">
+                <span key={i} className="inline-block bg-white border border-cs-border-strong rounded-md px-2 py-0.5 mr-2 text-xs text-cs-text mb-1">
                   {label}{sev}
                 </span>
               );
@@ -487,31 +487,31 @@ function ComplianceView({ data }: { data: Record<string, any> }) {
         )}
         
         {blockingFailures.length === 0 && (
-          <div className="text-sm text-gray-400 mt-2">Blocking failures: none</div>
+          <div className="text-sm text-cs-muted mt-2">Blocking failures: none</div>
         )}
         
-        <div className="text-sm text-gray-400 mt-1">{checks.length} checks • {failCount} failing</div>
+        <div className="text-sm text-cs-muted mt-1">{checks.length} checks • {failCount} failing</div>
       </div>
 
       {detailedBlocking.length > 0 && (
-        <div className="bg-gray-900 border border-red-900/30 rounded-xl p-6 shadow-sm space-y-4">
-          <h3 className="text-lg font-bold text-red-400">Detailed Blocking Failures</h3>
+        <div className="bg-white border border-red-900/30 rounded-xl p-6 shadow-sm space-y-4">
+          <h3 className="text-lg font-bold text-cs-danger">Detailed Blocking Failures</h3>
           {detailedBlocking.map((b, i) => (
             <div key={i} className="bg-red-500/5 border border-red-500/20 rounded-lg p-4 text-sm">
-              <div className="font-bold text-red-400 mb-2">
+              <div className="font-bold text-cs-danger mb-2">
                 {b.check_name ?? b.item ?? b.check ?? b.name ?? "Unknown Check"}
-                {b.severity && <span className="ml-2 bg-red-500/20 text-red-300 px-2 py-0.5 rounded text-xs">{b.severity}</span>}
+                {b.severity && <span className="ml-2 bg-cs-danger-soft text-red-700 px-2 py-0.5 rounded text-xs">{b.severity}</span>}
               </div>
               {b.violation && (
                 <div className="mb-2">
-                  <span className="font-semibold text-gray-300">Violation: </span>
-                  <span className="text-red-300 italic">&ldquo;{b.violation}&rdquo;</span>
+                  <span className="font-semibold text-cs-text">Violation: </span>
+                  <span className="text-red-700 italic">&ldquo;{b.violation}&rdquo;</span>
                 </div>
               )}
               {b.remediation && (
                 <div>
-                  <span className="font-semibold text-gray-300">Remediation: </span>
-                  <span className="text-blue-300">→ {b.remediation}</span>
+                  <span className="font-semibold text-cs-text">Remediation: </span>
+                  <span className="text-cs-accent">→ {b.remediation}</span>
                 </div>
               )}
             </div>
@@ -519,9 +519,9 @@ function ComplianceView({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm overflow-x-auto">
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+          <thead className="text-xs text-cs-muted uppercase bg-cs-gray-soft">
             <tr><th className="px-4 py-3">Check</th><th className="px-4 py-3">Verdict</th><th className="px-4 py-3">Severity</th><th className="px-4 py-3">Details</th></tr>
           </thead>
           <tbody>
@@ -532,13 +532,13 @@ function ComplianceView({ data }: { data: Record<string, any> }) {
               const rem = c.remediation ?? c.note ?? c.fix ?? "";
               const info = c.notes ?? c.finding ?? "";
               return (
-                <tr key={i} className="border-b border-gray-800/50">
-                  <td className="px-4 py-4 font-medium text-gray-200">{name}</td>
+                <tr key={i} className="border-b border-cs-border">
+                  <td className="px-4 py-4 font-medium text-cs-text">{name}</td>
                   <td className="px-4 py-4"><Pill>{verdict}</Pill></td>
                   <td className="px-4 py-4">{c.severity ? <Pill>{c.severity}</Pill> : "—"}</td>
-                  <td className="px-4 py-4 text-gray-400">
-                    {off && <div className="text-red-300 mb-1 italic">&ldquo;{off}&rdquo;</div>}
-                    {rem && <div className="text-blue-300">→ {rem}</div>}
+                  <td className="px-4 py-4 text-cs-muted">
+                    {off && <div className="text-red-700 mb-1 italic">&ldquo;{off}&rdquo;</div>}
+                    {rem && <div className="text-cs-accent">→ {rem}</div>}
                     {!off && !rem && info && <div>{info}</div>}
                     {!off && !rem && !info && "—"}
                   </td>
@@ -550,8 +550,8 @@ function ComplianceView({ data }: { data: Record<string, any> }) {
       </div>
       
       {data.revision_instructions && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Revision Instructions</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Revision Instructions</h3>
           {renderInstr(data.revision_instructions)}
         </div>
       )}
@@ -563,38 +563,38 @@ function SeoView({ data }: { data: Record<string, any> }) {
   if (!data) return null;
   return (
     <div className="space-y-6">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm flex items-center justify-between">
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <h2 className="text-xl font-bold text-white">SEO Quality</h2>
+          <h2 className="text-xl font-bold text-cs-text">SEO Quality</h2>
           <Pill>{data.overall_verdict}</Pill>
         </div>
         {data.overall_score != null && (
-          <div className="text-3xl font-black text-gray-200">{data.overall_score}<span className="text-sm text-gray-500 font-normal">/10</span></div>
+          <div className="text-3xl font-black text-cs-text">{data.overall_score}<span className="text-sm text-cs-muted font-normal">/10</span></div>
         )}
       </div>
       
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm space-y-6">
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm space-y-6">
         {asArray(data.dimensions).map((d: any, i: number) => {
           const dn = d.dimension ?? d.name ?? '';
           return (
             <div key={i}>
               <div className="flex items-center space-x-3 mb-2">
-                <span className="font-semibold text-gray-200">{dn}</span>
+                <span className="font-semibold text-cs-text">{dn}</span>
                 <Pill>{d.verdict}</Pill>
-                <span className="text-xs text-gray-500 ml-auto">{d.score}/10</span>
+                <span className="text-xs text-cs-muted ml-auto">{d.score}/10</span>
               </div>
-              <div className="w-full bg-gray-800 rounded-full h-2 mb-2 overflow-hidden">
-                <div className="bg-blue-500 h-full rounded-full" style={{ width: `${(d.score || 0) * 10}%` }}></div>
+              <div className="w-full bg-white rounded-full h-2 mb-2 overflow-hidden">
+                <div className="bg-cs-accent h-full rounded-full" style={{ width: `${(d.score || 0) * 10}%` }}></div>
               </div>
-              <p className="text-sm text-gray-400">{d.notes}</p>
+              <p className="text-sm text-cs-muted">{d.notes}</p>
             </div>
           )
         })}
       </div>
 
       {data.revision_instructions && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Revision Instructions</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Revision Instructions</h3>
           {renderInstr(data.revision_instructions)}
         </div>
       )}
@@ -607,30 +607,30 @@ function BriefView({ data }: { data: Record<string, any> }) {
   const ks = data.keyword_scores || {};
   return (
     <div className="space-y-6">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-white mb-6 pb-4 border-b border-gray-800">SEO Brief</h2>
+      <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+        <h2 className="text-xl font-bold text-cs-text mb-6 pb-4 border-b border-cs-border">SEO Brief</h2>
         <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-6 text-sm">
-          <div className="text-gray-500 font-medium">Primary Keyword</div><div className="text-gray-200 font-semibold">{data.primary_keyword}</div>
-          <div className="text-gray-500 font-medium">Search Intent</div><div className="text-gray-300">{data.search_intent}</div>
-          <div className="text-gray-500 font-medium">Reader Persona</div><div className="text-gray-300">{data.reader_persona}</div>
-          <div className="text-gray-500 font-medium">Word Count Target</div><div className="text-gray-300">{data.word_count_target}</div>
-          <div className="text-gray-500 font-medium">Secondary Keywords</div>
-          <div className="text-gray-300">
-            {asArray(data.secondary_keywords).map(k => <span key={k} className="inline-block bg-gray-800 border border-gray-700 rounded-md px-2 py-1 mr-2 mb-1 text-xs">{k}</span>)}
+          <div className="text-cs-muted font-medium">Primary Keyword</div><div className="text-cs-text font-semibold">{data.primary_keyword}</div>
+          <div className="text-cs-muted font-medium">Search Intent</div><div className="text-cs-text">{data.search_intent}</div>
+          <div className="text-cs-muted font-medium">Reader Persona</div><div className="text-cs-text">{data.reader_persona}</div>
+          <div className="text-cs-muted font-medium">Word Count Target</div><div className="text-cs-text">{data.word_count_target}</div>
+          <div className="text-cs-muted font-medium">Secondary Keywords</div>
+          <div className="text-cs-text">
+            {asArray(data.secondary_keywords).map(k => <span key={k} className="inline-block bg-white border border-cs-border-strong rounded-md px-2 py-1 mr-2 mb-1 text-xs">{k}</span>)}
           </div>
-          <div className="text-gray-500 font-medium">Schema</div><div className="text-gray-300">{data.schema_recommendation}</div>
-          <div className="text-gray-500 font-medium">Selection Rationale</div><div className="text-gray-300">{data.selection_rationale}</div>
+          <div className="text-cs-muted font-medium">Schema</div><div className="text-cs-text">{data.schema_recommendation}</div>
+          <div className="text-cs-muted font-medium">Selection Rationale</div><div className="text-cs-text">{data.selection_rationale}</div>
         </div>
       </div>
 
       {Object.keys(ks).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Keyword Scores</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Keyword Scores</h3>
           <div className="grid grid-cols-[180px_1fr] gap-y-2 gap-x-6 text-sm">
             {Object.entries(ks).map(([k, v]) => (
               <React.Fragment key={k}>
-                <div className="text-gray-500 capitalize">{k.replace(/_/g, " ")}</div>
-                <div className="text-gray-300">{String(v)}</div>
+                <div className="text-cs-muted capitalize">{k.replace(/_/g, " ")}</div>
+                <div className="text-cs-text">{String(v)}</div>
               </React.Fragment>
             ))}
           </div>
@@ -638,13 +638,13 @@ function BriefView({ data }: { data: Record<string, any> }) {
       )}
 
       {asArray(data.outline).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Outline</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Outline</h3>
           <div className="space-y-2">
             {(data.outline as any[]).map((o: any, i: number) => (
-              <details key={i} className="group bg-gray-800/30 rounded-lg">
-                <summary className="p-3 font-semibold text-gray-200 cursor-pointer select-none">{o.h2}</summary>
-                <div className="p-3 pt-0 text-sm text-gray-400">
+              <details key={i} className="group bg-cs-gray-soft rounded-lg">
+                <summary className="p-3 font-semibold text-cs-text cursor-pointer select-none">{o.h2}</summary>
+                <div className="p-3 pt-0 text-sm text-cs-muted">
                   {asArray(o.h3s).length > 0 ? (
                     <ul className="list-disc pl-5 space-y-1">
                       {(o.h3s as any[]).map((h, j) => <li key={j}>{h}</li>)}
@@ -658,13 +658,13 @@ function BriefView({ data }: { data: Record<string, any> }) {
       )}
 
       {asArray(data.faq_set).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">FAQ Set</h3>
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">FAQ Set</h3>
           <div className="space-y-3">
             {(data.faq_set as any[]).map((f: any, i: number) => (
               <div key={i} className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-sm">
-                <strong className="block text-gray-200 mb-1">{f.question}</strong>
-                <span className="text-gray-400">{f.answer_angle}</span>
+                <strong className="block text-cs-text mb-1">{f.question}</strong>
+                <span className="text-cs-muted">{f.answer_angle}</span>
               </div>
             ))}
           </div>
@@ -672,27 +672,27 @@ function BriefView({ data }: { data: Record<string, any> }) {
       )}
 
       {asArray(data.title_options).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-white mb-4">Title Options</h3>
-          <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Title Options</h3>
+          <ul className="list-disc pl-5 text-sm text-cs-text space-y-1">
             {(data.title_options as string[]).map((t, i) => <li key={i}>{t}</li>)}
           </ul>
         </div>
       )}
 
       {asArray(data.meta_description_options).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm mt-6">
-          <h3 className="text-lg font-bold text-white mb-4">Meta Description Options</h3>
-          <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm mt-6">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Meta Description Options</h3>
+          <ul className="list-disc pl-5 text-sm text-cs-text space-y-1">
             {(data.meta_description_options as string[]).map((t, i) => <li key={i}>{t}</li>)}
           </ul>
         </div>
       )}
       
       {asArray(data.compliance_checklist).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm mt-6">
-          <h3 className="text-lg font-bold text-white mb-4">Compliance Checklist</h3>
-          <ul className="list-disc pl-5 text-sm text-gray-300 space-y-2">
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm mt-6">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Compliance Checklist</h3>
+          <ul className="list-disc pl-5 text-sm text-cs-text space-y-2">
             {(data.compliance_checklist as any[]).map((c, i) => (
               <li key={i}>
                 {c.item} {c.required && <Pill>Required</Pill>}
@@ -703,9 +703,9 @@ function BriefView({ data }: { data: Record<string, any> }) {
       )}
 
       {asArray(data.competitor_gaps).length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm mt-6">
-          <h3 className="text-lg font-bold text-white mb-4">Competitor Gaps</h3>
-          <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
+        <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm mt-6">
+          <h3 className="text-lg font-bold text-cs-text mb-4">Competitor Gaps</h3>
+          <ul className="list-disc pl-5 text-sm text-cs-text space-y-1">
             {(data.competitor_gaps as string[]).map((g, i) => <li key={i}>{g}</li>)}
           </ul>
         </div>
@@ -717,21 +717,21 @@ function BriefView({ data }: { data: Record<string, any> }) {
 function FactsView({ data }: { data: Record<string, any> }) {
   if (!data) return null;
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm overflow-x-auto">
-      <h2 className="text-xl font-bold text-white mb-6 pb-4 border-b border-gray-800">
+    <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm overflow-x-auto">
+      <h2 className="text-xl font-bold text-cs-text mb-6 pb-4 border-b border-cs-border">
         Fact Store {data.topic ? `— ${data.topic}` : ""}
       </h2>
       <table className="w-full text-sm text-left">
-        <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+        <thead className="text-xs text-cs-muted uppercase bg-cs-gray-soft">
           <tr><th className="px-4 py-3">Fact</th><th className="px-4 py-3">Confidence</th><th className="px-4 py-3">Flag</th><th className="px-4 py-3">Source</th></tr>
         </thead>
         <tbody>
           {asArray(data.facts).map((f: any, i: number) => (
-            <tr key={i} className="border-b border-gray-800/50">
-              <td className="px-4 py-4 text-gray-200 font-medium">{f.fact}</td>
+            <tr key={i} className="border-b border-cs-border">
+              <td className="px-4 py-4 text-cs-text font-medium">{f.fact}</td>
               <td className="px-4 py-4"><Pill>{f.confidence}</Pill></td>
               <td className="px-4 py-4">{f.flag_for_human ? <Pill type="REVIEW">Review</Pill> : <Pill type="OK">OK</Pill>}</td>
-              <td className="px-4 py-4"><a href={f.source_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline break-all">{f.source_url}</a></td>
+              <td className="px-4 py-4"><a href={f.source_url} target="_blank" rel="noreferrer" className="text-cs-accent hover:underline break-all">{f.source_url}</a></td>
             </tr>
           ))}
         </tbody>
@@ -743,19 +743,19 @@ function FactsView({ data }: { data: Record<string, any> }) {
 function MetaView({ pkg }: { pkg: Record<string, any> }) {
   const vf = asArray(pkg.verification_flags);
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-      <h2 className="text-xl font-bold text-white mb-6 pb-4 border-b border-gray-800">Package Metadata</h2>
+    <div className="bg-white border border-cs-border rounded-xl p-6 shadow-sm">
+      <h2 className="text-xl font-bold text-cs-text mb-6 pb-4 border-b border-cs-border">Package Metadata</h2>
       <div className="grid grid-cols-[180px_1fr] gap-y-4 gap-x-6 text-sm">
-        <div className="text-gray-500 font-medium">Package ID</div><div className="text-gray-300 font-mono text-xs">{pkg.package_id || "—"}</div>
-        <div className="text-gray-500 font-medium">Topic</div><div className="text-gray-300">{pkg.topic || "—"}</div>
-        <div className="text-gray-500 font-medium">Primary Keyword</div><div className="text-gray-300">{pkg.primary_keyword || "—"}</div>
-        <div className="text-gray-500 font-medium">Pillar</div><div className="text-gray-300">{pkg.pillar || "—"}</div>
-        <div className="text-gray-500 font-medium">Created At</div><div className="text-gray-300">{pkg.created_at || "—"}</div>
-        <div className="text-gray-500 font-medium">Revision Count</div><div className="text-gray-300">{pkg.revision_count ?? "—"}</div>
-        <div className="text-gray-500 font-medium">Review Status</div><div>{pkg.review_status ? <Pill type="INFERRED">{pkg.review_status}</Pill> : "—"}</div>
-        <div className="text-gray-500 font-medium">Escalation Reason</div><div className="text-gray-300">{pkg.escalation_reason || "—"}</div>
-        <div className="text-gray-500 font-medium">Reviewer Notes</div><div className="text-gray-300">{pkg.reviewer_notes || "—"}</div>
-        <div className="text-gray-500 font-medium">Verification Flags</div>
+        <div className="text-cs-muted font-medium">Package ID</div><div className="text-cs-text font-mono text-xs">{pkg.package_id || "—"}</div>
+        <div className="text-cs-muted font-medium">Topic</div><div className="text-cs-text">{pkg.topic || "—"}</div>
+        <div className="text-cs-muted font-medium">Primary Keyword</div><div className="text-cs-text">{pkg.primary_keyword || "—"}</div>
+        <div className="text-cs-muted font-medium">Pillar</div><div className="text-cs-text">{pkg.pillar || "—"}</div>
+        <div className="text-cs-muted font-medium">Created At</div><div className="text-cs-text">{pkg.created_at || "—"}</div>
+        <div className="text-cs-muted font-medium">Revision Count</div><div className="text-cs-text">{pkg.revision_count ?? "—"}</div>
+        <div className="text-cs-muted font-medium">Review Status</div><div>{pkg.review_status ? <Pill type="INFERRED">{pkg.review_status}</Pill> : "—"}</div>
+        <div className="text-cs-muted font-medium">Escalation Reason</div><div className="text-cs-text">{pkg.escalation_reason || "—"}</div>
+        <div className="text-cs-muted font-medium">Reviewer Notes</div><div className="text-cs-text">{pkg.reviewer_notes || "—"}</div>
+        <div className="text-cs-muted font-medium">Verification Flags</div>
         <div>
           {vf.length > 0 ? (
             <div className="space-y-2">

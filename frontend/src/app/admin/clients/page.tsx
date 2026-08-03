@@ -58,15 +58,15 @@ export default function ClientsPage() {
   const detailLoading = !creating && !!selectedId && !displayedClient;
 
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-gray-950">
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-cs-page">
       {/* Left: client list */}
-      <div className="w-full md:w-80 bg-gray-900/50 backdrop-blur-md border-b md:border-b-0 md:border-r border-gray-800 flex flex-col max-h-[40vh] md:max-h-none md:h-full shrink-0">
-        <div className="p-6 border-b border-gray-800">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+      <div className="w-full md:w-80 bg-white  border-b md:border-b-0 md:border-r border-cs-border flex flex-col max-h-[40vh] md:max-h-none md:h-full shrink-0">
+        <div className="p-6 border-b border-cs-border">
+          <h1 className="text-xl font-bold text-cs-accent-deep">
             Clients
           </h1>
           <div className="flex justify-between items-center mt-2">
-            <Link href="/admin" className="text-xs text-gray-400 hover:text-gray-200 transition-colors">
+            <Link href="/admin" className="text-xs text-cs-muted hover:text-cs-text transition-colors">
               ← Back to batches
             </Link>
             <button
@@ -74,7 +74,7 @@ export default function ClientsPage() {
                 setCreating(true);
                 setSelectedId(null);
               }}
-              className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded hover:bg-blue-600 hover:text-white transition-colors"
+              className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-cs-accent-soft text-cs-accent border border-cs-accent/40 rounded hover:bg-cs-accent-hover hover:text-white transition-colors"
             >
               + New Client
             </button>
@@ -82,9 +82,9 @@ export default function ClientsPage() {
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {loading ? (
-            <div className="text-gray-500 text-sm p-2 animate-pulse">Loading...</div>
+            <div className="text-cs-muted text-sm p-2 animate-pulse">Loading...</div>
           ) : clients.length === 0 ? (
-            <div className="text-gray-500 text-sm p-2">No clients yet</div>
+            <div className="text-cs-muted text-sm p-2">No clients yet</div>
           ) : (
             clients.map((c) => {
               const isSelected = !creating && c.id === selectedId;
@@ -97,26 +97,26 @@ export default function ClientsPage() {
                   }}
                   className={`w-full text-left p-4 rounded-xl transition-all duration-200 border ${
                     isSelected
-                      ? "bg-blue-600/10 border-blue-500/50"
-                      : "bg-gray-800/30 border-transparent hover:bg-gray-800/80 hover:border-gray-700"
+                      ? "bg-cs-accent-soft border-cs-accent"
+                      : "bg-cs-gray-soft border-transparent hover:bg-cs-gray-soft hover:border-cs-light"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-sm font-semibold ${isSelected ? "text-blue-400" : "text-gray-200"}`}>
+                    <span className={`text-sm font-semibold ${isSelected ? "text-cs-accent" : "text-cs-text"}`}>
                       {c.display_name}
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                         c.status === "active"
-                          ? "bg-green-500/15 text-green-400"
-                          : "bg-gray-800 text-gray-500 border border-gray-700"
+                          ? "bg-green-500/15 text-emerald-600"
+                          : "bg-white text-cs-muted border border-cs-border-strong"
                       }`}
                     >
                       {c.status}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">{c.site_domain}</div>
-                  <div className="text-[10px] text-gray-600 mt-1">profile v{c.profile_version}</div>
+                  <div className="text-xs text-cs-muted mt-1">{c.site_domain}</div>
+                  <div className="text-[10px] text-cs-light mt-1">profile v{c.profile_version}</div>
                 </button>
               );
             })
@@ -127,10 +127,10 @@ export default function ClientsPage() {
       {/* Right: profile editor */}
       <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-8">
-          <h2 className="text-2xl font-bold text-white mb-1">
+          <h2 className="text-2xl font-bold text-cs-text mb-1">
             {creating ? "Onboard New Client" : displayedClient?.display_name ?? "Select a client"}
           </h2>
-          <p className="text-sm text-gray-500 mb-8">
+          <p className="text-sm text-cs-muted mb-8">
             {creating
               ? "The profile below is authored by the internal team and is strictly specific to this client."
               : displayedClient
@@ -139,7 +139,7 @@ export default function ClientsPage() {
           </p>
           {detailLoading ? (
             <div className="flex items-center justify-center py-24">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cs-accent"></div>
             </div>
           ) : creating ? (
             <ClientProfileForm key="__new__" client={null} onSaved={loadClients} />
@@ -153,7 +153,7 @@ export default function ClientsPage() {
               />
             </>
           ) : (
-            <div className="text-gray-500">Select a client on the left, or create a new one.</div>
+            <div className="text-cs-muted">Select a client on the left, or create a new one.</div>
           )}
         </div>
       </main>

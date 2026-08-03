@@ -151,7 +151,7 @@ export default function TopicSuggestPanel({
   };
 
   const inputClass =
-    "w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none transition-colors";
+    "w-full bg-white border border-cs-border-strong text-cs-text text-sm rounded-lg focus:ring-cs-accent-soft focus:border-cs-accent block p-2.5 outline-none transition-colors";
 
   return (
     <div className="space-y-3">
@@ -167,8 +167,8 @@ export default function TopicSuggestPanel({
         <button
           onClick={startSuggest}
           disabled={submitting || suggesting}
-          className={`mt-2 w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:cursor-not-allowed text-gray-200 text-sm font-semibold rounded-lg border transition-colors ${
-            suggesting ? "border-blue-500/50 animate-pulse" : "border-gray-700 disabled:opacity-50"
+          className={`mt-2 w-full px-4 py-2 bg-white hover:bg-cs-gray-soft disabled:cursor-not-allowed text-cs-text text-sm font-semibold rounded-lg border transition-colors ${
+            suggesting ? "border-cs-accent animate-pulse" : "border-cs-border-strong disabled:opacity-50"
           }`}
         >
           {suggesting ? (
@@ -179,23 +179,23 @@ export default function TopicSuggestPanel({
           ) : (
             <>
               {suggestions.length > 0 ? "✦ Generate more topics" : "✦ Suggest topics"}
-              <span className="text-gray-500 font-normal"> (~2–4 min)</span>
+              <span className="text-cs-muted font-normal"> (~2–4 min)</span>
             </>
           )}
         </button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading suggestions…</p>
+        <p className="text-sm text-cs-muted">Loading suggestions…</p>
       ) : suggestions.length === 0 ? (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-cs-muted">
           {suggesting
             ? "The agent is researching 10 topic ideas — they'll appear right here in a couple of minutes."
             : "No suggestions yet for this format — click “Suggest topics” to get 10 researched ideas."}
         </p>
       ) : (
         <>
-          <p className="text-xs text-gray-400 uppercase tracking-wider">
+          <p className="text-xs text-cs-muted uppercase tracking-wider">
             {maxPerRun === 1 ? "Pick 1 topic" : `Pick up to ${maxPerRun} topics`}
             <span className="float-right font-mono normal-case">
               {selected.length} / {maxPerRun} selected
@@ -209,18 +209,18 @@ export default function TopicSuggestPanel({
                 <label
                   key={id}
                   className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    checked ? "border-blue-500 bg-blue-500/10" : "border-gray-800 bg-gray-900 hover:border-gray-700"
+                    checked ? "border-cs-accent bg-cs-accent/10" : "border-cs-border bg-white hover:border-cs-light"
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggle(id)}
-                    className="accent-blue-500 mt-1"
+                    className="accent-cs-accent mt-1"
                   />
                   <span>
-                    <span className="block text-sm text-gray-200">{s.topic}</span>
-                    <span className="block text-xs text-gray-500 mt-1">
+                    <span className="block text-sm text-cs-text">{s.topic}</span>
+                    <span className="block text-xs text-cs-muted mt-1">
                       {s.pillar}
                       {s.rationale ? ` — ${s.rationale}` : ""}
                     </span>
@@ -232,7 +232,7 @@ export default function TopicSuggestPanel({
           <button
             onClick={startGenerate}
             disabled={submitting || suggesting || selected.length === 0}
-            className="w-full px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-lg shadow-blue-500/20 transition-all border border-blue-400/20 active:scale-95"
+            className="w-full px-5 py-2 bg-cs-accent hover:bg-cs-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-cs-text text-sm font-semibold rounded-lg shadow-lg shadow-cs transition-all border border-cs-accent active:scale-95"
           >
             {submitting ? "Starting…" : `▶ Generate content (${selected.length})`}
           </button>
@@ -240,7 +240,7 @@ export default function TopicSuggestPanel({
       )}
 
       {error && (
-        <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-sm">{error}</div>
+        <div className="p-3 bg-cs-danger-soft border border-red-200 rounded-lg text-cs-danger text-sm">{error}</div>
       )}
     </div>
   );

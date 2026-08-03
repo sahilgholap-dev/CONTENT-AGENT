@@ -39,15 +39,16 @@ export default function Sidebar({
 
   return (
     <>
-      <div className="w-full md:w-80 bg-gray-900/50 backdrop-blur-md border-b md:border-b-0 md:border-r border-gray-800 flex flex-col max-h-[45vh] md:max-h-none md:h-full shrink-0">
-      <div className="p-6 border-b border-gray-800">
-        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-          Content Engine
+      <div className="w-full md:w-80 bg-white  border-b md:border-b-0 md:border-r border-cs-border flex flex-col max-h-[45vh] md:max-h-none md:h-full shrink-0">
+      <div className="p-6 border-b border-cs-border">
+        <div className="text-[11px] font-bold tracking-[2px] text-cs-accent">NEXUS</div>
+        <h1 className="text-lg font-semibold tracking-[-0.2px] text-cs-text">
+          Content Studio <span className="text-cs-muted font-normal">· Admin</span>
         </h1>
 
         <div className="mt-3">
           <select
-            className="w-full bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 outline-none transition-colors"
+            className="w-full bg-white border border-cs-border-strong text-cs-text text-xs rounded-lg focus:ring-cs-accent-soft focus:border-cs-accent p-2 outline-none transition-colors"
             value={selectedClientId ?? "__all__"}
             onChange={(e) => onSelectClient(e.target.value === "__all__" ? null : e.target.value)}
           >
@@ -64,21 +65,21 @@ export default function Sidebar({
         <div className="mt-2 grid grid-cols-3 gap-2">
           <Link
             href="/admin/clients"
-            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded text-center hover:text-gray-200 hover:border-gray-500 transition-colors"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-white text-cs-muted border border-cs-border-strong rounded text-center hover:text-cs-text hover:border-cs-light transition-colors"
             title="Manage clients"
           >
             Clients
           </Link>
           <Link
             href="/admin/registry"
-            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded text-center hover:text-gray-200 hover:border-gray-500 transition-colors"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-white text-cs-muted border border-cs-border-strong rounded text-center hover:text-cs-text hover:border-cs-light transition-colors"
             title="Manage content types & formats"
           >
             Formats
           </Link>
           <Link
             href="/admin/users"
-            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-gray-800 text-gray-400 border border-gray-700 rounded text-center hover:text-gray-200 hover:border-gray-500 transition-colors"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-2 bg-white text-cs-muted border border-cs-border-strong rounded text-center hover:text-cs-text hover:border-cs-light transition-colors"
             title="Manage portal logins"
           >
             Users
@@ -86,19 +87,19 @@ export default function Sidebar({
         </div>
 
         <div className="flex justify-between items-center mt-3">
-          <p className="text-xs text-gray-400 uppercase tracking-wider">
+          <p className="text-xs text-cs-muted uppercase tracking-wider">
             Batch Viewer
           </p>
           <button
             onClick={() => setIsRunModalOpen(true)}
-            className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded hover:bg-blue-600 hover:text-white transition-colors"
+            className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-cs-accent-soft text-cs-accent border border-cs-accent/40 rounded hover:bg-cs-accent-hover hover:text-white transition-colors"
           >
             ▶ Run Agent
           </button>
         </div>
         <button
           onClick={handleSignOut}
-          className="mt-3 text-[10px] uppercase font-bold tracking-wider text-gray-500 hover:text-gray-300 transition-colors"
+          className="mt-3 text-[10px] uppercase font-bold tracking-wider text-cs-muted hover:text-cs-text transition-colors"
         >
           Sign out
         </button>
@@ -106,9 +107,9 @@ export default function Sidebar({
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {loading ? (
-          <div className="text-gray-500 text-sm p-2 animate-pulse">Loading...</div>
+          <div className="text-cs-muted text-sm p-2 animate-pulse">Loading...</div>
         ) : batches.length === 0 ? (
-          <div className="text-gray-500 text-sm p-2">No batches found</div>
+          <div className="text-cs-muted text-sm p-2">No batches found</div>
         ) : (
           batches.map((batch) => {
             const isSelected = batch.id === selectedBatchId;
@@ -122,33 +123,33 @@ export default function Sidebar({
                 onClick={() => onSelectBatch(batch.id)}
                 className={`w-full text-left p-4 rounded-xl transition-all duration-200 border ${
                   isSelected
-                    ? "bg-blue-600/10 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
-                    : "bg-gray-800/30 border-transparent hover:bg-gray-800/80 hover:border-gray-700"
+                    ? "bg-cs-accent-soft border-cs-accent shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+                    : "bg-cs-gray-soft border-transparent hover:bg-cs-gray-soft hover:border-cs-light"
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-sm font-semibold ${isSelected ? "text-blue-400" : "text-gray-200"}`}>
+                  <span className={`text-sm font-semibold ${isSelected ? "text-cs-accent" : "text-cs-text"}`}>
                     Batch #{batch.id}
                   </span>
-                  <span className="px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 text-xs font-medium border border-gray-700">
+                  <span className="px-2 py-0.5 rounded-full bg-white text-cs-muted text-xs font-medium border border-cs-border-strong">
                     {batch.package_count || 0} pkgs
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mb-1">
                   {batch.client_name && (
-                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
+                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-cs-accent-soft text-cs-accent-deep border border-cs-accent/20">
                       {batch.client_name}
                     </span>
                   )}
                   {batch.format && (
-                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">
+                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-white text-cs-muted border border-cs-border-strong">
                       {batch.format}
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-gray-500 truncate">{dateStr}</div>
+                <div className="text-xs text-cs-muted truncate">{dateStr}</div>
                 {batch.source && (
-                  <div className="text-[10px] text-gray-600 mt-1 truncate" title={batch.source}>
+                  <div className="text-[10px] text-cs-light mt-1 truncate" title={batch.source}>
                     {batch.source}
                   </div>
                 )}

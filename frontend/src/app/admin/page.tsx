@@ -64,7 +64,7 @@ export default function Dashboard() {
   }, [loadBatches]);
 
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-gray-950">
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-cs-page">
       <Sidebar
         batches={batches}
         selectedBatchId={selectedBatchId}
@@ -80,7 +80,7 @@ export default function Dashboard() {
         {selectedBatchId ? (
           <BatchViewer batchId={selectedBatchId} />
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-500">
+          <div className="flex-1 flex items-center justify-center text-cs-muted">
             {loading ? "Loading batches..." : "No batches found."}
           </div>
         )}

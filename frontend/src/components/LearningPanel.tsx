@@ -91,12 +91,12 @@ export default function LearningPanel({
   const stats: any[] = state?.stats ?? [];
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-8">
+    <div className="bg-white border border-cs-border rounded-xl p-5 mb-8">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-sm font-bold text-gray-200 uppercase tracking-wider">
+        <h3 className="text-sm font-bold text-cs-text uppercase tracking-wider">
           Learning Loop
         </h3>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-cs-muted">
           {state == null
             ? "Loading…"
             : `${state.new_event_count} new review event${state.new_event_count === 1 ? "" : "s"} since last accepted learnings`}
@@ -104,18 +104,18 @@ export default function LearningPanel({
         <button
           onClick={distill}
           disabled={busy !== null || state == null}
-          className="ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-indigo-600/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50"
+          className="ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-indigo-600/20 text-cs-accent-deep border-indigo-500/40 hover:bg-indigo-600 hover:text-cs-text transition-all disabled:opacity-50"
         >
           {busy === "distill" ? "Distilling…" : "Distill learnings"}
         </button>
       </div>
 
-      {message && <div className="mt-3 text-xs text-green-400">{message}</div>}
-      {error && <div className="mt-3 text-xs text-red-400">{error}</div>}
+      {message && <div className="mt-3 text-xs text-emerald-600">{message}</div>}
+      {error && <div className="mt-3 text-xs text-cs-danger">{error}</div>}
 
       {proposal && (
         <div className="mt-4 border border-indigo-500/30 rounded-lg p-4 bg-indigo-500/5">
-          <div className="text-xs text-gray-400 mb-2">
+          <div className="text-xs text-cs-muted mb-2">
             Proposed learned-style rules (from {proposal.review_count} review event
             {proposal.review_count === 1 ? "" : "s"}, {new Date(proposal.created_at).toLocaleString()}).
             Edit freely before accepting — accepting creates a new profile version.
@@ -124,14 +124,14 @@ export default function LearningPanel({
             value={editedText}
             onChange={(e) => setEditedText(e.target.value)}
             rows={8}
-            className="w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5 outline-none transition-colors font-mono"
+            className="w-full bg-white border border-cs-border-strong text-cs-text text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5 outline-none transition-colors font-mono"
           />
           {proposal.current_text ? (
             <details className="mt-2">
-              <summary className="text-[11px] text-gray-500 cursor-pointer hover:text-gray-300">
+              <summary className="text-[11px] text-cs-muted cursor-pointer hover:text-cs-text">
                 Show current rules (being replaced)
               </summary>
-              <pre className="mt-1 text-[11px] text-gray-500 whitespace-pre-wrap font-mono bg-gray-800/50 rounded p-2">
+              <pre className="mt-1 text-[11px] text-cs-muted whitespace-pre-wrap font-mono bg-cs-gray-soft rounded p-2">
                 {proposal.current_text}
               </pre>
             </details>
@@ -140,14 +140,14 @@ export default function LearningPanel({
             <button
               onClick={() => decide("accept")}
               disabled={busy !== null || !editedText.trim()}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-green-500/20 text-green-300 border-green-500/40 hover:bg-green-600 hover:text-white transition-all disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-cs-emerald-soft text-emerald-700 border-emerald-300 hover:bg-green-600 hover:text-cs-text transition-all disabled:opacity-50"
             >
               {busy === "accept" ? "Accepting…" : "Accept → new profile version"}
             </button>
             <button
               onClick={() => decide("dismiss")}
               disabled={busy !== null}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-gray-800 text-gray-400 border-gray-700 hover:text-red-300 hover:border-red-500/40 transition-all disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-white text-cs-muted border-cs-border-strong hover:text-red-700 hover:border-red-300 transition-all disabled:opacity-50"
             >
               {busy === "dismiss" ? "Dismissing…" : "Dismiss"}
             </button>
@@ -157,13 +157,13 @@ export default function LearningPanel({
 
       {stats.length > 0 && (
         <div className="mt-4">
-          <div className="text-[11px] text-gray-500 uppercase tracking-wider mb-2">
+          <div className="text-[11px] text-cs-muted uppercase tracking-wider mb-2">
             Approval rate by profile version
           </div>
           <div className="overflow-x-auto">
-            <table className="text-xs text-gray-400 w-full">
+            <table className="text-xs text-cs-muted w-full">
               <thead>
-                <tr className="text-left text-gray-600">
+                <tr className="text-left text-cs-light">
                   <th className="pr-4 py-1 font-medium">Profile</th>
                   <th className="pr-4 py-1 font-medium">Reviewed</th>
                   <th className="pr-4 py-1 font-medium">Approved</th>
@@ -174,13 +174,13 @@ export default function LearningPanel({
               </thead>
               <tbody>
                 {stats.map((s) => (
-                  <tr key={s.profile_version} className="border-t border-gray-800">
-                    <td className="pr-4 py-1 text-gray-300">v{s.profile_version}</td>
+                  <tr key={s.profile_version} className="border-t border-cs-border">
+                    <td className="pr-4 py-1 text-cs-text">v{s.profile_version}</td>
                     <td className="pr-4 py-1">{s.reviewed}</td>
-                    <td className="pr-4 py-1 text-green-400">{s.approved}</td>
-                    <td className="pr-4 py-1 text-red-400">{s.rejected}</td>
-                    <td className="pr-4 py-1 text-yellow-400">{s.shortlisted}</td>
-                    <td className="py-1 text-gray-300">
+                    <td className="pr-4 py-1 text-emerald-600">{s.approved}</td>
+                    <td className="pr-4 py-1 text-cs-danger">{s.rejected}</td>
+                    <td className="pr-4 py-1 text-cs-amber">{s.shortlisted}</td>
+                    <td className="py-1 text-cs-text">
                       {s.reviewed ? `${Math.round((100 * s.approved) / s.reviewed)}%` : "—"}
                     </td>
                   </tr>

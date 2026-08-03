@@ -152,67 +152,67 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-cs-page">
       <div className="max-w-5xl mx-auto p-8">
         <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-bold text-white">Portal Users</h1>
+          <h1 className="text-2xl font-bold text-cs-text">Portal Users</h1>
           <button
             onClick={() => setShowCreate((v) => !v)}
-            className="text-xs uppercase font-bold tracking-wider px-3 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600 hover:text-white transition-colors"
+            className="text-xs uppercase font-bold tracking-wider px-3 py-2 bg-cs-accent-soft text-cs-accent border border-cs-accent/40 rounded-lg hover:bg-cs-accent-hover hover:text-white transition-colors"
           >
             + Create Login
           </button>
         </div>
-        <p className="text-sm text-gray-500 mb-6">
-          <Link href="/admin" className="hover:text-gray-300 transition-colors">← Back to batches</Link>
+        <p className="text-sm text-cs-muted mb-6">
+          <Link href="/admin" className="hover:text-cs-text transition-colors">← Back to batches</Link>
           <span className="mx-2">·</span>
           Client logins see only their own content at /portal. Admin logins see everything here.
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">{error}</div>
+          <div className="mb-4 rounded-lg border border-red-200 bg-cs-danger-soft p-3 text-sm text-cs-danger">{error}</div>
         )}
 
         {credential && (
-          <div className="mb-6 rounded-xl border border-green-500/40 bg-green-500/10 p-4">
-            <div className="text-sm font-semibold text-green-300 mb-1">
+          <div className="mb-6 rounded-xl border border-emerald-300 bg-cs-emerald-soft p-4">
+            <div className="text-sm font-semibold text-emerald-700 mb-1">
               Credentials for {credential.email} — shown once, copy them now
             </div>
-            <div className="font-mono text-sm text-gray-200 bg-gray-900 rounded-lg p-3 flex items-center justify-between gap-4">
+            <div className="font-mono text-sm text-cs-text bg-white rounded-lg p-3 flex items-center justify-between gap-4">
               <span>{credential.password}</span>
               <button
                 onClick={copyCredential}
-                className="text-xs uppercase font-bold tracking-wider px-2 py-1 bg-gray-800 text-gray-300 border border-gray-700 rounded hover:border-gray-500 transition-colors shrink-0"
+                className="text-xs uppercase font-bold tracking-wider px-2 py-1 bg-white text-cs-text border border-cs-border-strong rounded hover:border-cs-light transition-colors shrink-0"
               >
                 {copied ? "Copied ✓" : "Copy login + password"}
               </button>
             </div>
-            <div className="text-[11px] text-gray-500 mt-2">
+            <div className="text-[11px] text-cs-muted mt-2">
               Share these with the client securely. The password is not stored anywhere and cannot be viewed again — only reset.
             </div>
           </div>
         )}
 
         {showCreate && (
-          <form onSubmit={createUser} className="mb-6 rounded-xl border border-gray-800 bg-gray-900/60 p-5 space-y-4">
+          <form onSubmit={createUser} className="mb-6 rounded-xl border border-cs-border bg-white p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Email</label>
+                <label className="mb-1 block text-xs font-medium text-cs-muted">Email</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="client@example.com"
-                  className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none focus:border-blue-500 transition-colors"
+                  className="block w-full rounded-lg border border-cs-border-strong bg-white p-2.5 text-sm text-cs-text outline-none focus:border-cs-accent transition-colors"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Role</label>
+                <label className="mb-1 block text-xs font-medium text-cs-muted">Role</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as "client" | "admin")}
-                  className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none focus:border-blue-500 transition-colors"
+                  className="block w-full rounded-lg border border-cs-border-strong bg-white p-2.5 text-sm text-cs-text outline-none focus:border-cs-accent transition-colors"
                 >
                   <option value="client">Client (portal)</option>
                   <option value="admin">Admin (internal team)</option>
@@ -220,15 +220,15 @@ export default function UsersPage() {
               </div>
               {role === "client" && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-400">Clients (one or more)</label>
-                  <div className="rounded-lg border border-gray-700 bg-gray-800 p-2.5 space-y-1.5 max-h-40 overflow-y-auto">
+                  <label className="mb-1 block text-xs font-medium text-cs-muted">Clients (one or more)</label>
+                  <div className="rounded-lg border border-cs-border-strong bg-white p-2.5 space-y-1.5 max-h-40 overflow-y-auto">
                     {clients.map((c) => (
-                      <label key={c.id} className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                      <label key={c.id} className="flex items-center gap-2 text-sm text-cs-text cursor-pointer">
                         <input
                           type="checkbox"
                           checked={clientIds.includes(c.id)}
                           onChange={() => toggleClientId(c.id, clientIds, setClientIds)}
-                          className="accent-blue-500"
+                          className="accent-cs-accent"
                         />
                         {c.display_name}
                       </label>
@@ -240,7 +240,7 @@ export default function UsersPage() {
             <button
               type="submit"
               disabled={busy === "create" || (role === "client" && clientIds.length === 0)}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-all disabled:opacity-60"
+              className="rounded-lg bg-cs-accent px-4 py-2 text-sm font-semibold text-cs-text hover:bg-cs-accent-hover transition-all disabled:opacity-60"
             >
               {busy === "create" ? "Creating…" : "Create login & generate password"}
             </button>
@@ -248,24 +248,24 @@ export default function UsersPage() {
         )}
 
         {editing && (
-          <form onSubmit={saveEdit} className="mb-6 rounded-xl border border-blue-500/30 bg-gray-900/60 p-5 space-y-4">
-            <div className="text-sm font-semibold text-gray-200">
+          <form onSubmit={saveEdit} className="mb-6 rounded-xl border border-cs-accent/40 bg-white p-5 space-y-4">
+            <div className="text-sm font-semibold text-cs-text">
               Edit {editing.email}
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="float-right text-gray-400 hover:text-white transition-colors"
+                className="float-right text-cs-muted hover:text-cs-text transition-colors"
               >
                 ✕
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Role</label>
+                <label className="mb-1 block text-xs font-medium text-cs-muted">Role</label>
                 <select
                   value={editing.role}
                   onChange={(e) => setEditing({ ...editing, role: e.target.value as "client" | "admin" })}
-                  className="block w-full rounded-lg border border-gray-700 bg-gray-800 p-2.5 text-sm text-gray-200 outline-none focus:border-blue-500 transition-colors"
+                  className="block w-full rounded-lg border border-cs-border-strong bg-white p-2.5 text-sm text-cs-text outline-none focus:border-cs-accent transition-colors"
                 >
                   <option value="client">Client (portal)</option>
                   <option value="admin">Admin (internal team)</option>
@@ -273,17 +273,17 @@ export default function UsersPage() {
               </div>
               {editing.role === "client" && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-400">Clients (one or more)</label>
-                  <div className="rounded-lg border border-gray-700 bg-gray-800 p-2.5 space-y-1.5 max-h-40 overflow-y-auto">
+                  <label className="mb-1 block text-xs font-medium text-cs-muted">Clients (one or more)</label>
+                  <div className="rounded-lg border border-cs-border-strong bg-white p-2.5 space-y-1.5 max-h-40 overflow-y-auto">
                     {clients.map((c) => (
-                      <label key={c.id} className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                      <label key={c.id} className="flex items-center gap-2 text-sm text-cs-text cursor-pointer">
                         <input
                           type="checkbox"
                           checked={editing.client_ids.includes(c.id)}
                           onChange={() =>
                             toggleClientId(c.id, editing.client_ids, (v) => setEditing({ ...editing, client_ids: v }))
                           }
-                          className="accent-blue-500"
+                          className="accent-cs-accent"
                         />
                         {c.display_name}
                       </label>
@@ -295,19 +295,19 @@ export default function UsersPage() {
             <button
               type="submit"
               disabled={busy === "edit" || (editing.role === "client" && editing.client_ids.length === 0)}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-all disabled:opacity-60"
+              className="rounded-lg bg-cs-accent px-4 py-2 text-sm font-semibold text-cs-text hover:bg-cs-accent-hover transition-all disabled:opacity-60"
             >
               {busy === "edit" ? "Saving…" : "Save changes"}
             </button>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-cs-muted">
               Changes reach the client's portal on their next page load (their session refreshes automatically).
             </p>
           </form>
         )}
 
-        <div className="rounded-xl border border-gray-800 overflow-x-auto">
+        <div className="rounded-xl border border-cs-border overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-gray-900 text-left text-xs uppercase tracking-wider text-gray-500">
+            <thead className="bg-white text-left text-xs uppercase tracking-wider text-cs-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Role</th>
@@ -317,32 +317,32 @@ export default function UsersPage() {
                 <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800 bg-gray-900/40">
+            <tbody className="divide-y divide-cs-border bg-white">
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-6 text-gray-500 animate-pulse">Loading…</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-cs-muted animate-pulse">Loading…</td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-6 text-gray-500">No users yet.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-cs-muted">No users yet.</td></tr>
               ) : (
                 users.map((u) => (
                   <tr key={u.id}>
-                    <td className="px-4 py-3 text-gray-200">{u.email}</td>
+                    <td className="px-4 py-3 text-cs-text">{u.email}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                         u.role === "admin"
-                          ? "bg-indigo-500/15 text-indigo-300"
+                          ? "bg-cs-accent-soft text-cs-accent-deep"
                           : u.role === "client"
-                          ? "bg-blue-500/15 text-blue-300"
-                          : "bg-gray-800 text-gray-500 border border-gray-700"
+                          ? "bg-cs-accent/15 text-cs-accent"
+                          : "bg-white text-cs-muted border border-cs-border-strong"
                       }`}>
                         {u.role ?? "no role"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-400">{(u.client_ids ?? []).join(", ") || "—"}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
+                    <td className="px-4 py-3 text-cs-muted">{(u.client_ids ?? []).join(", ") || "—"}</td>
+                    <td className="px-4 py-3 text-cs-muted text-xs">
                       {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "never"}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs ${u.disabled ? "text-red-400" : "text-green-400"}`}>
+                      <span className={`text-xs ${u.disabled ? "text-cs-danger" : "text-emerald-600"}`}>
                         {u.disabled ? "disabled" : "active"}
                       </span>
                     </td>
@@ -358,14 +358,14 @@ export default function UsersPage() {
                         }
                         disabled={busy !== null || u.id === myUserId}
                         title={u.id === myUserId ? "You cannot edit your own account" : undefined}
-                        className="text-xs text-gray-400 hover:text-blue-300 underline underline-offset-2 disabled:opacity-50"
+                        className="text-xs text-cs-muted hover:text-cs-accent underline underline-offset-2 disabled:opacity-50"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => resetPassword(u)}
                         disabled={busy !== null}
-                        className="text-xs text-gray-400 hover:text-blue-300 underline underline-offset-2 disabled:opacity-50"
+                        className="text-xs text-cs-muted hover:text-cs-accent underline underline-offset-2 disabled:opacity-50"
                       >
                         Reset password
                       </button>
@@ -373,7 +373,7 @@ export default function UsersPage() {
                         onClick={() => toggleDisabled(u)}
                         disabled={busy !== null}
                         className={`text-xs underline underline-offset-2 disabled:opacity-50 ${
-                          u.disabled ? "text-gray-400 hover:text-green-300" : "text-gray-400 hover:text-red-300"
+                          u.disabled ? "text-cs-muted hover:text-emerald-700" : "text-cs-muted hover:text-red-700"
                         }`}
                       >
                         {u.disabled ? "Enable" : "Disable"}
