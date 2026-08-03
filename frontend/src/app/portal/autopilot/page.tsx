@@ -166,6 +166,7 @@ export default function AutopilotPage() {
         return false;
       }
       setCfg(data);
+      window.dispatchEvent(new CustomEvent("autopilot-config-changed"));
       return true;
     } catch (e: any) {
       setError("Failed to reach server: " + e.message);
@@ -424,7 +425,15 @@ export default function AutopilotPage() {
                       </div>
                     </div>
                     <label className="flex cursor-pointer items-center gap-3">
-                      <span className="text-[12.5px] text-cs-muted">{entry.enabled ? <b>On</b> : inSetup ? "Setting up…" : "Off"}</span>
+                      <span className="text-[12.5px] text-cs-muted">
+                        {entry.enabled ? (
+                          paused ? <b className="text-amber-600">Paused</b> : <b>On</b>
+                        ) : inSetup ? (
+                          "Setting up…"
+                        ) : (
+                          "Off"
+                        )}
+                      </span>
                       <span
                         onClick={() => {
                           if (entry.enabled) putEntry(card.format, { ...entry, enabled: false });
@@ -432,7 +441,11 @@ export default function AutopilotPage() {
                           else startSetup(card);
                         }}
                         className={`relative inline-block h-[22px] w-10 rounded-full transition-colors ${
-                          entry.enabled || inSetup ? "bg-cs-accent" : "bg-cs-border-strong"
+                          entry.enabled && paused
+                            ? "bg-cs-amber"
+                            : entry.enabled || inSetup
+                              ? "bg-cs-accent"
+                              : "bg-cs-border-strong"
                         }`}
                       >
                         <span className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition-all ${

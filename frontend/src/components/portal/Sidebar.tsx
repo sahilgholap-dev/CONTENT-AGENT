@@ -27,21 +27,28 @@ export default function PortalSidebar() {
   useEffect(() => {
     if (!activeClientId) return;
     let cancelled = false;
+    const fetchState = () => {
+      apiFetch("/api/portal/autopilot/config")
+        .then((res) => res.json())
+        .then((cfg) => {
+          if (cancelled || !cfg?.content_types) return;
+          const anyOn = Object.values(cfg.content_types).some(
+            (v: any) => v?.enabled && (v?.frequency_per_week ?? 0) > 0
+          );
+          setAutopilotState(cfg.paused ? "paused" : anyOn ? "on" : "off");
+        })
+        .catch(() => {});
+    };
     setAutopilotState(null);
-    apiFetch("/api/portal/autopilot/config")
-      .then((res) => res.json())
-      .then((cfg) => {
-        if (cancelled || !cfg?.content_types) return;
-        const anyOn = Object.values(cfg.content_types).some(
-          (v: any) => v?.enabled && (v?.frequency_per_week ?? 0) > 0
-        );
-        setAutopilotState(cfg.paused ? "paused" : anyOn ? "on" : "off");
-      })
-      .catch(() => {});
+    fetchState();
+    // The autopilot page fires this after every config save (pause, toggles,
+    // frequency) so the indicator updates instantly, not on next navigation.
+    window.addEventListener("autopilot-config-changed", fetchState);
     return () => {
       cancelled = true;
+      window.removeEventListener("autopilot-config-changed", fetchState);
     };
-  }, [activeClientId, pathname]); // pathname: refresh after edits on /portal/autopilot
+  }, [activeClientId, pathname]);
 
   const handleSignOut = async () => {
     const supabase = createClient();
