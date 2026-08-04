@@ -43,7 +43,7 @@
     - `entry_by_run_id(run_id) -> RunEntry | None`
     - `latest_active() -> RunEntry | None`
     - `capacity() -> dict` with keys `free: int`, `autopilot_budget: int`, `busy_clients: set[str]`
-    - `reap() -> None`, `due_settlement() -> list[RunEntry]`, `mark_settled(client_id) -> None`
+    - `reap() -> None`, `due_settlement() -> list[RunEntry]`, `mark_settled(run_id) -> None` (settlement is keyed by run_id; evicted-but-unsettled entries survive in a bounded orphans map so crash signals are never lost)
     - `log_path(run_id) -> str`, `cleanup_old_logs() -> None`
   - Constants: `FINISHED_TTL_SECONDS = 300`, `CRASH_GRACE_SECONDS = 30`, `LOG_RETENTION_DAYS = 14`, `DEFAULT_MAX_CONCURRENT_RUNS = 3`.
 
@@ -1063,7 +1063,7 @@ In the autopilot section of `lifespan`, delete `_engine_idle` and replace the lo
                         error="run process exited without reporting status",
                         finished_at=datetime.now(timezone.utc),
                     )
-                _pool.mark_settled(entry.client_id)
+                _pool.mark_settled(entry.run_id)
 
         async def _autopilot_loop():
             while True:
@@ -1166,4 +1166,4 @@ Expected: all green. Frontend untouched this feature — no tsc/build needed. Up
 
 - Spec coverage: registry/per-run logs (T1, T3), launch gate (T3), autopilot budget + multi-launch (T2, T5), progress/SSE (T4), orphan sweep + crash settlement + log cleanup (T1, T3, T5), gitignore (T5), tests + live smoke (T1, T2, T6). "What doesn't change" honored: no frontend edits, API shapes stable.
 - Known sequencing hazard: between Task 3 Step 1 and Task 5 Step 3 the backend must not be started (stale `_run_state` references in not-yet-edited functions). Called out in Tasks 3–5.
-- `mark_settled` keys by client_id: safe because an entry is replaced only via `reserve`, which can't happen while the exited entry lingers unsettled — reserve replaces it and the fresh entry has `settled=False`, `exited_at=None`, so a due settlement can't be lost to a replacement race within one tick's window... it CAN be dropped if the client starts a new run inside the 30s grace: acceptable — the orphan sweep at next restart is the backstop, and the crashed row also gets caught by `tick`'s reap only if a queue item points at it. Edge accepted for an internal tool.
+- Settlement was originally keyed by client_id, which lost the crash signal when the same client re-reserved (or the TTL reaped the entry) before settlement ran. Amended after Task 1's review: `mark_settled(run_id)`, and unsettled evicted entries move to a bounded orphans map that `due_settlement()` keeps surfacing — spec's crash-coverage requirement governs.
