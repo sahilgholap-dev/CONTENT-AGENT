@@ -74,6 +74,7 @@ from casinogurus_ai_content_engine___daily_5_topic_batch.db import (
     init_schema,
 )
 from casinogurus_ai_content_engine___daily_5_topic_batch import autopilot, registry, storage
+from casinogurus_ai_content_engine___daily_5_topic_batch import runpool
 from casinogurus_ai_content_engine___daily_5_topic_batch.profile import ClientProfile
 from casinogurus_ai_content_engine___daily_5_topic_batch.registry import AVAILABLE_TASK_VARIANTS
 from casinogurus_ai_content_engine___daily_5_topic_batch.storage import get_image
@@ -81,8 +82,9 @@ from casinogurus_ai_content_engine___daily_5_topic_batch.storage import get_imag
 PACKAGE = "casinogurus_ai_content_engine___daily_5_topic_batch"
 LOG_PATH = os.path.join(_PROJECT_ROOT, "agent.log")
 
-# Single-run guard: at most one crew subprocess at a time (small internal tool).
-_run_state: dict = {"process": None, "log_file": None}
+# Run pool: parallel across clients, serial within a client, one slot always
+# kept free for manual runs. MAX_CONCURRENT_RUNS env var sets the size.
+_pool = runpool.RunPool(logs_dir=os.path.join(_PROJECT_ROOT, "logs"))
 
 
 # --------------------------------------------------------------------------- #
@@ -1151,10 +1153,6 @@ def _start_agent_run(
     difference is where client_id comes from (request body vs JWT).
     kind='suggest' launches a discovery-only suggestion round (raw_topic is
     the taste hint); topics pins a shortlist onto a generate run."""
-    proc = _run_state["process"]
-    if proc is not None and proc.poll() is None:
-        raise HTTPException(status_code=409, detail="Agent is already running")
-
     # Validate the requested format against the DB catalog.
     spec = storage.resolve_format_spec(format_id)
     if spec is None:
@@ -1186,50 +1184,65 @@ def _start_agent_run(
         if re.search(r"\{[A-Za-z_][A-Za-z0-9_\-]*\}", topic):
             raise HTTPException(status_code=422, detail="topic must not contain {placeholder}-style tokens")
 
-    run_row = storage.create_run(client_id, content_type, format_id, topic=topic, kind=kind, topics=topics, origin=origin)
-
-    # With a pinned topic (user-provided or shortlist) the first pipeline task
-    # STRUCTURES the given topic instead of discovering one — label the
-    # terminal stage honestly so it doesn't look like discovery re-ran.
-    stage_labels = ["Topic Suggestions"] if kind == "suggest" else list(spec.stage_labels)
-    if kind != "suggest" and (topic or topics) and stage_labels and stage_labels[0] == "Topic Discovery":
-        stage_labels[0] = "Structuring Selected Topic" + ("s" if topics and len(topics) > 1 else "")
-
-    log_file = open(LOG_PATH, "w", encoding="utf-8")
-    # First log line self-describes the run so the SSE terminal can label the
-    # stages and header without another request (SSE replays from file start).
-    log_file.write(
-        "[AGENT_RUN] "
-        + json.dumps(
-            {
-                "run_id": str(run_row["id"]),
-                "client_id": client["id"],
-                "client_name": client["display_name"],
-                "content_type": spec.content_type,
-                "format": spec.id,
-                "topic": topic,
-                "kind": kind,
-                "stage_labels": stage_labels,
-            }
-        )
-        + "\n"
-    )
-    log_file.flush()
-
-    cmd = [sys.executable, "-u", "-m", f"{PACKAGE}.main", "run", "--run-id", str(run_row["id"])]
-    env = os.environ.copy()
-    env["PYTHONIOENCODING"] = "utf-8"
-    env["PYTHONUNBUFFERED"] = "1"
+    # Claim a pool slot before the DB insert and spawn. Check-and-claim is
+    # atomic inside the pool, so two simultaneous requests can't both pass.
     try:
-        process = subprocess.Popen(
-            cmd, cwd=_PROJECT_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
+        _pool.reserve(client_id, origin)
+    except runpool.PoolBusy as e:
+        raise HTTPException(status_code=409, detail=e.detail)
+
+    try:
+        run_row = storage.create_run(
+            client_id, content_type, format_id, topic=topic, kind=kind, topics=topics, origin=origin
         )
-        threading.Thread(target=_tee_output, args=(process, log_file), daemon=True).start()
-    except Exception as e:
-        log_file.close()
-        storage.update_run(run_row["id"], status="failed", error=f"spawn failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    _run_state.update(process=process, log_file=log_file)
+
+        # With a pinned topic (user-provided or shortlist) the first pipeline task
+        # STRUCTURES the given topic instead of discovering one — label the
+        # terminal stage honestly so it doesn't look like discovery re-ran.
+        stage_labels = ["Topic Suggestions"] if kind == "suggest" else list(spec.stage_labels)
+        if kind != "suggest" and (topic or topics) and stage_labels and stage_labels[0] == "Topic Discovery":
+            stage_labels[0] = "Structuring Selected Topic" + ("s" if topics and len(topics) > 1 else "")
+
+        _pool.cleanup_old_logs()
+        log_file = open(_pool.log_path(str(run_row["id"])), "w", encoding="utf-8")
+        # First log line self-describes the run so the SSE terminal can label the
+        # stages and header without another request (SSE replays from file start).
+        log_file.write(
+            "[AGENT_RUN] "
+            + json.dumps(
+                {
+                    "run_id": str(run_row["id"]),
+                    "client_id": client["id"],
+                    "client_name": client["display_name"],
+                    "content_type": spec.content_type,
+                    "format": spec.id,
+                    "topic": topic,
+                    "kind": kind,
+                    "stage_labels": stage_labels,
+                }
+            )
+            + "\n"
+        )
+        log_file.flush()
+
+        cmd = [sys.executable, "-u", "-m", f"{PACKAGE}.main", "run", "--run-id", str(run_row["id"])]
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONUNBUFFERED"] = "1"
+        try:
+            process = subprocess.Popen(
+                cmd, cwd=_PROJECT_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
+            )
+            threading.Thread(target=_tee_output, args=(process, log_file), daemon=True).start()
+        except Exception as e:
+            log_file.close()
+            storage.update_run(run_row["id"], status="failed", error=f"spawn failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    except BaseException:
+        _pool.abort(client_id)  # release the reservation on ANY failure
+        raise
+
+    _pool.commit(client_id, str(run_row["id"]), process, log_file)
     return {
         "status": "started",
         "message": "Agent execution started in background.",
