@@ -1072,6 +1072,14 @@ def portal_run_progress(
     }
 
 
+@portal.get("/engine-status")
+def portal_engine_status(user: dict = Depends(require_client)):
+    """Anonymous engine occupancy for the Create wizard's waiting banner.
+    Counts only — never which clients are writing. The answer is identical
+    for every caller, but it still requires a logged-in client."""
+    return _pool.occupancy()
+
+
 @portal.get("/runs")
 def portal_runs(user: dict = Depends(require_client), client_id: str | None = Query(default=None)):
     """The caller's run history, trimmed to non-internal fields (the portal

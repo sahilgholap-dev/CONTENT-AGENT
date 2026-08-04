@@ -237,3 +237,25 @@ def test_max_slots_env(monkeypatch):
     assert max_slots() == 1
     monkeypatch.setenv("MAX_CONCURRENT_RUNS", "banana")
     assert max_slots() == 3
+
+
+# ----------------------------- occupancy ------------------------------ #
+
+def test_occupancy_empty_pool(tmp_path, clock):
+    pool = make_pool(tmp_path, clock)
+    assert pool.occupancy() == {"busy": 0, "max": 3, "autopilot": 0, "manual": 0}
+
+
+def test_occupancy_counts_origins_and_reservations(tmp_path, clock):
+    pool = make_pool(tmp_path, clock)
+    start(pool, "a", origin="autopilot")
+    start(pool, "b", origin="manual")
+    pool.reserve("c", "manual")  # reservation holds a slot
+    assert pool.occupancy() == {"busy": 3, "max": 3, "autopilot": 1, "manual": 2}
+
+
+def test_occupancy_ignores_exited_runs(tmp_path, clock):
+    pool = make_pool(tmp_path, clock)
+    proc, _ = start(pool, "a", origin="autopilot")
+    proc.exit(0)
+    assert pool.occupancy() == {"busy": 0, "max": 3, "autopilot": 0, "manual": 0}

@@ -138,6 +138,19 @@ class RunPool:
                 "busy_clients": {e.client_id for e in live},
             }
 
+    def occupancy(self) -> dict:
+        """Anonymous live-slot counts for user-facing status displays —
+        no client ids, no run ids (served by /api/portal/engine-status)."""
+        with self._lock:
+            self._reap_locked()
+            live = [e for e in self._entries.values() if e.live()]
+            return {
+                "busy": len(live),
+                "max": self._max(),
+                "autopilot": sum(1 for e in live if e.origin == "autopilot"),
+                "manual": sum(1 for e in live if e.origin != "autopilot"),
+            }
+
     # ------------------------- reaping & settlement ------------------------ #
 
     def reap(self) -> None:
