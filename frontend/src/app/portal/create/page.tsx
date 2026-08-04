@@ -62,11 +62,11 @@ function phaseOf(stage: number, total: number): 0 | 1 | 2 {
   return 2;
 }
 
+type EngineStatus = { busy: number; max: number; autopilot: number; manual: number };
+
 /** Waiting-banner copy: live occupancy when we have it, generic otherwise.
  *  Origin fragments render only when nonzero. */
-function engineStatusText(
-  s: { busy: number; max: number; autopilot: number; manual: number } | null
-): string {
+function engineStatusText(s: EngineStatus | null): string {
   if (!s || s.busy <= 0) {
     return "The engine is finishing another piece — yours will start automatically in a few minutes.";
   }
@@ -76,6 +76,9 @@ function engineStatusText(
   ].filter(Boolean);
   const detail = parts.length ? ` (${parts.join(", ")})` : "";
   if (s.busy >= s.max) {
+    if (s.max === 1) {
+      return "The writing slot is busy — yours starts automatically when it frees.";
+    }
     return `All ${s.max} writing slots are busy${detail} — yours starts automatically when one frees.`;
   }
   return `${s.busy} of ${s.max} writing slots busy${detail} — starting yours shortly.`;
@@ -108,14 +111,12 @@ export default function CreateWizard() {
   // Set when the engine was busy (e.g. Autopilot mid-piece): the wizard
   // retries automatically instead of erroring out.
   const [waitingRun, setWaitingRun] = useState<"fromTopic" | "typed" | "auto" | null>(null);
+  // Why we're waiting: the pool is full ("capacity") or THIS client's own
+  // run is still writing ("self") — the banner copy differs.
+  const [waitReason, setWaitReason] = useState<"self" | "capacity">("capacity");
   // Anonymous engine occupancy shown in the waiting banner (display-only;
   // the 30s auto-retry below is what actually starts the run).
-  const [engineStatus, setEngineStatus] = useState<{
-    busy: number;
-    max: number;
-    autopilot: number;
-    manual: number;
-  } | null>(null);
+  const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
 
   const reset = () => {
     setStep("type");
@@ -254,7 +255,10 @@ export default function CreateWizard() {
         setStep("progress");
       } else if (res.status === 409) {
         // Engine busy (often Autopilot finishing a piece) — wait politely
-        // and retry; humans always get the next free slot.
+        // and retry; humans always get the next free slot. A 409 can also
+        // mean THIS client's own run is still writing — say so instead of
+        // showing free slots that aren't the reason.
+        setWaitReason(String(data.detail || "").includes("already has a run") ? "self" : "capacity");
         setWaitingRun(kind);
       } else {
         setError(String(data.detail || data.error || `Request failed (${res.status})`));
@@ -275,7 +279,7 @@ export default function CreateWizard() {
 
   // Live occupancy for the waiting banner (every 10s while waiting).
   useEffect(() => {
-    if (!waitingRun) {
+    if (!waitingRun || waitReason === "self") {
       setEngineStatus(null);
       return;
     }
@@ -296,7 +300,7 @@ export default function CreateWizard() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [waitingRun]);
+  }, [waitingRun, waitReason]);
 
   // Progress polling: stage progress + run completion → review.
   useEffect(() => {
@@ -396,7 +400,10 @@ export default function CreateWizard() {
         {waitingRun && (
           <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-indigo-200 bg-cs-accent-soft px-4 py-3 text-[13px] text-indigo-900">
             <span className="inline-block animate-spin">◌</span>
-            {engineStatusText(engineStatus)} You can keep this page open.
+            {waitReason === "self"
+              ? "Your current piece is still writing — this one starts automatically when it finishes."
+              : engineStatusText(engineStatus)}{" "}
+            You can keep this page open.
             <button
               onClick={() => setWaitingRun(null)}
               className="ml-auto text-indigo-400 hover:text-indigo-700"
