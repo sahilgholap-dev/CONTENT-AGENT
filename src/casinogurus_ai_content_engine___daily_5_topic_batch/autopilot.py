@@ -228,14 +228,16 @@ def plan_client(cfg: dict, now_utc: datetime | None = None) -> dict[str, int]:
     return shortages
 
 
-def tick(engine_idle, launch_suggest, launch_generate, now_utc: datetime | None = None) -> str:
+def tick(capacity, launch_suggest, launch_generate, now_utc: datetime | None = None) -> str:
     """One scheduler pass. Returns a short action string (for logs/tests):
-    'busy' | 'idle' | 'refill:<client>:<format>' | 'generate:<queue_id>'.
+    'busy' | 'idle' | comma-joined 'refill:<client>:<format>' and
+    'generate:<queue_id>' entries, one per launch this tick.
 
-    Order matters: reap finished work, plan everyone's week, then — only if
-    the engine is idle (humans always come first) — launch at most ONE run:
-    a pool refill if any planner came up short, else the oldest eligible
-    queue item across all clients (cross-client fairness)."""
+    Order matters: reap finished work, plan everyone's week, then launch up
+    to the pool's autopilot budget (the pool keeps one slot free for manual
+    runs — humans always come first). Refills go before generates because
+    they unblock the next planning pass, and no client gets more than one
+    launch per tick — runs are serial within a client."""
     from casinogurus_ai_content_engine___daily_5_topic_batch import storage
 
     now = now_utc or datetime.now(timezone.utc)
@@ -259,18 +261,30 @@ def tick(engine_idle, launch_suggest, launch_generate, now_utc: datetime | None 
             if missing > 0:
                 shortages.append((cfg["client_id"], fmt))
 
-    # 3. Launching anything requires an idle engine — manual runs always win.
-    if not engine_idle():
+    # 3. How many slots may autopilot claim right now?
+    snap = capacity()
+    budget = int(snap.get("autopilot_budget", 0))
+    busy = set(snap.get("busy_clients") or ())
+    if budget <= 0:
         return "busy"
 
-    # 4. Refills first: they unblock the next planning pass.
-    if shortages:
-        client_id, fmt = shortages[0]
-        launch_suggest(client_id, FORMAT_CONTENT_TYPE[fmt], fmt)
-        return f"refill:{client_id}:{fmt}"
+    actions: list[str] = []
 
-    # 5. Oldest eligible item across clients.
+    # 4. Refills first: they unblock the next planning pass.
+    for client_id, fmt in shortages:
+        if budget <= 0:
+            break
+        if client_id in busy:
+            continue
+        launch_suggest(client_id, FORMAT_CONTENT_TYPE[fmt], fmt)
+        busy.add(client_id)
+        budget -= 1
+        actions.append(f"refill:{client_id}:{fmt}")
+
+    # 5. Oldest eligible items across clients.
     for item in storage.due_queue_items():
+        if budget <= 0:
+            break
         if item["eligible_from"] < now - timedelta(hours=CATCH_UP_HOURS):
             storage.update_queue_item(
                 str(item["id"]), state="missed",
@@ -282,6 +296,8 @@ def tick(engine_idle, launch_suggest, launch_generate, now_utc: datetime | None 
                 str(item["id"]), note="waiting: too many unreviewed autopilot drafts"
             )
             continue
+        if item["client_id"] in busy:
+            continue
         result = launch_generate(item)
         storage.update_queue_item(
             str(item["id"]), state="generating", generate_run_id=result["run_id"], note=None
@@ -290,6 +306,8 @@ def tick(engine_idle, launch_suggest, launch_generate, now_utc: datetime | None 
             storage.set_suggestions_status(
                 [str(item["suggestion_id"])], "selected", generate_run_id=result["run_id"]
             )
-        return f"generate:{item['id']}"
+        busy.add(item["client_id"])
+        budget -= 1
+        actions.append(f"generate:{item['id']}")
 
-    return "idle"
+    return ",".join(actions) if actions else "idle"

@@ -152,35 +152,40 @@ def _stub_storage(monkeypatch, *, due=(), unreviewed=0):
     return calls
 
 
-def _item(eligible_delta_hours: float) -> dict:
+def _item(eligible_delta_hours: float, qid: str = "q1", client: str = "frugaa", sid: str = "s1") -> dict:
     return {
-        "id": "q1",
-        "client_id": "frugaa",
+        "id": qid,
+        "client_id": client,
         "content_type": "short_form",
         "format": "linkedin_post",
         "topic": "T1",
-        "suggestion_id": "s1",
+        "suggestion_id": sid,
         "eligible_from": NOW - timedelta(hours=eligible_delta_hours),
     }
 
 
-def test_tick_busy_engine_launches_nothing(monkeypatch):
+def _cap(budget=1, busy=()):
+    """Fake pool capacity callback (see runpool.RunPool.capacity)."""
+    return lambda: {"free": budget, "autopilot_budget": budget, "busy_clients": set(busy)}
+
+
+def test_tick_no_budget_launches_nothing(monkeypatch):
     calls = _stub_storage(monkeypatch, due=[_item(1)])
-    action = tick(lambda: False, None, None, now_utc=NOW)
+    action = tick(_cap(budget=0), None, None, now_utc=NOW)
     assert action == "busy"
     assert calls["updates"] == []
 
 
 def test_tick_marks_missed_after_catch_up_window(monkeypatch):
     calls = _stub_storage(monkeypatch, due=[_item(25)])
-    action = tick(lambda: True, None, lambda item: {"run_id": "r1"}, now_utc=NOW)
+    action = tick(_cap(), None, lambda item: {"run_id": "r1"}, now_utc=NOW)
     assert action == "idle"
     assert calls["updates"] == [("q1", {"state": "missed", "note": "missed its night and the 24h catch-up window"})]
 
 
 def test_tick_guardrail_skips_backlogged_client(monkeypatch):
     calls = _stub_storage(monkeypatch, due=[_item(1)], unreviewed=10)
-    action = tick(lambda: True, None, lambda item: {"run_id": "r1"}, now_utc=NOW)
+    action = tick(_cap(), None, lambda item: {"run_id": "r1"}, now_utc=NOW)
     assert action == "idle"
     assert calls["updates"] == [("q1", {"note": "waiting: too many unreviewed autopilot drafts"})]
 
@@ -188,8 +193,67 @@ def test_tick_guardrail_skips_backlogged_client(monkeypatch):
 def test_tick_launches_eligible_item(monkeypatch):
     calls = _stub_storage(monkeypatch, due=[_item(1)])
     launched = []
-    action = tick(lambda: True, None, lambda item: launched.append(item) or {"run_id": "r9"}, now_utc=NOW)
+    action = tick(_cap(), None, lambda item: launched.append(item) or {"run_id": "r9"}, now_utc=NOW)
     assert action == "generate:q1"
     assert launched[0]["topic"] == "T1"
     assert ("q1", {"state": "generating", "generate_run_id": "r9", "note": None}) in calls["updates"]
     assert calls["selected"] == [(["s1"], "selected")]
+
+
+def test_tick_launches_multiple_clients_up_to_budget(monkeypatch):
+    calls = _stub_storage(
+        monkeypatch, due=[_item(1), _item(1, qid="q2", client="gemmere", sid="s2")]
+    )
+    launched = []
+    action = tick(
+        _cap(budget=2), None,
+        lambda item: launched.append(item) or {"run_id": f"r{len(launched)}"},
+        now_utc=NOW,
+    )
+    assert action == "generate:q1,generate:q2"
+    assert [i["id"] for i in launched] == ["q1", "q2"]
+
+
+def test_tick_budget_caps_launches(monkeypatch):
+    calls = _stub_storage(
+        monkeypatch, due=[_item(1), _item(1, qid="q2", client="gemmere", sid="s2")]
+    )
+    action = tick(_cap(budget=1), None, lambda item: {"run_id": "r1"}, now_utc=NOW)
+    assert action == "generate:q1"
+    states = [f.get("state") for _, f in calls["updates"]]
+    assert states.count("generating") == 1
+
+
+def test_tick_serial_within_client(monkeypatch):
+    # Two due items for the SAME client: only the oldest launches this tick.
+    calls = _stub_storage(monkeypatch, due=[_item(1), _item(1, qid="q2", sid="s2")])
+    action = tick(_cap(budget=2), None, lambda item: {"run_id": "r1"}, now_utc=NOW)
+    assert action == "generate:q1"
+
+
+def test_tick_skips_client_with_live_run(monkeypatch):
+    calls = _stub_storage(
+        monkeypatch, due=[_item(1), _item(1, qid="q2", client="gemmere", sid="s2")]
+    )
+    action = tick(_cap(budget=2, busy={"frugaa"}), None, lambda item: {"run_id": "r1"}, now_utc=NOW)
+    assert action == "generate:q2"
+
+
+def test_tick_refill_consumes_budget_before_generates(monkeypatch):
+    import casinogurus_ai_content_engine___daily_5_topic_batch.autopilot as autopilot_mod
+
+    calls = _stub_storage(monkeypatch, due=[_item(1)])
+    monkeypatch.setattr(
+        storage_mod, "list_enabled_autopilot_configs", lambda: [{"client_id": "gemmere"}]
+    )
+    monkeypatch.setattr(autopilot_mod, "plan_client", lambda cfg, now: {"blog": 1})
+    suggested = []
+    action = tick(
+        _cap(budget=1),
+        lambda cid, ct, fmt: suggested.append((cid, ct, fmt)),
+        lambda item: {"run_id": "r1"},
+        now_utc=NOW,
+    )
+    assert action == "refill:gemmere:blog"
+    assert suggested == [("gemmere", "long_form", "blog")]
+    assert calls["updates"] == []  # budget exhausted before the due item
