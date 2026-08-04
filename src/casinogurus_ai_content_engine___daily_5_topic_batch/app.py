@@ -84,6 +84,7 @@ PACKAGE = "casinogurus_ai_content_engine___daily_5_topic_batch"
 # Run pool: parallel across clients, serial within a client, one slot always
 # kept free for manual runs. MAX_CONCURRENT_RUNS env var sets the size.
 _pool = runpool.RunPool(logs_dir=os.path.join(_PROJECT_ROOT, "logs"))
+_stdout_lock = threading.Lock()  # tee threads share the console with the scheduler's prints
 
 
 # --------------------------------------------------------------------------- #
@@ -1085,8 +1086,9 @@ def portal_runs(user: dict = Depends(require_client), client_id: str | None = Qu
 def _tee_output(process, log_file):
     try:
         for line in iter(process.stdout.readline, b""):
-            sys.stdout.buffer.write(line)
-            sys.stdout.flush()
+            with _stdout_lock:
+                sys.stdout.buffer.write(line)
+                sys.stdout.flush()
             log_file.write(line.decode("utf-8", errors="replace"))
             log_file.flush()
     except Exception as e:

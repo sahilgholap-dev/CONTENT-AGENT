@@ -276,7 +276,11 @@ def tick(capacity, launch_suggest, launch_generate, now_utc: datetime | None = N
             break
         if client_id in busy:
             continue
-        launch_suggest(client_id, FORMAT_CONTENT_TYPE[fmt], fmt)
+        try:
+            launch_suggest(client_id, FORMAT_CONTENT_TYPE[fmt], fmt)
+        except Exception as e:
+            actions.append(f"refill-failed:{client_id}:{fmt}")
+            continue  # budget not consumed; shortage re-fires next tick
         busy.add(client_id)
         budget -= 1
         actions.append(f"refill:{client_id}:{fmt}")
@@ -298,7 +302,20 @@ def tick(capacity, launch_suggest, launch_generate, now_utc: datetime | None = N
             continue
         if item["client_id"] in busy:
             continue
-        result = launch_generate(item)
+        if not storage.claim_queue_item(str(item["id"])):
+            continue  # another process claimed it first
+        try:
+            result = launch_generate(item)
+        except Exception as e:
+            if getattr(e, "status_code", None) == 409:
+                storage.update_queue_item(
+                    str(item["id"]), state=item["state"], note="waiting: engine busy"
+                )
+            else:
+                storage.update_queue_item(
+                    str(item["id"]), state="failed", note=f"launch failed: {e}"[:300]
+                )
+            continue
         storage.update_queue_item(
             str(item["id"]), state="generating", generate_run_id=result["run_id"], note=None
         )

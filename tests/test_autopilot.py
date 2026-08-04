@@ -135,7 +135,7 @@ NOW = datetime(2026, 8, 10, 1, 0, tzinfo=timezone.utc)
 
 
 def _stub_storage(monkeypatch, *, due=(), unreviewed=0):
-    calls = {"updates": [], "selected": []}
+    calls = {"updates": [], "selected": [], "claimed": []}
     monkeypatch.setattr(storage_mod, "generating_queue_items", lambda: [])
     monkeypatch.setattr(storage_mod, "list_enabled_autopilot_configs", lambda: [])
     monkeypatch.setattr(storage_mod, "due_queue_items", lambda limit=20: list(due))
@@ -149,6 +149,7 @@ def _stub_storage(monkeypatch, *, due=(), unreviewed=0):
         lambda ids, st, generate_run_id=None: calls["selected"].append((list(ids), st)),
     )
     monkeypatch.setattr(storage_mod, "get_run", lambda rid: None)
+    monkeypatch.setattr(storage_mod, "claim_queue_item", lambda qid: calls["claimed"].append(qid) or True)
     return calls
 
 
@@ -161,6 +162,7 @@ def _item(eligible_delta_hours: float, qid: str = "q1", client: str = "frugaa", 
         "topic": "T1",
         "suggestion_id": sid,
         "eligible_from": NOW - timedelta(hours=eligible_delta_hours),
+        "state": "pending",
     }
 
 
@@ -257,3 +259,53 @@ def test_tick_refill_consumes_budget_before_generates(monkeypatch):
     assert action == "refill:gemmere:blog"
     assert suggested == [("gemmere", "long_form", "blog")]
     assert calls["updates"] == []  # budget exhausted before the due item
+
+
+class _Http409(Exception):
+    status_code = 409
+
+
+def test_tick_transient_409_leaves_item_queued(monkeypatch):
+    calls = _stub_storage(monkeypatch, due=[_item(1), _item(1, qid="q2", client="gemmere", sid="s2")])
+    def boom_then_ok(item):
+        if item["id"] == "q1":
+            raise _Http409("engine at capacity")
+        return {"run_id": "r2"}
+    action = tick(_cap(budget=2), None, boom_then_ok, now_utc=NOW)
+    assert action == "generate:q2"
+    assert ("q1", {"state": "pending", "note": "waiting: engine busy"}) in calls["updates"]
+    assert ("q2", {"state": "generating", "generate_run_id": "r2", "note": None}) in calls["updates"]
+
+
+def test_tick_poison_item_fails_without_starving_others(monkeypatch):
+    calls = _stub_storage(monkeypatch, due=[_item(1), _item(1, qid="q2", client="gemmere", sid="s2")])
+    def poison_then_ok(item):
+        if item["id"] == "q1":
+            raise ValueError("format 'linkedin_post' is not enabled")
+        return {"run_id": "r2"}
+    action = tick(_cap(budget=2), None, poison_then_ok, now_utc=NOW)
+    assert action == "generate:q2"
+    failed = [f for qid, f in calls["updates"] if qid == "q1" and f.get("state") == "failed"]
+    assert failed and failed[0]["note"].startswith("launch failed:")
+
+
+def test_tick_skips_item_claimed_by_another_process(monkeypatch):
+    calls = _stub_storage(monkeypatch, due=[_item(1)])
+    monkeypatch.setattr(storage_mod, "claim_queue_item", lambda qid: False)
+    launched = []
+    action = tick(_cap(budget=2), None, lambda item: launched.append(item) or {"run_id": "r1"}, now_utc=NOW)
+    assert action == "idle"
+    assert launched == []
+
+
+def test_tick_refill_failure_does_not_consume_budget(monkeypatch):
+    import casinogurus_ai_content_engine___daily_5_topic_batch.autopilot as autopilot_mod
+    calls = _stub_storage(monkeypatch, due=[_item(1)])
+    monkeypatch.setattr(storage_mod, "list_enabled_autopilot_configs", lambda: [{"client_id": "gemmere"}])
+    monkeypatch.setattr(autopilot_mod, "plan_client", lambda cfg, now: {"blog": 1})
+    def failing_suggest(cid, ct, fmt):
+        raise RuntimeError("spawn failed")
+    launched = []
+    action = tick(_cap(budget=1), failing_suggest, lambda item: launched.append(item) or {"run_id": "r1"}, now_utc=NOW)
+    assert action == "refill-failed:gemmere:blog,generate:q1"
+    assert [i["id"] for i in launched] == ["q1"]

@@ -811,6 +811,20 @@ def due_queue_items(limit: int = 20) -> list[dict]:
         return [dict(r) for r in rows]
 
 
+def claim_queue_item(queue_id: str) -> bool:
+    """Atomically claim a due item before launching (compare-and-swap).
+    False means another process already claimed it — two backends sharing
+    one database must never both launch the same item."""
+    with connection() as conn:
+        row = conn.execute(
+            """UPDATE autopilot_queue SET state = 'generating'
+               WHERE id = %s AND state IN ('pending', 'approved')
+               RETURNING id""",
+            (queue_id,),
+        ).fetchone()
+        return row is not None
+
+
 def count_unreviewed_autopilot_drafts(client_id: str) -> int:
     """Guardrail input: autopilot-born pieces still without any review event."""
     with connection() as conn:
