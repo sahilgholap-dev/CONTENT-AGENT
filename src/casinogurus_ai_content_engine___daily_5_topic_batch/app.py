@@ -51,7 +51,7 @@ import subprocess
 import sys
 import threading
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from datetime import timezone as dt_timezone
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -1551,16 +1551,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # seeding must never block serving
         print(f"[startup] WARNING: could not seed default client profile: {e}")
 
+    # Any run rows still non-terminal are corpses from a previous process
+    # (a deploy or crash killed their subprocess) — mark them failed so
+    # nothing looks alive forever and autopilot re-plans their queue items.
+    try:
+        n = storage.fail_orphaned_runs()
+        if n:
+            print(f"[startup] marked {n} orphaned run(s) as failed (server restart)")
+    except Exception as e:
+        print(f"[startup] WARNING: orphan sweep failed: {e}")
+
     # Autopilot scheduler: an in-process loop ticking ~60s. All state is in
     # Postgres so restarts resume cleanly; the tick only launches work when
     # the engine is idle, so manual runs always come first. Kill-switch:
     # AUTOPILOT_DISABLED=1 (local dev / tests).
     ap_task = None
     if os.environ.get("AUTOPILOT_DISABLED", "").strip().lower() not in ("1", "true", "yes"):
-
-        def _engine_idle() -> bool:
-            proc = _run_state["process"]
-            return proc is None or proc.poll() is not None
 
         def _launch_suggest(client_id: str, content_type: str, fmt: str) -> dict:
             return _start_agent_run(client_id, content_type, fmt, None, kind="suggest", origin="autopilot")
@@ -1574,11 +1580,27 @@ async def lifespan(app: FastAPI):
                 kind="generate", topics=topics, origin="autopilot",
             )
 
+        def _settle_crashed() -> None:
+            # A process that exited without its run row reaching a terminal
+            # status crashed (OOM/kill) — record the failure so queue items
+            # settle and the client's night re-plans.
+            for entry in _pool.due_settlement():
+                run = storage.get_run(entry.run_id) if entry.run_id else None
+                if run and run["status"] in ("queued", "running"):
+                    storage.update_run(
+                        entry.run_id,
+                        status="failed",
+                        error="run process exited without reporting status",
+                        finished_at=datetime.now(timezone.utc),
+                    )
+                _pool.mark_settled(entry.run_id)
+
         async def _autopilot_loop():
             while True:
                 try:
+                    await asyncio.to_thread(_settle_crashed)
                     action = await asyncio.to_thread(
-                        autopilot.tick, _engine_idle, _launch_suggest, _launch_generate
+                        autopilot.tick, _pool.capacity, _launch_suggest, _launch_generate
                     )
                     if action not in ("idle", "busy"):
                         print(f"[autopilot] {action}", flush=True)

@@ -556,6 +556,20 @@ def update_run(run_id: str, **fields) -> None:
         conn.execute(f"UPDATE runs SET {sets} WHERE id = %s", (*updates.values(), run_id))
 
 
+def fail_orphaned_runs() -> int:
+    """Mark non-terminal runs failed (a restart killed their subprocess).
+    Called once at startup, before the scheduler starts launching, so
+    nothing looks alive forever and autopilot re-plans their queue items."""
+    with connection() as conn:
+        rows = conn.execute(
+            """UPDATE runs
+               SET status = 'failed', error = 'server restarted', finished_at = now()
+               WHERE status IN ('queued', 'running')
+               RETURNING id"""
+        ).fetchall()
+        return len(rows)
+
+
 def list_runs(client_id: str | None = None, limit: int = 50) -> list[dict]:
     with connection() as conn:
         if client_id:

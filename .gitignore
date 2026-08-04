@@ -11,3 +11,7 @@ content_engine.db-shm
 # golden fixture for scripts/regression_prompt_diff.py.
 runs/crew_output_*.json
 runs/refactored_prompts/
+
+# Per-run crew logs (regenerable; auto-deleted after 14 days)
+logs/
+agent.log
