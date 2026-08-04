@@ -80,7 +80,6 @@ from casinogurus_ai_content_engine___daily_5_topic_batch.registry import AVAILAB
 from casinogurus_ai_content_engine___daily_5_topic_batch.storage import get_image
 
 PACKAGE = "casinogurus_ai_content_engine___daily_5_topic_batch"
-LOG_PATH = os.path.join(_PROJECT_ROOT, "agent.log")
 
 # Run pool: parallel across clients, serial within a client, one slot always
 # kept free for manual runs. MAX_CONCURRENT_RUNS env var sets the size.
@@ -1029,21 +1028,25 @@ def portal_autopilot_pick_topics(
 def portal_run_progress(
     user: dict = Depends(require_client), client_id: str | None = Query(default=None)
 ):
-    """Stage progress of the CURRENT agent run, only if it belongs to the
-    caller's client. Parsed server-side from the run log (the [AGENT_RUN]
+    """Stage progress of the caller's client's active run, resolved from the
+    pool per client so another client's concurrent run is invisible by
+    construction. Parsed server-side from the run log (the [AGENT_RUN]
     header + '[AGENT_PROGRESS] Task Completed' markers the crew emits) so
-    clients never see the raw log stream — another client's run returns the
-    same empty shape as no run at all."""
+    clients never see the raw log stream — the header's client_id check is
+    kept as defense in depth."""
     empty = {"active": False, "stage": 0, "total": 0, "label": None}
     cid = _portal_cid(user, client_id)
-    proc = _run_state["process"]
-    running = proc is not None and proc.poll() is None
-    if not os.path.exists(LOG_PATH):
+    entry = _pool.entry_for(cid)
+    if entry is None or entry.run_id is None:
+        return empty
+    running = entry.live()
+    path = _pool.log_path(entry.run_id)
+    if not os.path.exists(path):
         return empty
     header: dict | None = None
     completed = 0
     try:
-        with open(LOG_PATH, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
                 if header is None and line.startswith("[AGENT_RUN] "):
                     try:
@@ -1476,17 +1479,24 @@ def autopilot_pick_topics(body: AutopilotPickRequest):
 
 
 @api.get("/agent-logs")
-async def agent_logs():
+async def agent_logs(run_id: str | None = None):
+    """Live tail of one run's log as SSE. ?run_id= selects a specific run;
+    default is the most recently started active run (matches the old
+    single-run behavior). No such run -> a stream that closes immediately."""
+    entry = _pool.entry_by_run_id(run_id) if run_id else _pool.latest_active()
+    path = _pool.log_path(entry.run_id) if entry and entry.run_id else None
+    proc = entry.process if entry else None
+
     async def event_stream():
-        if not os.path.exists(LOG_PATH):
-            open(LOG_PATH, "w").close()
-        with open(LOG_PATH, "r", encoding="utf-8", errors="replace") as f:
+        if path is None or not os.path.exists(path):
+            yield "event: close\ndata: {}\n\n"
+            return
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
             while True:
                 line = f.readline()
                 if line:
                     yield f"data: {json.dumps({'text': line})}\n\n"
                 else:
-                    proc = _run_state["process"]
                     if proc is None or proc.poll() is not None:
                         # read any remaining lines before closing
                         line = f.readline()
