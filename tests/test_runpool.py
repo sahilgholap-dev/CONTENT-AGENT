@@ -153,7 +153,34 @@ def test_due_settlement_after_grace_and_mark_settled(tmp_path, clock):
     clock.advance(CRASH_GRACE_SECONDS + 1)
     due = pool.due_settlement()
     assert [e.client_id for e in due] == ["a"]
-    pool.mark_settled("a")
+    pool.mark_settled("run-a")
+    assert pool.due_settlement() == []
+
+
+def test_crash_signal_survives_same_client_relaunch(tmp_path, clock):
+    pool = make_pool(tmp_path, clock)
+    proc, _ = start(pool, "a", run_id="r1")
+    proc.exit(1)
+    pool.reap()                    # exited_at recorded
+    start(pool, "a", run_id="r2")  # relaunch inside grace clobbers the entry
+    clock.advance(CRASH_GRACE_SECONDS + 1)
+    due = pool.due_settlement()
+    assert [e.run_id for e in due] == ["r1"]
+    pool.mark_settled("r1")
+    assert pool.due_settlement() == []
+
+
+def test_unsettled_entry_survives_ttl_reap(tmp_path, clock):
+    pool = make_pool(tmp_path, clock)
+    proc, _ = start(pool, "a", run_id="r1")
+    proc.exit(1)
+    pool.reap()
+    clock.advance(FINISHED_TTL_SECONDS + 1)
+    pool.reap()
+    assert pool.entry_for("a") is None        # entry dropped from the pool
+    due = pool.due_settlement()
+    assert [e.run_id for e in due] == ["r1"]  # crash signal preserved
+    pool.mark_settled("r1")
     assert pool.due_settlement() == []
 
 

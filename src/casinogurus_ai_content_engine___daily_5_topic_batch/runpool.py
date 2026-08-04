@@ -64,6 +64,7 @@ class RunPool:
         self._clock = clock
         self._lock = threading.Lock()
         self._entries: dict[str, RunEntry] = {}
+        self._orphans: dict[str, RunEntry] = {}  # run_id -> unsettled entry evicted from _entries
 
     # -------------------------------- gate -------------------------------- #
 
@@ -77,6 +78,7 @@ class RunPool:
                 if existing.live():
                     raise PoolBusy(f"client '{client_id}' already has a run in progress")
                 self._close_log(existing)  # replacing a lingering finished entry
+                self._orphan_if_unsettled(existing)
             live = sum(1 for e in self._entries.values() if e.live())
             if live >= self._max():
                 raise PoolBusy("engine at capacity, try again shortly")
@@ -152,6 +154,7 @@ class RunPool:
                 e.exited_at = now
             if now - e.exited_at >= FINISHED_TTL_SECONDS:
                 self._close_log(e)
+                self._orphan_if_unsettled(e)
                 del self._entries[cid]
 
     @staticmethod
@@ -162,6 +165,17 @@ class RunPool:
         except Exception:
             pass
 
+    def _orphan_if_unsettled(self, e: RunEntry) -> None:
+        """Keep the crash signal of an evicted entry: due_settlement() must
+        still surface it so its DB row gets checked. Bounded so a dev setup
+        with no settlement loop can't grow it forever."""
+        if e.exited_at is None or e.settled or not e.run_id:
+            return
+        self._orphans[e.run_id] = e
+        while len(self._orphans) > 100:
+            oldest = min(self._orphans.values(), key=lambda o: o.exited_at or 0.0)
+            del self._orphans[oldest.run_id]
+
     def due_settlement(self) -> list[RunEntry]:
         """Exited entries past the crash grace period that nobody settled
         yet. The caller checks the DB row, marks the run failed if the
@@ -169,19 +183,26 @@ class RunPool:
         with self._lock:
             self._reap_locked()
             now = self._clock()
-            return [
+            due = [
                 e
                 for e in self._entries.values()
                 if not e.settled
                 and e.exited_at is not None
                 and now - e.exited_at >= CRASH_GRACE_SECONDS
             ]
+            due.extend(
+                e
+                for e in self._orphans.values()
+                if now - (e.exited_at or now) >= CRASH_GRACE_SECONDS
+            )
+            return due
 
-    def mark_settled(self, client_id: str) -> None:
+    def mark_settled(self, run_id: str) -> None:
         with self._lock:
-            e = self._entries.get(client_id)
-            if e is not None:
-                e.settled = True
+            self._orphans.pop(run_id, None)
+            for e in self._entries.values():
+                if e.run_id == run_id:
+                    e.settled = True
 
     # -------------------------------- logs -------------------------------- #
 
