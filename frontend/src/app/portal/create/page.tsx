@@ -62,6 +62,25 @@ function phaseOf(stage: number, total: number): 0 | 1 | 2 {
   return 2;
 }
 
+/** Waiting-banner copy: live occupancy when we have it, generic otherwise.
+ *  Origin fragments render only when nonzero. */
+function engineStatusText(
+  s: { busy: number; max: number; autopilot: number; manual: number } | null
+): string {
+  if (!s || s.busy <= 0) {
+    return "The engine is finishing another piece — yours will start automatically in a few minutes.";
+  }
+  const parts = [
+    s.autopilot > 0 ? `${s.autopilot} autopilot` : null,
+    s.manual > 0 ? `${s.manual} manual` : null,
+  ].filter(Boolean);
+  const detail = parts.length ? ` (${parts.join(", ")})` : "";
+  if (s.busy >= s.max) {
+    return `All ${s.max} writing slots are busy${detail} — yours starts automatically when one frees.`;
+  }
+  return `${s.busy} of ${s.max} writing slots busy${detail} — starting yours shortly.`;
+}
+
 export default function CreateWizard() {
   const router = useRouter();
   const { activeClientId } = usePortal();
@@ -89,6 +108,14 @@ export default function CreateWizard() {
   // Set when the engine was busy (e.g. Autopilot mid-piece): the wizard
   // retries automatically instead of erroring out.
   const [waitingRun, setWaitingRun] = useState<"fromTopic" | "typed" | "auto" | null>(null);
+  // Anonymous engine occupancy shown in the waiting banner (display-only;
+  // the 30s auto-retry below is what actually starts the run).
+  const [engineStatus, setEngineStatus] = useState<{
+    busy: number;
+    max: number;
+    autopilot: number;
+    manual: number;
+  } | null>(null);
 
   const reset = () => {
     setStep("type");
@@ -246,6 +273,31 @@ export default function CreateWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waitingRun]);
 
+  // Live occupancy for the waiting banner (every 10s while waiting).
+  useEffect(() => {
+    if (!waitingRun) {
+      setEngineStatus(null);
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await apiFetch("/api/portal/engine-status");
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data && typeof data.busy === "number") setEngineStatus(data);
+      } catch {
+        /* display-only: keep the generic banner text */
+      }
+    };
+    poll();
+    const timer = setInterval(poll, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [waitingRun]);
+
   // Progress polling: stage progress + run completion → review.
   useEffect(() => {
     if (step !== "progress" || !runId) return;
@@ -344,8 +396,7 @@ export default function CreateWizard() {
         {waitingRun && (
           <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-indigo-200 bg-cs-accent-soft px-4 py-3 text-[13px] text-indigo-900">
             <span className="inline-block animate-spin">◌</span>
-            The engine is finishing another piece — yours will start automatically in a few minutes.
-            You can keep this page open.
+            {engineStatusText(engineStatus)} You can keep this page open.
             <button
               onClick={() => setWaitingRun(null)}
               className="ml-auto text-indigo-400 hover:text-indigo-700"
